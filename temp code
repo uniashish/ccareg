@@ -1,0 +1,314 @@
+AdminDashboard code
+
+import { useEffect, useState } from "react";
+import { db } from "../firebase";
+import { collection, addDoc, getDocs } from "firebase/firestore";
+import Header from "../components/Header";
+
+export default function AdminDashboard() {
+  const [ccas, setCcas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    days: [],
+    venue: "",
+    price: "",
+    maxSeats: "",
+    startTime: "",
+    endTime: "",
+    teacher: "",
+    classes: [],
+  });
+
+  const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const CLASSES = ["7A", "7B", "8A", "8B", "9A", "9B"];
+
+  const fetchCcas = async () => {
+    setLoading(true);
+    const snap = await getDocs(collection(db, "ccas"));
+    const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    setCcas(list);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchCcas();
+  }, []);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    if (type === "checkbox") {
+      const arr = form[name];
+      if (checked) arr.push(value);
+      else arr.splice(arr.indexOf(value), 1);
+      setForm({ ...form, [name]: arr });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await addDoc(collection(db, "ccas"), {
+        ...form,
+        price: Number(form.price),
+        maxSeats: form.maxSeats ? Number(form.maxSeats) : 0,
+      });
+      alert("CCA created successfully!");
+      setForm({
+        name: "",
+        description: "",
+        days: [],
+        venue: "",
+        price: "",
+        maxSeats: "",
+        startTime: "",
+        endTime: "",
+        teacher: "",
+        classes: [],
+      });
+      fetchCcas();
+    } catch (err) {
+      console.error(err);
+      alert("Error creating CCA");
+    }
+  };
+
+  const renderCheckboxes = (arr, name) =>
+    arr.map((item) => (
+      <label key={item} className="mr-4 mb-2 flex items-center">
+        <input
+          type="checkbox"
+          name={name}
+          value={item}
+          checked={form[name].includes(item)}
+          onChange={handleChange}
+          className="mr-1 w-4 h-4 accent-blue-600"
+        />
+        {item}
+      </label>
+    ));
+
+  return (
+    <>
+      <Header />
+
+      <div className="p-6 max-w-6xl mx-auto">
+        <h2 className="text-3xl font-bold mb-6 text-gray-800">
+          Admin Dashboard
+        </h2>
+
+        {/* Create CCA Form */}
+        <div className="bg-white rounded-lg shadow p-6 mb-10">
+          <h3 className="text-2xl font-semibold mb-4 text-gray-700">
+            Create New CCA
+          </h3>
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-medium text-gray-600">Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-600">
+                  Teacher
+                </label>
+                <input
+                  type="text"
+                  name="teacher"
+                  value={form.teacher}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-medium text-gray-600">
+                Description
+              </label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-medium text-gray-600">Venue</label>
+                <input
+                  type="text"
+                  name="venue"
+                  value={form.venue}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-600">Price</label>
+                <input
+                  type="number"
+                  name="price"
+                  value={form.price}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-600">
+                  Max Seats
+                </label>
+                <input
+                  type="number"
+                  name="maxSeats"
+                  value={form.maxSeats}
+                  onChange={handleChange}
+                  placeholder="0 = unlimited"
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-600">
+                  Start Time
+                </label>
+                <input
+                  type="time"
+                  name="startTime"
+                  value={form.startTime}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-600">
+                  End Time
+                </label>
+                <input
+                  type="time"
+                  name="endTime"
+                  value={form.endTime}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-medium text-gray-600 mb-1">
+                Days
+              </label>
+              <div className="flex flex-wrap gap-4">
+                {renderCheckboxes(DAYS, "days")}
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-medium text-gray-600 mb-1">
+                Classes Allowed
+              </label>
+              <div className="flex flex-wrap gap-4">
+                {renderCheckboxes(CLASSES, "classes")}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+            >
+              Create CCA
+            </button>
+          </form>
+        </div>
+
+        {/* CCA List */}
+        <h3 className="text-2xl font-semibold mb-4 text-gray-700">
+          Existing CCAs
+        </h3>
+        {loading ? (
+          <p>Loading CCAs...</p>
+        ) : ccas.length === 0 ? (
+          <p>No CCAs created yet.</p>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-6">
+            {ccas.map((c) => (
+              <div
+                key={c.id}
+                className="bg-white rounded-lg shadow p-5 border border-gray-200 hover:shadow-lg transition"
+              >
+                <h4 className="text-xl font-bold text-gray-800 mb-2">
+                  {c.name}
+                </h4>
+                <p className="text-gray-600 mb-1">{c.description}</p>
+                <p className="text-gray-700 font-medium">
+                  Days: {c.days.join(", ")}
+                </p>
+                <p className="text-gray-700 font-medium">
+                  Classes: {c.classes.join(", ")}
+                </p>
+                <p className="text-gray-700 font-medium">
+                  Teacher: {c.teacher}
+                </p>
+                <p className="text-gray-700 font-medium">Venue: {c.venue}</p>
+                <p className="text-gray-700 font-medium">
+                  Seats: {c.maxSeats === 0 ? "Unlimited" : c.maxSeats}
+                </p>
+                <p className="text-gray-700 font-medium">
+                  Time: {c.startTime} - {c.endTime}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+
+
+index.css
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+
+header.jsx
+return (
+    <div className="flex justify-between items-center px-6 py-4 bg-gray-100 border-b">
+      <div>
+        <h1 className="font-bold text-lg">CCA Registration</h1>
+        <p className="text-sm text-gray-600">
+          {user?.displayName} ({role})
+        </p>
+      </div>
+
+      <button
+        onClick={logout}
+        className="px-4 py-2 bg-red-500 text-white rounded"
+      >
+        Logout
+      </button>
+    </div>
+  );
+}
