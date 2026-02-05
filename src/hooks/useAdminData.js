@@ -2,30 +2,29 @@ import { useState, useEffect, useMemo } from "react";
 import { db } from "../firebase";
 import {
   collection,
-  getDocs,
-  getDoc, // <--- ADDED
-  deleteDoc,
+  onSnapshot, // <--- CHANGED: Used for real-time updates
   doc,
+  deleteDoc,
   addDoc,
   updateDoc,
-  onSnapshot,
   query,
   orderBy,
-  increment, // <--- ADDED
-  writeBatch, // <--- ADDED
+  writeBatch,
+  increment,
+  getDoc,
 } from "firebase/firestore";
 
 export function useAdminData() {
-  // --- EXISTING STATE (Classes & CCAs Management) ---
+  // --- STATE ---
   const [ccas, setCcas] = useState([]);
   const [classesList, setClassesList] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- NEW STATE (Student Selections Dashboard) ---
+  // Student Selections State
   const [selections, setSelections] = useState([]);
-  const [users, setUsers] = useState({}); // Map: { uid: userData }
+  const [users, setUsers] = useState({});
 
-  // --- EXISTING MODAL STATES ---
+  // Modal States
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [isCCAModalOpen, setIsCCAModalOpen] = useState(false);
@@ -33,121 +32,162 @@ export function useAdminData() {
   const [viewingCCA, setViewingCCA] = useState(null);
   const [selectedClassId, setSelectedClassId] = useState(null);
 
-  // --- 1. EXISTING FETCH LOGIC (One-time fetch for Admin Table) ---
+  // --- 1. REAL-TIME DATA LISTENERS ---
   useEffect(() => {
-    fetchData();
-  }, []);
+    setLoading(true);
 
-  const fetchData = async () => {
-    if (classesList.length === 0) setLoading(true);
+    // A. Listen to Classes
+    const unsubClasses = onSnapshot(
+      query(collection(db, "classes"), orderBy("name")),
+      (snapshot) => {
+        const list = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setClassesList(list);
+      },
+      (error) => console.error("Error fetching classes:", error),
+    );
 
-    try {
-      const ccaSnap = await getDocs(collection(db, "ccas"));
-      const classSnap = await getDocs(collection(db, "classes"));
+    // B. Listen to CCAs (This fixes the seat count issue!)
+    const unsubCCAs = onSnapshot(
+      query(collection(db, "ccas"), orderBy("name")),
+      (snapshot) => {
+        const list = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setCcas(list);
+      },
+      (error) => console.error("Error fetching CCAs:", error),
+    );
 
-      setCcas(ccaSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setClassesList(classSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    } catch (error) {
-      console.error("Error fetching admin data:", error);
-    }
-    setLoading(false);
-  };
+    // C. Listen to Selections
+    const unsubSelections = onSnapshot(
+      collection(db, "selections"),
+      (snapshot) => {
+        const list = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setSelections(list);
+      },
+      (error) => console.error("Error fetching selections:", error),
+    );
 
-  // --- 2. NEW REAL-TIME LOGIC (For Master List Dashboard) ---
-  useEffect(() => {
-    // A. Live Users List (Mapped by ID for easy lookup)
-    const unsubUsers = onSnapshot(collection(db, "users"), (snap) => {
+    // D. Listen to Users (for names/emails)
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const userMap = {};
-      snap.forEach((doc) => {
+      snapshot.docs.forEach((doc) => {
         userMap[doc.id] = doc.data();
       });
       setUsers(userMap);
+      setLoading(false); // Data is loaded
     });
 
-    // B. Live Selections List (Ordered by newest first)
-    const q = query(collection(db, "selections"), orderBy("timestamp", "desc"));
-    const unsubSelections = onSnapshot(q, (snap) => {
-      setSelections(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    });
-
+    // Cleanup listeners on unmount
     return () => {
-      unsubUsers();
+      unsubClasses();
+      unsubCCAs();
       unsubSelections();
+      unsubUsers();
     };
   }, []);
 
-  // --- HELPER: Transform Classes Array to Map for Dashboard ---
-  const classesMap = useMemo(() => {
-    return classesList.reduce((acc, curr) => {
-      acc[curr.id] = curr;
-      return acc;
-    }, {});
-  }, [classesList]);
+  // --- 2. ACTIONS ---
 
-  // --- HANDLERS (Classes) ---
   const handleSaveClass = async (classData) => {
-    if (editingClass) {
-      const docRef = doc(db, "classes", editingClass.id);
-      await updateDoc(docRef, classData);
-    } else {
-      await addDoc(collection(db, "classes"), classData);
+    try {
+      if (editingClass) {
+        await updateDoc(doc(db, "classes", editingClass.id), classData);
+      } else {
+        await addDoc(collection(db, "classes"), classData);
+      }
+      setIsClassModalOpen(false);
+    } catch (error) {
+      console.error("Error saving class:", error);
+      alert("Failed to save class.");
     }
-    fetchData();
   };
 
   const handleDeleteClass = async (id) => {
-    if (window.confirm("Are you sure?")) {
-      await deleteDoc(doc(db, "classes", id));
-      fetchData();
+    if (window.confirm("Delete this class?")) {
+      try {
+        await deleteDoc(doc(db, "classes", id));
+      } catch (error) {
+        console.error("Error deleting class:", error);
+      }
     }
   };
 
-  // --- HANDLERS (CCAs) ---
   const handleSaveCCA = async (ccaData) => {
-    if (editingCCA) {
-      const docRef = doc(db, "ccas", editingCCA.id);
-      await updateDoc(docRef, ccaData);
-    } else {
-      await addDoc(collection(db, "ccas"), ccaData);
+    try {
+      // Ensure numbers are stored as numbers
+      const formattedData = {
+        ...ccaData,
+        minSeats: Number(ccaData.minSeats),
+        maxSeats: Number(ccaData.maxSeats),
+      };
+
+      if (editingCCA) {
+        await updateDoc(doc(db, "ccas", editingCCA.id), formattedData);
+      } else {
+        await addDoc(collection(db, "ccas"), {
+          ...formattedData,
+          enrolledCount: 0, // Init count for new CCAs
+        });
+      }
+      setIsCCAModalOpen(false);
+    } catch (error) {
+      console.error("Error saving CCA:", error);
+      alert("Failed to save CCA.");
     }
-    fetchData();
   };
 
   const handleDeleteCCA = async (id) => {
     if (window.confirm("Delete this CCA?")) {
-      await deleteDoc(doc(db, "ccas", id));
-      fetchData();
+      try {
+        await deleteDoc(doc(db, "ccas", id));
+      } catch (error) {
+        console.error("Error deleting CCA:", error);
+      }
     }
   };
 
-  // --- HANDLERS (Mapping) ---
-  const toggleCCAMap = async (ccaId) => {
-    const targetClass = classesList.find((c) => c.id === selectedClassId);
-    if (!targetClass) return;
+  // Helper for Maps
+  const toggleCCAMap = async (classId, ccaId) => {
+    const classDoc = classesList.find((c) => c.id === classId);
+    if (!classDoc) return;
 
-    let newMapping = targetClass.allowedCCAs || [];
-    if (newMapping.includes(ccaId)) {
-      newMapping = newMapping.filter((id) => id !== ccaId);
+    const currentAllowed = classDoc.allowedCCAs || [];
+    const isAllowed = currentAllowed.includes(ccaId);
+
+    let newAllowed;
+    if (isAllowed) {
+      newAllowed = currentAllowed.filter((id) => id !== ccaId);
     } else {
-      newMapping = [...newMapping, ccaId];
+      newAllowed = [...currentAllowed, ccaId];
     }
 
-    const docRef = doc(db, "classes", selectedClassId);
-    await updateDoc(docRef, { allowedCCAs: newMapping });
-    fetchData();
+    try {
+      await updateDoc(doc(db, "classes", classId), {
+        allowedCCAs: newAllowed,
+      });
+    } catch (error) {
+      console.error("Error updating mapping:", error);
+    }
   };
 
-  // --- NEW HANDLER: Reset Student (With Seat Restoration) ---
+  // Full Reset Logic (Wipe Student)
   const resetStudent = async (studentUid) => {
     if (
       !window.confirm(
-        "Delete this selection? This will free up the seats for other students.",
+        "This will remove all selections for this student. Continue?",
       )
     )
       return;
 
     try {
-      // 1. Get the selection to see which CCAs they had
       const selRef = doc(db, "selections", studentUid);
       const selSnap = await getDoc(selRef);
 
@@ -157,31 +197,35 @@ export function useAdminData() {
       }
 
       const data = selSnap.data();
-
-      // 2. Create Batch: Delete Selection + Decrement CCA Counts
       const batch = writeBatch(db);
 
-      // A. Delete the selection document
+      // 1. Delete Selection
       batch.delete(selRef);
 
-      // B. Decrement 'enrolledCount' for each selected CCA
+      // 2. Return Seats
       if (data.selectedCCAs && Array.isArray(data.selectedCCAs)) {
         data.selectedCCAs.forEach((cca) => {
           const ccaRef = doc(db, "ccas", cca.id);
-          // increment(-1) effectively subtracts 1 atomically
           batch.update(ccaRef, { enrolledCount: increment(-1) });
         });
       }
 
       await batch.commit();
+      // No need to manually update state, the listeners above will do it!
     } catch (err) {
       console.error("Error resetting student:", err);
       alert("Error: " + err.message);
     }
   };
 
+  const classesMap = useMemo(() => {
+    return classesList.reduce((acc, cls) => {
+      acc[cls.id] = cls;
+      return acc;
+    }, {});
+  }, [classesList]);
+
   return {
-    // Data
     ccas,
     classesList,
     loading,
@@ -189,7 +233,7 @@ export function useAdminData() {
     users,
     classes: classesMap,
 
-    // States
+    // Modal States & Setters
     isClassModalOpen,
     setIsClassModalOpen,
     editingClass,
@@ -203,12 +247,12 @@ export function useAdminData() {
     selectedClassId,
     setSelectedClassId,
 
-    // Functions
+    // Actions
     handleSaveClass,
     handleDeleteClass,
     handleSaveCCA,
     handleDeleteCCA,
     toggleCCAMap,
-    resetStudent, // Updated function
+    resetStudent,
   };
 }

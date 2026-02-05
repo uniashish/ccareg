@@ -6,6 +6,7 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  runTransaction, // <--- ADDED THIS IMPORT
 } from "firebase/firestore";
 
 // --- COMPONENTS ---
@@ -14,7 +15,7 @@ import CCAManager from "../components/admin/CCAManager";
 import AssignmentManager from "../components/admin/AssignmentManager";
 import UserManager from "../components/admin/UserManager";
 import SelectionsManager from "../components/admin/SelectionsManager";
-import HousekeepingManager from "../components/admin/HousekeepingManager"; // <--- NEW IMPORT
+import HousekeepingManager from "../components/admin/HousekeepingManager";
 import Header from "../components/Header";
 import AddClassModal from "../components/AddClassModal";
 import AddCCAModal from "../components/AddCCAModal";
@@ -23,7 +24,6 @@ import UpdateRoleModal from "../components/admin/UpdateRoleModal";
 
 // --- HOOKS ---
 import { useAdminData } from "../hooks/useAdminData";
-import { downloadSelectionsCSV } from "../utils/csvExporter";
 
 // --- ICONS ---
 import {
@@ -32,13 +32,7 @@ import {
   FiUsers,
   FiCheckCircle,
   FiShield,
-  FiSearch,
-  FiDownload,
-  FiTrash2,
-  FiCalendar,
-  FiActivity,
-  FiUser,
-  FiSettings, // <--- NEW ICON
+  FiSettings,
 } from "react-icons/fi";
 
 export default function AdminDashboard() {
@@ -49,15 +43,12 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
-  // Search State for Selections
-  const [searchTerm, setSearchTerm] = useState("");
-
   const {
     ccas,
     classesList,
     selections,
     users: usersData,
-    resetStudent,
+    resetStudent, // This is for the full reset
     isClassModalOpen,
     setIsClassModalOpen,
     editingClass,
@@ -89,23 +80,48 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, []);
 
-  // --- HELPERS FOR SELECTIONS TABLE ---
-  const classMap = useMemo(() => {
-    return classesList.reduce((acc, cls) => {
-      acc[cls.id] = cls;
-      return acc;
-    }, {});
-  }, [classesList]);
-
-  const filteredSelections = (selections || []).filter((s) => {
-    const user = usersData ? usersData[s.studentUid] : null;
-    const name = user?.displayName?.toLowerCase() || "";
-    const email = s.studentEmail?.toLowerCase() || "";
-    const term = searchTerm.toLowerCase();
-    return name.includes(term) || email.includes(term);
-  });
-
   // --- ACTIONS ---
+
+  // 1. Logic to remove a SINGLE CCA from a student
+  const handleSingleCCARemoval = async (selectionId, ccaToRemove) => {
+    try {
+      await runTransaction(db, async (transaction) => {
+        // A. Get references
+        const selectionRef = doc(db, "selections", selectionId);
+        const ccaRef = doc(db, "ccas", ccaToRemove.id);
+
+        // B. Read current data
+        const selectionDoc = await transaction.get(selectionRef);
+        const ccaDoc = await transaction.get(ccaRef);
+
+        if (!selectionDoc.exists()) throw new Error("Selection not found");
+
+        // C. Update Student List (Filter out the specific CCA)
+        const currentSelection = selectionDoc.data();
+        const updatedCCAList = currentSelection.selectedCCAs.filter(
+          (c) => c.id !== ccaToRemove.id,
+        );
+
+        // D. Update Seat Count (Free up the seat)
+        if (ccaDoc.exists()) {
+          const currentEnrolled = ccaDoc.data().enrolledCount || 0;
+          const newCount = currentEnrolled > 0 ? currentEnrolled - 1 : 0;
+          transaction.update(ccaRef, { enrolledCount: newCount });
+        }
+
+        // E. Save Student Selection
+        transaction.update(selectionRef, {
+          selectedCCAs: updatedCCAList,
+        });
+      });
+
+      alert(`Successfully removed ${ccaToRemove.name}`);
+    } catch (error) {
+      console.error("Error removing CCA:", error);
+      alert("Failed to remove CCA: " + error.message);
+    }
+  };
+
   const handleEditUserRole = (user) => {
     setSelectedUser(user);
     setIsUserModalOpen(true);
@@ -147,7 +163,7 @@ export default function AdminDashboard() {
               { id: "Assignments", icon: <FiCheckCircle /> },
               { id: "Users", icon: <FiShield /> },
               { id: "Selections", icon: <FiUsers /> },
-              { id: "Housekeeping", icon: <FiSettings /> }, // <--- NEW TAB
+              { id: "Housekeeping", icon: <FiSettings /> },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -224,166 +240,18 @@ export default function AdminDashboard() {
               />
             )}
 
+            {/* HERE IS THE CRITICAL CHANGE */}
             {activeTab === "Selections" && (
-              <div className="animate-in fade-in duration-500">
-                {/* HEADER */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                  <div>
-                    <h1 className="text-2xl font-black text-slate-800">
-                      Master List
-                    </h1>
-                    <p className="text-slate-500 text-sm mt-1">
-                      Total Submissions:{" "}
-                      <span className="font-bold text-brand-primary">
-                        {selections?.length || 0}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="relative group">
-                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors" />
-                      <input
-                        type="text"
-                        placeholder="Search student..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 w-64 shadow-sm"
-                      />
-                    </div>
-
-                    <button
-                      onClick={() =>
-                        downloadSelectionsCSV(
-                          filteredSelections,
-                          usersData,
-                          classMap,
-                        )
-                      }
-                      className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-600/20 transition-all active:scale-95 text-sm"
-                    >
-                      <FiDownload />
-                      <span>Export CSV</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* TABLE */}
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100 text-xs uppercase tracking-widest text-slate-500 font-bold">
-                          <th className="p-5">Student</th>
-                          <th className="p-5">Class</th>
-                          <th className="p-5">Activities Selected</th>
-                          <th className="p-5">Submitted At</th>
-                          <th className="p-5 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-sm">
-                        {filteredSelections.length > 0 ? (
-                          filteredSelections.map((sel) => {
-                            const user = usersData
-                              ? usersData[sel.studentUid]
-                              : null;
-                            const displayName = user?.displayName;
-                            const email = sel.studentEmail || user?.email;
-
-                            // Robust Name Lookup
-                            const finalName =
-                              user?.displayName ||
-                              sel.studentName ||
-                              (email ? email.split("@")[0] : "Unknown Student");
-
-                            return (
-                              <tr
-                                key={sel.id}
-                                className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors"
-                              >
-                                <td className="p-5">
-                                  <div
-                                    className={`font-bold ${displayName ? "text-slate-800" : "text-slate-500 italic"}`}
-                                  >
-                                    {finalName}
-                                  </div>
-                                  <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                                    <FiUser size={10} /> {email}
-                                  </div>
-                                </td>
-
-                                <td className="p-5">
-                                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-600">
-                                    <FiGrid />
-                                    {classMap[sel.classId]?.name ||
-                                      "Unknown Class"}
-                                  </div>
-                                </td>
-
-                                <td className="p-5">
-                                  <div className="flex flex-col gap-1.5">
-                                    {sel.selectedCCAs.map((cca, i) => (
-                                      <div
-                                        key={i}
-                                        className="flex items-center gap-2 text-slate-700 font-medium text-xs"
-                                      >
-                                        <span className="w-5 h-5 flex items-center justify-center bg-brand-primary/10 text-brand-primary rounded-full text-[9px] font-black">
-                                          {i + 1}
-                                        </span>
-                                        {cca.name}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </td>
-
-                                <td className="p-5">
-                                  <div className="text-slate-500 text-xs font-medium flex items-center gap-1.5">
-                                    <FiCalendar />
-                                    {sel.timestamp
-                                      ?.toDate()
-                                      .toLocaleDateString()}
-                                  </div>
-                                  <div className="text-slate-400 text-[10px] pl-5">
-                                    {sel.timestamp
-                                      ?.toDate()
-                                      .toLocaleTimeString([], {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
-                                  </div>
-                                </td>
-
-                                <td className="p-5 text-right">
-                                  <button
-                                    onClick={() => resetStudent(sel.id)}
-                                    title="Reset Selection"
-                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                                  >
-                                    <FiTrash2 size={18} />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        ) : (
-                          <tr>
-                            <td
-                              colSpan="5"
-                              className="p-10 text-center text-slate-400"
-                            >
-                              <FiActivity className="mx-auto text-3xl mb-2 opacity-20" />
-                              <p>No selections found matching your search</p>
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
+              // We replace the huge inline code with the Component
+              <SelectionsManager
+                selections={selections}
+                users={usersData}
+                classesList={classesList}
+                onResetStudent={resetStudent}
+                onDeleteCCA={handleSingleCCARemoval} // Passing the new function
+              />
             )}
 
-            {/* NEW TAB CONTENT */}
             {activeTab === "Housekeeping" && (
               <HousekeepingManager
                 selections={selections}

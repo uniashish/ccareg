@@ -1,27 +1,32 @@
 import React, { useEffect, useState } from "react";
 import {
-  FiLock,
   FiCheckCircle,
   FiHelpCircle,
   FiCreditCard,
   FiCopy,
   FiCalendar,
+  FiPlus,
+  FiAlertCircle,
 } from "react-icons/fi";
 import { db } from "../../firebase";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
-// 1. Import the new component
+import { doc, getDoc } from "firebase/firestore";
 import MessageModal from "../common/MessageModal";
 
-export default function LockedView({ existingSelection }) {
+export default function LockedView({
+  existingSelection,
+  canSelectMore,
+  onSelectMore,
+}) {
   const [adminDetails, setAdminDetails] = useState({
     name: "Administrator",
     contact: "",
   });
+
   const [bankDetails, setBankDetails] = useState(null);
+  const [isLoadingBank, setIsLoadingBank] = useState(true);
   const [enrichedCCAs, setEnrichedCCAs] = useState([]);
   const [totalAmount, setTotalAmount] = useState(0);
 
-  // 2. Add State for the Modal
   const [modalState, setModalState] = useState({
     isOpen: false,
     type: "success",
@@ -29,10 +34,17 @@ export default function LockedView({ existingSelection }) {
     message: "",
   });
 
+  // Helper to safely parse fees
+  const parseFee = (value) => {
+    if (!value) return 0;
+    const cleanString = String(value).replace(/[^0-9]/g, "");
+    return Number(cleanString) || 0;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoadingBank(true);
       try {
-        // ... (Existing fetch logic remains exactly the same) ...
         // 1. Fetch Admin Details
         const adminRef = doc(db, "settings", "general");
         const adminSnap = await getDoc(adminRef);
@@ -44,210 +56,271 @@ export default function LockedView({ existingSelection }) {
           });
         }
 
-        // 2. Fetch Payment Details
-        const bankRef = doc(db, "settings", "payments");
+        // 2. Fetch Bank Details
+        const bankRef = doc(db, "settings", "bank");
         const bankSnap = await getDoc(bankRef);
         if (bankSnap.exists()) {
           setBankDetails(bankSnap.data());
+        } else {
+          setBankDetails(null);
         }
 
-        // 3. Fetch All CCAs
-        const ccaCollection = collection(db, "ccas");
-        const ccaSnapshot = await getDocs(ccaCollection);
-
-        const ccaMap = {};
-        const ccaList = [];
-        ccaSnapshot.forEach((doc) => {
-          const data = doc.data();
-          ccaMap[doc.id] = data;
-          ccaList.push({ id: doc.id, ...data });
-        });
-
-        // 4. Merge Selection
+        // 3. Fetch CCA Details & Calculate Fees
         if (existingSelection?.selectedCCAs) {
-          const mergedData = existingSelection.selectedCCAs.map((selection) => {
-            let fullDetails = ccaMap[selection.id];
-            if (!fullDetails)
-              fullDetails = ccaList.find((c) => c.name === selection.name);
+          const ccaPromises = existingSelection.selectedCCAs.map(
+            async (item) => {
+              const ccaRef = doc(db, "ccas", item.id);
+              const ccaSnap = await getDoc(ccaRef);
 
-            let scheduleStr = "TBA";
-            if (fullDetails) {
-              if (
-                Array.isArray(fullDetails.days) &&
-                fullDetails.days.length > 0
-              ) {
-                const shortDays = fullDetails.days.map((day) =>
-                  day.slice(0, 3),
-                );
-                const daysJoined = shortDays.join(", ");
-                const timeStr = fullDetails.startTime
-                  ? ` @ ${fullDetails.startTime}`
-                  : "";
-                scheduleStr = `${daysJoined}${timeStr}`;
-              } else if (fullDetails.startTime) {
-                scheduleStr = `Time: ${fullDetails.startTime}`;
-              } else if (fullDetails.schedule)
-                scheduleStr = fullDetails.schedule;
-              else if (fullDetails.timing) scheduleStr = fullDetails.timing;
-            }
+              if (ccaSnap.exists()) {
+                const data = ccaSnap.data();
+                const rawFee = data.fee || data.price || data.cost || 0;
+                return {
+                  ...item,
+                  ...data,
+                  fee: parseFee(rawFee),
+                };
+              }
+              return { ...item, fee: 0 };
+            },
+          );
 
-            if (scheduleStr === "TBA" && selection.schedule)
-              scheduleStr = selection.schedule;
+          const fullCCAs = await Promise.all(ccaPromises);
+          setEnrichedCCAs(fullCCAs);
 
-            const rawCost =
-              fullDetails?.cost ?? fullDetails?.price ?? selection.cost ?? 0;
-            const finalCost = Number(rawCost) || 0;
-
-            return {
-              ...selection,
-              ...fullDetails,
-              schedule: scheduleStr,
-              cost: finalCost,
-            };
-          });
-
-          setEnrichedCCAs(mergedData);
-          const total = mergedData.reduce((sum, item) => sum + item.cost, 0);
+          const total = fullCCAs.reduce((sum, cca) => sum + cca.fee, 0);
           setTotalAmount(total);
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching details:", error);
+      } finally {
+        setIsLoadingBank(false);
       }
     };
 
     fetchData();
   }, [existingSelection]);
 
-  // 3. Update the Copy Function to use the Modal
   const copyToClipboard = (text) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
-
-    // Trigger the custom modal instead of alert()
     setModalState({
       isOpen: true,
       type: "success",
       title: "Copied!",
-      message: "The account number has been copied to your clipboard.",
+      message: "Bank details copied to clipboard.",
+    });
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return new Date().toLocaleDateString();
+    return new Date(timestamp.seconds * 1000).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   return (
     <>
-      <div className="mt-6 w-full max-w-5xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden animate-in zoom-in duration-500">
-        {/* ... (Existing Layout Code - No changes needed here) ... */}
-
-        <div className="flex flex-col md:flex-row items-stretch min-h-[500px]">
-          {/* LEFT COLUMN */}
-          <div className="w-full md:w-3/5 p-8 bg-slate-50/50 flex flex-col">
-            <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
-              Selected CCAs
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* CHANGED: Increased max-width to allow side-by-side layout */}
+        <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+          {/* HEADER */}
+          <div className="bg-slate-900 text-white p-8 text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-primary via-purple-500 to-brand-primary"></div>
+            <div className="inline-flex items-center justify-center p-3 bg-white/10 rounded-full mb-4 backdrop-blur-sm">
+              <FiCheckCircle size={32} className="text-emerald-400" />
+            </div>
+            <h2 className="text-2xl font-black tracking-tight mb-2">
+              Selection Confirmed
             </h2>
-
-            <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
-              {enrichedCCAs.map((cca, index) => (
-                <div
-                  key={index}
-                  className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-brand-primary/30"
-                >
-                  <div className="flex-1">
-                    <div className="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
-                      <FiCheckCircle className="text-brand-primary shrink-0" />
-                      {cca.name}
-                    </div>
-                    <div className="flex items-center gap-2 mt-2 ml-6 text-xs text-slate-500 font-medium bg-slate-100 w-fit px-2 py-1 rounded-md">
-                      <FiCalendar size={12} className="text-slate-400" />
-                      <span className="uppercase tracking-wide line-clamp-1">
-                        {cca.schedule}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right sm:text-right pl-6 sm:pl-0 shrink-0">
-                    <span
-                      className={`block text-sm font-bold font-mono ${cca.cost > 0 ? "text-slate-700" : "text-green-600"}`}
-                    >
-                      {cca.cost > 0
-                        ? `Rp. ${cca.cost.toLocaleString()}`
-                        : "Free"}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-slate-200 flex justify-between items-center">
-              <span className="font-bold text-slate-500 uppercase text-xs tracking-wider">
-                Total Fee
+            <p className="text-slate-400 text-sm font-medium">
+              Reference ID:{" "}
+              <span className="font-mono text-slate-300">
+                {existingSelection?.studentUid?.slice(0, 8).toUpperCase()}
               </span>
-              <span className="font-black text-2xl text-brand-primary">
-                Rp. {totalAmount.toLocaleString()}
-              </span>
-            </div>
+            </p>
           </div>
 
-          {/* RIGHT COLUMN */}
-          <div className="w-full md:w-2/5 p-8 bg-white border-l border-slate-100 flex flex-col relative">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-brand-primary/10 text-brand-primary rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-slow">
-                <FiLock size={30} />
+          <div className="p-8">
+            {/* STUDENT INFO (Full Width) */}
+            <div className="flex flex-col sm:flex-row justify-between items-center pb-8 border-b border-slate-100 gap-4 mb-8">
+              <div className="text-center sm:text-left">
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">
+                  Student Name
+                </p>
+                <p className="text-lg font-bold text-slate-800">
+                  {existingSelection?.studentName}
+                </p>
               </div>
-              <h1 className="text-2xl font-black text-slate-800">
-                Selection Locked
-              </h1>
-              <p className="text-slate-500 text-xs mt-2 font-medium bg-slate-100 inline-block px-3 py-1 rounded-full">
-                Submitted:{" "}
-                {existingSelection?.timestamp?.toDate().toLocaleDateString()}
-              </p>
+              <div className="text-center sm:text-right">
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center sm:justify-end gap-1">
+                  <FiCalendar /> Date
+                </p>
+                <p className="text-lg font-bold text-slate-800">
+                  {formatDate(existingSelection?.timestamp)}
+                </p>
+              </div>
             </div>
 
-            {bankDetails && bankDetails.accountNumber && totalAmount > 0 ? (
-              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mb-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-4 text-indigo-800 font-bold text-xs uppercase tracking-wider border-b border-indigo-100 pb-2">
-                  <FiCreditCard /> Payment Details
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-indigo-400 text-xs font-bold uppercase">
-                      Bank
-                    </span>
-                    <span className="font-bold text-indigo-900">
-                      {bankDetails.bankName}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-indigo-400 text-xs font-bold uppercase">
-                      Name
-                    </span>
-                    <span className="font-bold text-indigo-900">
-                      {bankDetails.accountName}
-                    </span>
-                  </div>
-                  <div className="bg-white rounded-xl border border-indigo-100 p-2 pl-3 flex justify-between items-center mt-2 group hover:border-indigo-300 transition-colors">
-                    <span className="font-mono font-bold text-indigo-600 text-lg tracking-tight">
-                      {bankDetails.accountNumber}
-                    </span>
-                    <button
-                      onClick={() => copyToClipboard(bankDetails.accountNumber)}
-                      className="p-2 bg-indigo-50 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-lg transition-all active:scale-95"
-                      title="Copy to Clipboard"
+            {/* NEW: TWO COLUMN GRID LAYOUT */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+              {/* --- LEFT COLUMN: ACTIVITIES & FEES --- */}
+              <div className="flex flex-col h-full">
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider mb-4">
+                  Selection Summary
+                </h3>
+
+                {/* List */}
+                <div className="space-y-4 flex-1">
+                  {enrichedCCAs.map((cca, index) => (
+                    <div
+                      key={index}
+                      className="flex justify-between items-center p-4 rounded-2xl bg-white border border-slate-200 shadow-sm"
                     >
-                      <FiCopy />
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 font-bold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-700">{cca.name}</p>
+                          {cca.venue && (
+                            <p className="text-xs text-slate-400 font-medium">
+                              {cca.venue}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="font-mono font-bold text-slate-600">
+                        {cca.fee > 0
+                          ? `Rp ${cca.fee.toLocaleString()}`
+                          : "Free"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Total Row */}
+                {totalAmount > 0 && (
+                  <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-100 border-dashed">
+                    <span className="font-bold text-slate-500">Total Fees</span>
+                    <span className="text-2xl font-black text-brand-primary">
+                      Rp {totalAmount.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {/* Add More Button */}
+                {canSelectMore && (
+                  <div className="mt-6">
+                    <button
+                      onClick={onSelectMore}
+                      className="w-full py-3 rounded-xl border-2 border-dashed border-brand-primary text-brand-primary font-bold hover:bg-brand-primary/5 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FiPlus size={18} /> Add Another Activity
                     </button>
                   </div>
-                </div>
+                )}
               </div>
-            ) : (
-              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 mb-6 text-center">
-                <FiCheckCircle
-                  className="mx-auto text-emerald-500 mb-2"
-                  size={24}
-                />
-                <span className="text-emerald-700 font-bold text-sm">
-                  No Payment Required
-                </span>
-              </div>
-            )}
 
-            <div className="mt-auto pt-6 border-t border-slate-50 text-center">
+              {/* --- RIGHT COLUMN: BANK DETAILS --- */}
+              <div className="h-full">
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider mb-4">
+                  Payment Information
+                </h3>
+
+                {totalAmount > 0 ? (
+                  <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 h-full flex flex-col justify-center">
+                    {isLoadingBank ? (
+                      <div className="text-center py-12 text-slate-400 text-sm italic animate-pulse">
+                        Loading bank details...
+                      </div>
+                    ) : bankDetails ? (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                          <FiCreditCard className="text-brand-primary size-5" />
+                          <span>Bank Transfer Details</span>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4 shadow-sm">
+                          <div className="flex justify-between items-center group">
+                            <span className="text-xs text-slate-400 font-bold uppercase">
+                              Bank Name
+                            </span>
+                            <span className="font-bold text-slate-700">
+                              {bankDetails.bankName || "Not Set"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center group">
+                            <span className="text-xs text-slate-400 font-bold uppercase">
+                              Account Number
+                            </span>
+                            <button
+                              onClick={() =>
+                                copyToClipboard(bankDetails.accountNumber)
+                              }
+                              className="flex items-center gap-2 font-mono font-bold text-slate-700 hover:text-brand-primary transition-colors bg-slate-50 px-2 py-1 rounded"
+                            >
+                              {bankDetails.accountNumber || "Not Set"}{" "}
+                              <FiCopy />
+                            </button>
+                          </div>
+                          <div className="flex justify-between items-center group">
+                            <span className="text-xs text-slate-400 font-bold uppercase">
+                              Account Name
+                            </span>
+                            <span className="font-bold text-slate-700 text-right">
+                              {bankDetails.accountName || "Not Set"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-4 rounded-xl leading-relaxed font-medium flex gap-3">
+                          <FiAlertCircle className="shrink-0 text-lg mt-0.5" />
+                          <p>
+                            Please include the <strong>Student Name</strong> and{" "}
+                            <strong>Reference ID</strong> in your transfer news
+                            for faster verification.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      // Fallback if data is missing
+                      <div className="flex flex-col items-center justify-center py-12 text-center text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">
+                        <FiAlertCircle
+                          size={32}
+                          className="mb-3 text-slate-300"
+                        />
+                        <p className="font-bold text-sm">
+                          Payment Details Unavailable
+                        </p>
+                        <p className="text-xs mt-1 max-w-[200px]">
+                          Please contact the school office for payment
+                          instructions.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // NO PAYMENT REQUIRED CARD
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-8 text-center h-full flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+                      <FiCheckCircle className="text-emerald-500" size={32} />
+                    </div>
+                    <h4 className="text-emerald-800 font-black text-lg mb-2">
+                      All Set!
+                    </h4>
+                    <span className="text-emerald-700 font-medium text-sm">
+                      No Payment Required for these activities.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* FOOTER */}
+            <div className="mt-12 pt-8 border-t border-slate-50 text-center">
               {adminDetails.contact && (
                 <div className="text-xs text-slate-400 space-y-1">
                   <p className="flex items-center justify-center gap-1">
@@ -266,7 +339,6 @@ export default function LockedView({ existingSelection }) {
         </div>
       </div>
 
-      {/* 4. Render the Modal outside the main layout */}
       <MessageModal
         isOpen={modalState.isOpen}
         onClose={() => setModalState((prev) => ({ ...prev, isOpen: false }))}

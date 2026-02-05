@@ -28,81 +28,68 @@ export default function ClassManager({
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* Scrollable Container */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-y-auto max-h-[70vh]">
         <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="px-8 py-5 font-bold text-slate-600 uppercase text-xs tracking-wider">
+          {/* Sticky Header */}
+          <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+            <tr>
+              <th className="px-8 py-5 font-bold text-slate-500 uppercase text-xs tracking-wider">
                 Class Name
               </th>
-              <th className="px-8 py-5 font-bold text-slate-600 uppercase text-xs tracking-wider">
-                Status
+              {/* ID Header Removed */}
+              <th className="px-8 py-5 font-bold text-slate-500 uppercase text-xs tracking-wider">
+                Mapped CCAs
               </th>
-              <th className="px-8 py-5 font-bold text-slate-600 uppercase text-xs tracking-wider">
-                Assigned CCAs
-              </th>
-              <th className="px-8 py-5 font-bold text-slate-600 uppercase text-xs tracking-wider text-right">
-                Action
+              <th className="px-8 py-5 font-bold text-slate-500 uppercase text-xs tracking-wider text-right">
+                Actions
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {classesList.length > 0 ? (
               classesList.map((c) => {
-                const isInactive = c.isActive === false;
-
-                const assignedNames = c.allowedCCAs
-                  ?.map((id) => {
-                    const match = ccas?.find((item) => item.id === id);
-                    return match ? match.name : null;
-                  })
-                  .filter((name) => name !== null)
-                  .join(", ");
+                const allowedCount = c.allowedCCAs ? c.allowedCCAs.length : 0;
+                const hasMapping = allowedCount > 0;
 
                 return (
                   <tr
                     key={c.id}
-                    className={`transition-colors group ${isInactive ? "bg-slate-50/50" : "hover:bg-white"}`}
+                    className="hover:bg-slate-50 transition-colors group"
                   >
                     <td className="px-8 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg">
+                          {c.name.charAt(0)}
+                        </div>
+                        <span className="font-bold text-slate-700 text-lg">
+                          {c.name}
+                        </span>
+                      </div>
+                    </td>
+                    {/* ID Cell Removed */}
+                    <td className="px-8 py-5">
+                      {hasMapping ? (
+                        <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-lg w-fit">
+                          <FiCheck size={16} />
+                          <span className="font-bold text-sm">
+                            {allowedCount} Allowed
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg w-fit">
+                          <FiXCircle size={16} />
+                          <span className="font-medium text-sm">
+                            No Mapping
+                          </span>
+                        </div>
+                      )}
                       <button
                         onClick={() => setViewingClass(c)}
-                        className={`bg-transparent border-none p-0 font-bold text-lg text-left transition-colors cursor-pointer outline-none focus:outline-none ${
-                          isInactive
-                            ? "text-slate-400 italic"
-                            : "text-slate-700 group-hover:text-brand-primary"
-                        }`}
+                        className="text-xs text-brand-primary font-bold mt-1 ml-1 hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        {c.name}
+                        View Details
                       </button>
-                    </td>
-                    <td className="px-8 py-5">
-                      {isInactive ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200 text-slate-600 text-xs font-bold uppercase tracking-wider">
-                          <FiXCircle size={14} /> Inactive
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-bold uppercase tracking-wider">
-                          <FiCheck size={14} /> Active
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-8 py-5">
-                      <span
-                        title={
-                          assignedNames ||
-                          (c.allowedCCAs?.length > 0 && !ccas
-                            ? "Loading names..."
-                            : "No CCAs assigned")
-                        }
-                        className={`px-3 py-1 rounded-full text-sm font-medium cursor-help transition-all ${
-                          isInactive
-                            ? "bg-slate-100 text-slate-400"
-                            : "bg-brand-neutral/10 text-brand-neutral hover:bg-brand-neutral/20"
-                        }`}
-                      >
-                        {c.allowedCCAs?.length || 0} CCAs
-                      </span>
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex justify-end gap-3">
@@ -126,7 +113,7 @@ export default function ClassManager({
             ) : (
               <tr>
                 <td
-                  colSpan="4"
+                  colSpan="3" // Updated colSpan from 4 to 3
                   className="px-8 py-12 text-center text-slate-400 italic"
                 >
                   No classes found. Click "Add New Class" to get started.

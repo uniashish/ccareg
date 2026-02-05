@@ -26,6 +26,29 @@ export function useStudentDash() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [existingSelection, setExistingSelection] = useState(null);
 
+  // --- NEW: MODAL STATE (To replace alerts) ---
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: "info", // "success" | "error" | "info"
+    title: "",
+    message: "",
+  });
+
+  // Helper to close the modal
+  const closeModal = () => {
+    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  // Helper to show the modal (internal use)
+  const showModal = (type, title, message) => {
+    setModalConfig({
+      isOpen: true,
+      type,
+      title,
+      message,
+    });
+  };
+
   // 1. DATA LISTENERS (Classes & CCAs)
   useEffect(() => {
     const unsubClasses = onSnapshot(collection(db, "classes"), (snapshot) => {
@@ -63,33 +86,48 @@ export function useStudentDash() {
 
   // 3. ACTIONS
   const toggleCCA = (cca) => {
+    // If already selected, remove it
     if (selectedCCAs.find((item) => item.id === cca.id)) {
       setSelectedCCAs(selectedCCAs.filter((item) => item.id !== cca.id));
       return;
     }
 
+    // Check individual CCA capacity
     if (cca.maxSeats && cca.enrolledCount >= cca.maxSeats) {
-      alert(`Sorry, ${cca.name} is fully booked.`);
+      showModal(
+        "error",
+        "Activity Full",
+        `Sorry, ${cca.name} is fully booked. Please choose another activity.`,
+      );
       return;
     }
 
+    // Check max limit (Soft check for UI)
     if (selectedCCAs.length < 3) {
       setSelectedCCAs([...selectedCCAs, cca]);
     } else {
-      alert("You can select a maximum of 3 CCAs.");
+      showModal("info", "Limit Reached", "You can select a maximum of 3 CCAs.");
     }
   };
 
-  // 4. TRANSACTIONAL SUBMIT (FIXED)
+  // 4. TRANSACTIONAL SUBMIT
   const handleSubmit = async () => {
     if (selectedCCAs.length < 1) {
-      alert("Please select at least one CCA.");
+      showModal(
+        "error",
+        "Selection Required",
+        "Please select at least one CCA before confirming.",
+      );
       return;
     }
 
     const activeUser = currentUser || auth.currentUser;
     if (!activeUser) {
-      alert("System Error: User session not found. Please refresh.");
+      showModal(
+        "error",
+        "Session Error",
+        "System Error: User session not found. Please refresh the page.",
+      );
       return;
     }
 
@@ -97,19 +135,26 @@ export function useStudentDash() {
 
     try {
       await runTransaction(db, async (transaction) => {
-        // --- PHASE 1: READS (Must be done first) ---
+        // --- PHASE 1: READS ---
 
         // 1. Read User Selection
         const selectionRef = doc(db, "selections", activeUser.uid);
         const sfDoc = await transaction.get(selectionRef);
 
+        let previousCCAs = [];
         if (sfDoc.exists()) {
-          throw new Error("You have already submitted a selection.");
+          const data = sfDoc.data();
+          previousCCAs = data.selectedCCAs || [];
         }
 
-        // 2. Read ALL selected CCA documents
+        // 2. Identify NEW items
+        const ccasToIncrement = selectedCCAs.filter(
+          (current) => !previousCCAs.some((prev) => prev.id === current.id),
+        );
+
+        // 3. Read CCA documents for the NEW items only
         const ccaReads = [];
-        for (const cca of selectedCCAs) {
+        for (const cca of ccasToIncrement) {
           const ref = doc(db, "ccas", cca.id);
           const docSnap = await transaction.get(ref);
           ccaReads.push({
@@ -119,9 +164,9 @@ export function useStudentDash() {
           });
         }
 
-        // --- LOGIC CHECK (Between Reads and Writes) ---
+        // --- LOGIC CHECK ---
 
-        // Check if any CCA is invalid or full
+        // Check if any NEW CCA is invalid or full
         for (const item of ccaReads) {
           if (!item.doc.exists()) {
             throw new Error(`CCA ${item.name} no longer exists.`);
@@ -138,7 +183,7 @@ export function useStudentDash() {
           }
         }
 
-        // --- PHASE 2: WRITES (Done last) ---
+        // --- PHASE 2: WRITES ---
 
         // 1. Update Enrolled Counts
         for (const item of ccaReads) {
@@ -148,7 +193,7 @@ export function useStudentDash() {
           });
         }
 
-        // 2. Create Selection Record
+        // 2. Update/Create Selection Record
         const selectionData = {
           studentUid: activeUser.uid,
           studentEmail: activeUser.email,
@@ -156,10 +201,10 @@ export function useStudentDash() {
           classId: selectedClassId,
           selectedCCAs: selectedCCAs.map((c) => ({ id: c.id, name: c.name })),
           timestamp: serverTimestamp(),
-          status: "pending",
+          status: "submitted",
         };
 
-        transaction.set(selectionRef, selectionData);
+        transaction.set(selectionRef, selectionData, { merge: true });
       });
 
       // --- SUCCESS ---
@@ -168,13 +213,24 @@ export function useStudentDash() {
         studentEmail: activeUser.email,
         studentName: activeUser.displayName || activeUser.email.split("@")[0],
         selectedCCAs: selectedCCAs,
+        status: "submitted",
       };
+
       setExistingSelection(selectionData);
       setHasSubmitted(true);
-      alert("Selection submitted successfully!");
+
+      showModal(
+        "success",
+        "Success!",
+        "Your selections have been updated successfully.",
+      );
     } catch (error) {
       console.error("Submission error:", error);
-      alert(error.message);
+      showModal(
+        "error",
+        "Submission Failed",
+        error.message || "An unexpected error occurred.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -192,5 +248,8 @@ export function useStudentDash() {
     existingSelection,
     toggleCCA,
     handleSubmit,
+    // EXPOSE MODAL STATE TO UI
+    modalConfig,
+    closeModal,
   };
 }

@@ -7,6 +7,7 @@ import {
   FiCalendar,
   FiTrash2,
   FiActivity,
+  FiX, // <--- Import the X icon
 } from "react-icons/fi";
 import { downloadSelectionsCSV } from "../../utils/csvExporter";
 
@@ -15,6 +16,7 @@ export default function SelectionsManager({
   users,
   classesList,
   onResetStudent,
+  onDeleteCCA, // <--- Receive the function prop
 }) {
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -125,16 +127,39 @@ export default function SelectionsManager({
                       </td>
 
                       <td className="p-5">
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex flex-col gap-2">
                           {sel.selectedCCAs.map((cca, i) => (
                             <div
                               key={i}
-                              className="flex items-center gap-2 text-slate-700 font-medium text-xs"
+                              // Added border and padding for better button placement
+                              className="flex items-center justify-between gap-3 text-slate-700 font-medium text-xs bg-slate-50 border border-slate-100 p-2 rounded-lg"
                             >
-                              <span className="w-5 h-5 flex items-center justify-center bg-brand-primary/10 text-brand-primary rounded-full text-[9px] font-black">
-                                {i + 1}
-                              </span>
-                              {cca.name}
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 flex items-center justify-center bg-brand-primary/10 text-brand-primary rounded-full text-[9px] font-black">
+                                  {i + 1}
+                                </span>
+                                {cca.name}
+                              </div>
+
+                              {/* THE DELETE BUTTON */}
+                              {onDeleteCCA && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (
+                                      window.confirm(
+                                        `Are you sure you want to remove "${cca.name}" from ${finalName}'s selection?`,
+                                      )
+                                    ) {
+                                      onDeleteCCA(sel.id, cca);
+                                    }
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded shadow-sm transition-all"
+                                  title="Remove this activity only"
+                                >
+                                  <FiX size={14} />
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -156,7 +181,7 @@ export default function SelectionsManager({
                       <td className="p-5 text-right">
                         <button
                           onClick={() => onResetStudent(sel.id)}
-                          title="Reset Selection (Allow student to resubmit)"
+                          title="Reset Entire Selection (Wipe Clean)"
                           className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                         >
                           <FiTrash2 size={18} />

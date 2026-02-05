@@ -1,19 +1,19 @@
 import { useState, useEffect } from "react";
 import { FiGrid, FiCheckCircle } from "react-icons/fi";
-import { db } from "../firebase"; // Ensure this path is correct
+import { db } from "../firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import Header from "../components/Header";
 
-// 1. IMPORT THE BRAIN (Logic)
+// 1. IMPORT THE BRAIN
 import { useStudentDash } from "../hooks/useStudentDash";
 
-// 2. IMPORT THE BODY PARTS (UI Components)
+// 2. IMPORT THE BODY PARTS
 import LockedView from "../components/student/LockedView";
 import ClassSelector from "../components/student/ClassSelector";
 import CCACard from "../components/student/CCACard";
+import MessageModal from "../components/common/MessageModal";
 
 export default function StudentDashboard() {
-  // Use the Custom Hook to get all state and functions
   const {
     classes,
     ccas,
@@ -26,16 +26,48 @@ export default function StudentDashboard() {
     existingSelection,
     toggleCCA,
     handleSubmit,
+    // Destructure Modal State from the Hook
+    modalConfig: hookModalConfig,
+    closeModal: closeHookModal,
   } = useStudentDash();
 
-  // --- STATE FOR LIMITS ---
-  // Default to 1 and 3 until loaded from DB
   const [minSelections, setMinSelections] = useState(1);
   const [maxSelections, setMaxSelections] = useState(3);
 
-  // --- FETCH SETTINGS FROM DB ---
+  // --- NEW STATE: TRACK MANUAL EDIT MODE ---
+  const [isAddingMore, setIsAddingMore] = useState(false);
+
+  // --- LOCAL MODAL STATE ---
+  const [localModalConfig, setLocalModalConfig] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
+
+  const closeLocalModal = () => {
+    setLocalModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const showLocalModal = (type, title, message) => {
+    setLocalModalConfig({
+      isOpen: true,
+      type,
+      title,
+      message,
+    });
+  };
+
+  // Determine which modal to show
+  const activeModalConfig = localModalConfig.isOpen
+    ? localModalConfig
+    : hookModalConfig;
+  const activeModalClose = localModalConfig.isOpen
+    ? closeLocalModal
+    : closeHookModal;
+
+  // --- 1. FETCH LIMITS ---
   useEffect(() => {
-    // Listen to the settings/general document
     const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -46,8 +78,45 @@ export default function StudentDashboard() {
     return () => unsub();
   }, []);
 
-  // --- VIEW LOGIC ---
-  // Filter CCAs based on the selected class
+  // --- 2. LOGIC: WHEN TO SHOW LOCKED VIEW ---
+  // Show locked view if they have submitted AND they are not currently adding more.
+  const showLockedView = hasSubmitted && !isAddingMore;
+
+  // --- 3. AUTO-LOCK ON SUCCESSFUL SUBMIT ---
+  // When existingSelection updates (meaning the DB has processed the new submit),
+  // we exit "Adding Mode" and go back to the Locked View receipt.
+  useEffect(() => {
+    if (existingSelection) {
+      setIsAddingMore(false);
+    }
+  }, [existingSelection]);
+
+  // --- 4. RESTORE STATE ---
+  const previouslySelectedIds =
+    existingSelection?.selectedCCAs?.map((c) => c.id) || [];
+
+  useEffect(() => {
+    // Standard restore logic
+    if (hasSubmitted && existingSelection) {
+      if (!selectedClassId && existingSelection.classId) {
+        setSelectedClassId(existingSelection.classId);
+      }
+      if (
+        existingSelection.selectedCCAs?.length > 0 &&
+        selectedCCAs.length === 0
+      ) {
+        setSelectedCCAs(existingSelection.selectedCCAs);
+      }
+    }
+  }, [
+    hasSubmitted,
+    existingSelection,
+    selectedClassId,
+    setSelectedClassId,
+    setSelectedCCAs,
+    // Note: removed selectedCCAs.length to prevent loops
+  ]);
+
   const availableCCAs = selectedClassId
     ? ccas.filter((cca) => {
         const currentClass = classes.find((c) => c.id === selectedClassId);
@@ -55,19 +124,37 @@ export default function StudentDashboard() {
       })
     : [];
 
-  // Handle switching classes (resets selection)
   const handleClassSelect = (id) => {
     setSelectedClassId(id);
     setSelectedCCAs([]);
   };
 
-  // Wrapper to enforce MAX limit at the UI level
+  // --- 5. SMART TOGGLE LOGIC ---
   const handleToggleCCA = (cca) => {
+    const isPreviouslyLocked = previouslySelectedIds.includes(cca.id);
+
+    if (isPreviouslyLocked) {
+      showLocalModal(
+        "error",
+        "Action Denied",
+        "You cannot remove an activity that was confirmed in a previous session.",
+      );
+      return;
+    }
+
     const isSelected = selectedCCAs.find((c) => c.id === cca.id);
 
-    // If trying to add (not currently selected) and we hit the max limit, stop.
-    if (!isSelected && selectedCCAs.length >= maxSelections) {
-      alert(`You can only select up to ${maxSelections} activities.`);
+    if (isSelected) {
+      toggleCCA(cca);
+      return;
+    }
+
+    if (selectedCCAs.length >= maxSelections) {
+      showLocalModal(
+        "info",
+        "Limit Reached",
+        `You can only select up to ${maxSelections} activities.`,
+      );
       return;
     }
 
@@ -79,20 +166,25 @@ export default function StudentDashboard() {
       <Header />
 
       <main className="max-w-7xl mx-auto px-6 py-4 md:px-10">
-        {/* STATE 1: LOCKED VIEW */}
-        {hasSubmitted ? (
-          <LockedView existingSelection={existingSelection} />
+        {showLockedView ? (
+          <LockedView
+            existingSelection={existingSelection}
+            // Pass the logic to allow adding more
+            canSelectMore={
+              (existingSelection?.selectedCCAs?.length || 0) < maxSelections
+            }
+            onSelectMore={() => setIsAddingMore(true)}
+          />
         ) : (
-          /* STATE 2: ACTIVE SELECTION */
           <>
-            {/* HEADER AREA */}
             <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
               <div>
                 <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-none">
                   CCA Selection
                 </h1>
                 <p className="text-slate-500 text-xs font-medium mt-1">
-                  Choose up to {maxSelections} activities
+                  You have selected {selectedCCAs.length} / {maxSelections}{" "}
+                  activities
                 </p>
               </div>
 
@@ -102,7 +194,6 @@ export default function StudentDashboard() {
                     Selected Slots
                   </span>
                   <div className="flex gap-1.5">
-                    {/* Dynamically generate slots based on maxSelections */}
                     {Array.from({ length: maxSelections }, (_, i) => i + 1).map(
                       (slot) => (
                         <div
@@ -120,32 +211,45 @@ export default function StudentDashboard() {
               )}
             </div>
 
-            {/* CLASS SELECTOR COMPONENT */}
             <ClassSelector
               classes={classes}
               selectedClassId={selectedClassId}
               onSelectClass={handleClassSelect}
             />
 
-            {/* MAIN CONTENT AREA */}
             {selectedClassId ? (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 pb-24">
-                {/* CCA GRID */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {availableCCAs.map((cca) => (
-                    <CCACard
-                      key={cca.id}
-                      cca={cca}
-                      isSelected={!!selectedCCAs.find((c) => c.id === cca.id)}
-                      onToggle={handleToggleCCA} // Use our wrapper
-                    />
-                  ))}
+                  {availableCCAs.map((cca) => {
+                    const isSelected = !!selectedCCAs.find(
+                      (c) => c.id === cca.id,
+                    );
+                    const isLocked = previouslySelectedIds.includes(cca.id);
+
+                    return (
+                      <div
+                        key={cca.id}
+                        className={isLocked ? "opacity-75 grayscale-[0.3]" : ""}
+                      >
+                        <CCACard
+                          cca={cca}
+                          isSelected={isSelected}
+                          onToggle={() => handleToggleCCA(cca)}
+                        />
+                        {isLocked && isSelected && (
+                          <div className="mt-1 text-center">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-100 px-2 py-0.5 rounded-full">
+                              Previously Confirmed
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* SUBMIT BUTTON */}
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
                   <button
-                    // Validate against minSelections from DB
                     disabled={
                       selectedCCAs.length < minSelections || isSubmitting
                     }
@@ -162,7 +266,6 @@ export default function StudentDashboard() {
                 </div>
               </div>
             ) : (
-              /* EMPTY STATE */
               <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-white/50">
                 <FiGrid className="text-3xl text-slate-300 mx-auto mb-3" />
                 <h3 className="text-slate-400 font-black uppercase tracking-widest text-xs">
@@ -173,6 +276,15 @@ export default function StudentDashboard() {
           </>
         )}
       </main>
+
+      {/* --- SHARED MESSAGE MODAL --- */}
+      <MessageModal
+        isOpen={activeModalConfig?.isOpen || false}
+        onClose={activeModalClose}
+        type={activeModalConfig?.type}
+        title={activeModalConfig?.title}
+        message={activeModalConfig?.message}
+      />
     </div>
   );
 }

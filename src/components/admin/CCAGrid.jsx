@@ -14,7 +14,6 @@ export default function CCAGrid({
   const [canScrollRight, setCanScrollRight] = useState(true);
 
   // --- SCROLL CHECKER ---
-  // Checks if we can scroll left or right to enable/disable arrows
   const checkScrollButtons = () => {
     if (scrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
@@ -23,39 +22,41 @@ export default function CCAGrid({
     }
   };
 
-  // Initial check on mount and when data changes
+  // Re-check scroll buttons whenever the CCA list changes (e.g. seat update)
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ left: 0, behavior: "auto" });
-      setCanScrollLeft(false);
+      // We don't reset scroll position to 0 to keep user context
       setTimeout(checkScrollButtons, 100);
     }
-  }, [ccas.length]);
+  }, [ccas.length, ccas]); // Trigger on ccas change
 
   const scroll = (direction) => {
     const { current } = scrollRef;
     if (current) {
-      const scrollAmount = current.clientWidth; // Scroll one full screen
+      const scrollAmount = current.clientWidth;
       const directionMultiplier = direction === "left" ? -1 : 1;
 
       current.scrollBy({
         left: scrollAmount * directionMultiplier,
         behavior: "smooth",
       });
+      setTimeout(checkScrollButtons, 500);
     }
   };
 
-  // --- EMPTY STATE ---
   if (ccas.length === 0) {
     return (
-      <div className="col-span-full w-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center min-h-[300px]">
-        <FiSearch size={48} className="text-slate-200 mb-4" />
-        <p className="text-slate-400 font-bold">
-          No CCAs found matching your criteria
+      <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+        <div className="inline-block p-4 bg-slate-50 rounded-full mb-4">
+          <FiSearch className="text-3xl text-slate-300" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-700">No CCAs Found</h3>
+        <p className="text-slate-500 text-sm mb-6">
+          Try adjusting your search or add a new activity.
         </p>
         <button
           onClick={onClearSearch}
-          className="mt-4 text-indigo-600 font-bold text-sm hover:underline"
+          className="text-brand-primary font-bold text-sm hover:underline"
         >
           Clear Search
         </button>
@@ -63,11 +64,10 @@ export default function CCAGrid({
     );
   }
 
-  // --- MAIN GRID ---
   return (
-    <div className="space-y-4">
-      {/* NAVIGATION ARROWS (Top Right) */}
-      <div className="flex justify-end gap-2">
+    <div className="relative group">
+      {/* SCROLL BUTTONS */}
+      <div className="absolute -top-14 right-0 flex gap-2">
         <button
           onClick={() => scroll("left")}
           disabled={!canScrollLeft}
@@ -103,13 +103,12 @@ export default function CCAGrid({
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {ccas.map((cca) => (
-          // snap-start ensures the card aligns perfectly to the left
           <div key={cca.id} className="snap-start h-full">
             <AdminCCACard
               cca={cca}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onViewDetails={onViewDetails}
+              onEdit={() => onEdit(cca)}
+              onDelete={() => onDelete(cca.id)}
+              onViewDetails={() => onViewDetails(cca)}
             />
           </div>
         ))}
