@@ -17,10 +17,11 @@ export default function CCAManager({
   );
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-8">
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-center gap-8 pb-2">
+        {/* Title Group */}
+        <div className="shrink-0">
           <h2 className="text-xl font-black text-slate-800 tracking-tight">
             CCA Management
           </h2>
@@ -29,7 +30,7 @@ export default function CCAManager({
           </p>
         </div>
 
-        {/* ACTIONS & SEARCH */}
+        {/* Actions Group - Placed next to title (not far right) to avoid arrow overlap */}
         <div className="flex gap-3">
           <div className="relative group">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors" />

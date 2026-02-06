@@ -7,6 +7,7 @@ import {
   FiUser,
   FiUsers,
   FiInfo,
+  FiCalendar,
 } from "react-icons/fi";
 
 export default function AdminCCACard({ cca, onEdit, onDelete, onViewDetails }) {
@@ -20,9 +21,26 @@ export default function AdminCCACard({ cca, onEdit, onDelete, onViewDetails }) {
     return `${h}:${minutes} ${ampm}`;
   };
 
-  const formatDays = (days) => {
-    if (!days || !Array.isArray(days)) return "";
-    return days.map((day) => day.substring(0, 3)).join(", ");
+  // CHANGED: Format the Session Dates Summary
+  const getScheduleSummary = (dates) => {
+    if (!dates || !Array.isArray(dates) || dates.length === 0) return "TBD";
+
+    // Get unique days
+    const days = [
+      ...new Set(
+        dates.map((d) =>
+          new Date(d).toLocaleDateString("en-US", { weekday: "short" }),
+        ),
+      ),
+    ];
+
+    if (days.length === 1) {
+      return `${days[0]}s (${dates.length} Sessions)`;
+    } else if (days.length <= 2) {
+      return `${days.join(" & ")} (${dates.length} Sessions)`;
+    } else {
+      return `${dates.length} Scheduled Sessions`;
+    }
   };
 
   // Check if CCA is fully booked
@@ -37,56 +55,71 @@ export default function AdminCCACard({ cca, onEdit, onDelete, onViewDetails }) {
         isFull ? "border-red-500" : "border-slate-100"
       }`}
     >
-      {/* ACTION BUTTONS */}
-      <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit(cca);
-          }}
-          className="p-2 bg-white/90 shadow-sm hover:bg-brand-primary hover:text-white text-slate-500 rounded-lg transition-colors border border-slate-100"
-          title="Edit CCA"
-        >
-          <FiEdit2 size={14} />
-        </button>
+      {/* HEADER */}
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex-1 min-w-0 pr-2">
+          {/* Status Dot */}
+          <div className="flex items-center gap-2 mb-2">
+            <div
+              className={`w-2 h-2 rounded-full ${cca.isActive ? "bg-emerald-500" : "bg-slate-300"}`}
+            ></div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              {cca.isActive ? "Active" : "Hidden"}
+            </span>
+          </div>
+          <h3
+            className="text-lg font-black text-slate-800 leading-tight line-clamp-2"
+            title={cca.name}
+          >
+            {cca.name}
+          </h3>
+          <p className="text-xs font-bold text-brand-primary mt-1">
+            {Number(cca.price) === 0
+              ? "Free"
+              : `Rp ${Number(cca.price).toLocaleString()}`}
+          </p>
+        </div>
 
-        {/* DELETE BUTTON (Modified) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!hasEnrollments) onDelete(cca.id);
-          }}
-          disabled={hasEnrollments}
-          className={`p-2 bg-white/90 shadow-sm rounded-lg transition-colors border border-slate-100 ${
-            hasEnrollments
-              ? "text-slate-300 cursor-not-allowed"
-              : "hover:bg-red-500 hover:text-white text-slate-500 cursor-pointer"
-          }`}
-          // Tooltip for disabled state
-          title={
-            hasEnrollments
-              ? "Cannot delete: This CCA is allocated to classes and students have already selected it."
-              : "Delete CCA"
-          }
-        >
-          <FiTrash2 size={14} />
-        </button>
+        <div className="flex gap-1 shrink-0">
+          <button
+            onClick={() => onEdit(cca)}
+            className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors"
+            title="Edit"
+          >
+            <FiEdit2 size={16} />
+          </button>
+          <button
+            onClick={() => onDelete(cca)}
+            disabled={hasEnrollments}
+            className={`p-2 rounded-lg transition-colors ${
+              hasEnrollments
+                ? "text-slate-200 cursor-not-allowed"
+                : "hover:bg-red-50 text-slate-400 hover:text-red-600"
+            }`}
+            title={hasEnrollments ? "Cannot delete active class" : "Delete"}
+          >
+            <FiTrash2 size={16} />
+          </button>
+        </div>
       </div>
 
-      {/* HEADER INFO */}
-      <div className="mb-5 pr-10">
-        <h3 className="font-black text-lg text-slate-800 leading-tight mb-1.5 break-words">
-          {cca.name}
-        </h3>
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-          {formatDays(cca.days)}
-        </p>
-      </div>
+      {/* BODY INFO */}
+      <div className="grid grid-cols-2 gap-y-4 gap-x-2 mb-4 flex-1">
+        {/* CHANGED: Schedule Summary */}
+        <div className="col-span-2">
+          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+            Schedule
+          </span>
+          <div className="flex items-center gap-1.5 text-slate-700 text-xs font-bold">
+            <FiCalendar className="text-brand-neutral shrink-0" size={14} />
+            <span className="truncate">
+              {getScheduleSummary(cca.sessionDates)}
+            </span>
+          </div>
+        </div>
 
-      {/* DETAILS GRID */}
-      <div className="grid grid-cols-2 gap-y-4 gap-x-3 mb-5 mt-auto">
         {/* Time */}
-        <div>
+        <div className="col-span-1">
           <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
             Time
           </span>
@@ -99,7 +132,7 @@ export default function AdminCCACard({ cca, onEdit, onDelete, onViewDetails }) {
         </div>
 
         {/* Venue */}
-        <div>
+        <div className="col-span-1">
           <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
             Venue
           </span>
@@ -108,9 +141,7 @@ export default function AdminCCACard({ cca, onEdit, onDelete, onViewDetails }) {
               className="text-brand-neutral shrink-0 mt-0.5"
               size={14}
             />
-            <span className="leading-snug break-words">
-              {cca.venue || "TBD"}
-            </span>
+            <span className="truncate">{cca.venue || "TBD"}</span>
           </div>
         </div>
 
@@ -155,9 +186,9 @@ export default function AdminCCACard({ cca, onEdit, onDelete, onViewDetails }) {
       {/* FOOTER BUTTON */}
       <button
         onClick={() => onViewDetails(cca)}
-        className="w-full py-2.5 bg-slate-50 hover:bg-brand-primary hover:text-white text-brand-primary text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-transparent hover:border-brand-primary"
+        className="w-full py-2.5 bg-slate-50 hover:bg-brand-primary hover:text-white text-brand-primary text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-100 hover:border-brand-primary shadow-sm"
       >
-        <FiInfo size={14} /> Full Details
+        <FiInfo size={14} /> View Details & Enrollments
       </button>
     </div>
   );

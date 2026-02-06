@@ -7,11 +7,7 @@ import {
   FiUsers,
   FiAlertCircle,
 } from "react-icons/fi";
-import {
-  formatTime12hr,
-  formatPriceIDR,
-  formatDaysShort,
-} from "../../utils/formatters";
+import { formatTime12hr, formatPriceIDR } from "../../utils/formatters";
 
 export default function CCACard({ cca, isSelected, onToggle }) {
   // 1. Calculate Availability
@@ -21,6 +17,22 @@ export default function CCACard({ cca, isSelected, onToggle }) {
 
   // 2. Calculate Percentage for Bar
   const percentage = max > 0 ? Math.min((enrolled / max) * 100, 100) : 0;
+
+  // CHANGED: Helper to summarize schedule
+  const getScheduleSummary = (dates) => {
+    if (!dates || !Array.isArray(dates) || dates.length === 0) return "TBD";
+    const days = [
+      ...new Set(
+        dates.map((d) =>
+          new Date(d).toLocaleDateString("en-US", { weekday: "short" }),
+        ),
+      ),
+    ];
+
+    if (days.length === 1) return days[0];
+    if (days.length <= 2) return days.join(" & ");
+    return "Multiple Dates";
+  };
 
   const handleClick = () => {
     // Only allow toggle if not full, OR if we are unselecting (removing) it
@@ -40,64 +52,54 @@ export default function CCACard({ cca, isSelected, onToggle }) {
             : "border-white bg-white hover:border-brand-primary/20 shadow-sm"
       }`}
     >
-      <div className="flex justify-between items-start mb-4">
-        <div className="min-w-0 flex-1">
-          <h3 className="font-black text-lg text-slate-800 truncate leading-tight">
-            {cca.name}
-          </h3>
-          <p className="text-brand-primary font-bold text-[11px] uppercase flex items-center gap-1.5 mt-1">
-            <FiUser size={12} /> {cca.teacher || "Staff"}
-          </p>
+      {/* SELECTION CHECKMARK */}
+      {isSelected && (
+        <div className="absolute top-4 right-4 text-brand-primary animate-in zoom-in spin-in-90 duration-300">
+          <FiCheckCircle size={28} className="fill-brand-primary text-white" />
         </div>
-        {isSelected && (
-          <FiCheckCircle className="text-brand-primary text-2xl shrink-0 ml-2" />
-        )}
+      )}
+
+      {/* HEADER */}
+      <div className="mb-4 pr-8">
+        <h3
+          className={`font-black text-lg leading-tight mb-1 ${
+            isSelected ? "text-brand-primary" : "text-slate-800"
+          }`}
+        >
+          {cca.name}
+        </h3>
+        <p className="text-sm font-bold text-slate-400">
+          {formatPriceIDR(cca.price)}
+        </p>
       </div>
 
-      {/* NEW: SEAT PROGRESS BAR */}
-      <div className="mb-4">
-        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${
-              isFull ? "bg-red-400" : "bg-brand-primary"
-            }`}
-            style={{ width: `${percentage}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-[10px] font-bold mt-1">
-          <span className={isFull ? "text-red-500" : "text-slate-500"}>
-            {max > 0 ? `${enrolled}/${max} Seats Taken` : "Unlimited Seats"}
-          </span>
-          {isFull && <span className="text-red-500 uppercase">Full</span>}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-y-4 gap-x-4 mb-2">
+      {/* INFO GRID */}
+      <div className="grid grid-cols-2 gap-y-3 gap-x-1 mb-4 flex-1">
         <div className="col-span-1 space-y-1">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
             Schedule
           </p>
-          <div className="flex items-start gap-1.5 text-slate-700 text-xs font-bold flex-wrap">
-            <FiCalendar
-              className="text-brand-neutral shrink-0 mt-0.5"
-              size={14}
-            />
-            <span>{formatDaysShort(cca.days)}</span>
+          <div className="flex items-center gap-1.5 text-slate-700 text-xs font-bold">
+            <FiCalendar className="text-brand-neutral shrink-0" size={14} />
+            <span>{getScheduleSummary(cca.sessionDates)}</span>
           </div>
         </div>
 
         <div className="col-span-1 space-y-1 text-right">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-            Price
+            Teacher
           </p>
-          <div className="flex items-center justify-end gap-0.5 text-brand-primary text-[11px] font-black">
-            <span>{formatPriceIDR(cca.price)}</span>
+          <div className="flex items-center justify-end gap-1.5 text-slate-700 text-xs font-bold">
+            <FiUser className="text-brand-neutral shrink-0" size={14} />
+            <span className="truncate max-w-[80px]">
+              {cca.teacher || "Staff"}
+            </span>
           </div>
         </div>
 
         <div className="col-span-1 space-y-1">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-            Venue
+            Location
           </p>
           <div className="flex items-start gap-1.5 text-slate-700 text-xs font-bold flex-wrap">
             <FiMapPin
@@ -128,9 +130,21 @@ export default function CCACard({ cca, isSelected, onToggle }) {
             <FiAlertCircle size={10} /> Fully Booked
           </span>
         ) : (
-          <span className="text-brand-primary text-[9px] font-black uppercase tracking-widest">
-            {isSelected ? "Selected" : "Click to Select"}
-          </span>
+          <>
+            <div className="flex-1 mr-4">
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    percentage > 80 ? "bg-amber-400" : "bg-brand-primary"
+                  }`}
+                  style={{ width: `${percentage}%` }}
+                />
+              </div>
+            </div>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider shrink-0">
+              {enrolled}/{max} Seats
+            </span>
+          </>
         )}
       </div>
     </div>

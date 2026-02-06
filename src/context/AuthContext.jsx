@@ -25,13 +25,22 @@ export function AuthProvider({ children }) {
       const snap = await getDoc(userRef);
 
       if (!snap.exists()) {
+        // --- ROLE ASSIGNMENT LOGIC ---
+        const email = firebaseUser.email || "";
+
+        // Regex: Check if starts with 2 digits
+        const isStudentEmail = /^\d{2}/.test(email);
+
+        const initialRole = isStudentEmail ? "student" : "teacher";
+        // -----------------------------
+
         await setDoc(userRef, {
           email: firebaseUser.email,
           name: firebaseUser.displayName,
-          role: "student", // default
+          role: initialRole,
           createdAt: new Date(),
         });
-        setRole("student");
+        setRole(initialRole);
       } else {
         setRole(snap.data().role);
       }

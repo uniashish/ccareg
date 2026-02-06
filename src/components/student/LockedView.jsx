@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   FiCheckCircle,
   FiHelpCircle,
@@ -7,9 +7,11 @@ import {
   FiCalendar,
   FiPlus,
   FiAlertCircle,
+  FiBriefcase,
+  FiUser, // Used for Teacher Icon
 } from "react-icons/fi";
 import { db } from "../../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import MessageModal from "../common/MessageModal";
 
 export default function LockedView({
@@ -22,10 +24,10 @@ export default function LockedView({
     contact: "",
   });
 
-  const [bankDetails, setBankDetails] = useState(null);
-  const [isLoadingBank, setIsLoadingBank] = useState(true);
+  const [vendors, setVendors] = useState([]);
   const [enrichedCCAs, setEnrichedCCAs] = useState([]);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [modalState, setModalState] = useState({
     isOpen: false,
@@ -43,7 +45,7 @@ export default function LockedView({
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoadingBank(true);
+      setIsLoading(true);
       try {
         // 1. Fetch Admin Details
         const adminRef = doc(db, "settings", "general");
@@ -56,14 +58,14 @@ export default function LockedView({
           });
         }
 
-        // 2. Fetch Bank Details
-        const bankRef = doc(db, "settings", "bank");
-        const bankSnap = await getDoc(bankRef);
-        if (bankSnap.exists()) {
-          setBankDetails(bankSnap.data());
-        } else {
-          setBankDetails(null);
-        }
+        // 2. Fetch All Vendors (to match CCAs to their owners for Payment Grouping)
+        const vendorsRef = collection(db, "vendors");
+        const vendorsSnap = await getDocs(vendorsRef);
+        const vendorsData = vendorsSnap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setVendors(vendorsData);
 
         // 3. Fetch CCA Details & Calculate Fees
         if (existingSelection?.selectedCCAs) {
@@ -75,13 +77,21 @@ export default function LockedView({
               if (ccaSnap.exists()) {
                 const data = ccaSnap.data();
                 const rawFee = data.fee || data.price || data.cost || 0;
+
+                // Find the vendor for this CCA (needed for payment logic)
+                const vendor = vendorsData.find((v) =>
+                  v.associatedCCAs?.some((ac) => ac.id === item.id),
+                );
+
                 return {
                   ...item,
                   ...data,
                   fee: parseFee(rawFee),
+                  vendorName: vendor?.name || "School/Unknown",
+                  vendorId: vendor?.id || "unknown",
                 };
               }
-              return { ...item, fee: 0 };
+              return { ...item, fee: 0, vendorName: "Unknown" };
             },
           );
 
@@ -94,12 +104,43 @@ export default function LockedView({
       } catch (error) {
         console.error("Error fetching details:", error);
       } finally {
-        setIsLoadingBank(false);
+        setIsLoading(false);
       }
     };
 
     fetchData();
   }, [existingSelection]);
+
+  // --- GROUPING LOGIC ---
+  // Group CCAs by Vendor ID to display specific bank details for each group
+  const paymentGroups = useMemo(() => {
+    const groups = {};
+
+    enrichedCCAs.forEach((cca) => {
+      // Only group paid activities
+      if (cca.fee > 0) {
+        // Find the full vendor object
+        const vendor = vendors.find((v) =>
+          v.associatedCCAs?.some((ac) => ac.id === cca.id),
+        );
+
+        const vendorId = vendor ? vendor.id : "school_default";
+
+        if (!groups[vendorId]) {
+          groups[vendorId] = {
+            vendorInfo: vendor || null, // Null implies fallback/school
+            ccas: [],
+            subtotal: 0,
+          };
+        }
+
+        groups[vendorId].ccas.push(cca);
+        groups[vendorId].subtotal += cca.fee;
+      }
+    });
+
+    return Object.values(groups);
+  }, [enrichedCCAs, vendors]);
 
   const copyToClipboard = (text) => {
     if (!text) return;
@@ -121,11 +162,25 @@ export default function LockedView({
     });
   };
 
+  // Helper to format individual session dates
+  const formatSessionDate = (dateStr) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  };
+
+  // Logic to determine if "Add More" button should show
+  const currentCount = existingSelection?.selectedCCAs?.length || 0;
+  const showAddMoreButton = canSelectMore && currentCount < 3;
+
   return (
     <>
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-        {/* CHANGED: Increased max-width to allow side-by-side layout */}
-        <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+        <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
           {/* HEADER */}
           <div className="bg-slate-900 text-white p-8 text-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-primary via-purple-500 to-brand-primary"></div>
@@ -144,7 +199,7 @@ export default function LockedView({
           </div>
 
           <div className="p-8">
-            {/* STUDENT INFO (Full Width) */}
+            {/* STUDENT INFO */}
             <div className="flex flex-col sm:flex-row justify-between items-center pb-8 border-b border-slate-100 gap-4 mb-8">
               <div className="text-center sm:text-left">
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">
@@ -164,7 +219,7 @@ export default function LockedView({
               </div>
             </div>
 
-            {/* NEW: TWO COLUMN GRID LAYOUT */}
+            {/* TWO COLUMN GRID LAYOUT */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
               {/* --- LEFT COLUMN: ACTIVITIES & FEES --- */}
               <div className="flex flex-col h-full">
@@ -177,26 +232,56 @@ export default function LockedView({
                   {enrichedCCAs.map((cca, index) => (
                     <div
                       key={index}
-                      className="flex justify-between items-center p-4 rounded-2xl bg-white border border-slate-200 shadow-sm"
+                      className="flex flex-col p-4 rounded-2xl bg-white border border-slate-200 shadow-sm"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 font-bold">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-700">{cca.name}</p>
-                          {cca.venue && (
-                            <p className="text-xs text-slate-400 font-medium">
-                              {cca.venue}
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 font-bold shrink-0">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-700">
+                              {cca.name}
                             </p>
-                          )}
+                            <div className="flex flex-col sm:flex-row sm:gap-3 text-xs text-slate-400 font-medium">
+                              {cca.venue && <span>{cca.venue}</span>}
+
+                              {/* CHANGED: REPLACED VENDOR WITH TEACHER NAME */}
+                              {cca.teacher && (
+                                <span className="text-indigo-500 font-bold flex items-center gap-1">
+                                  <FiUser size={10} /> {cca.teacher}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="font-mono font-bold text-slate-600">
+                          {cca.fee > 0
+                            ? `Rp ${cca.fee.toLocaleString()}`
+                            : "Free"}
                         </div>
                       </div>
-                      <div className="font-mono font-bold text-slate-600">
-                        {cca.fee > 0
-                          ? `Rp ${cca.fee.toLocaleString()}`
-                          : "Free"}
-                      </div>
+
+                      {/* SESSION DATES DISPLAY */}
+                      {cca.sessionDates && cca.sessionDates.length > 0 && (
+                        <div className="mt-2 pl-[3.5rem] pt-3 border-t border-slate-100 border-dashed">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <FiCalendar size={10} /> Session Schedule (
+                            {cca.sessionDates.length})
+                          </p>
+                          {/* CHANGED: DARKER TEXT COLOR AND SLIGHTLY LARGER FONT */}
+                          <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto custom-scrollbar pr-1">
+                            {cca.sessionDates.sort().map((dateStr, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs font-bold px-2 py-1 bg-slate-100 border border-slate-200 rounded text-slate-800 whitespace-nowrap"
+                              >
+                                {formatSessionDate(dateStr)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -211,100 +296,148 @@ export default function LockedView({
                   </div>
                 )}
 
-                {/* Add More Button */}
-                {canSelectMore && (
+                {/* Add More Button - SHOWN ONLY IF < 3 SELECTIONS */}
+                {showAddMoreButton && (
                   <div className="mt-6">
                     <button
                       onClick={onSelectMore}
                       className="w-full py-3 rounded-xl border-2 border-dashed border-brand-primary text-brand-primary font-bold hover:bg-brand-primary/5 transition-colors flex items-center justify-center gap-2"
                     >
-                      <FiPlus size={18} /> Add Another Activity
+                      <FiPlus size={18} /> Add Another Activity (
+                      {3 - currentCount} remaining)
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* --- RIGHT COLUMN: BANK DETAILS --- */}
+              {/* --- RIGHT COLUMN: VENDOR PAYMENT DETAILS --- */}
               <div className="h-full">
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider mb-4">
-                  Payment Information
+                  Payment Instructions
                 </h3>
 
                 {totalAmount > 0 ? (
-                  <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 h-full flex flex-col justify-center">
-                    {isLoadingBank ? (
-                      <div className="text-center py-12 text-slate-400 text-sm italic animate-pulse">
-                        Loading bank details...
+                  <div className="space-y-6">
+                    {isLoading ? (
+                      <div className="bg-slate-50 rounded-2xl p-12 text-center text-slate-400 italic animate-pulse">
+                        Loading vendor details...
                       </div>
-                    ) : bankDetails ? (
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                          <FiCreditCard className="text-brand-primary size-5" />
-                          <span>Bank Transfer Details</span>
-                        </div>
+                    ) : paymentGroups.length > 0 ? (
+                      paymentGroups.map((group, idx) => {
+                        const vendor = group.vendorInfo;
+                        return (
+                          <div
+                            key={idx}
+                            className="bg-slate-50 rounded-2xl p-6 border border-slate-200"
+                          >
+                            {/* Vendor Header */}
+                            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-200 border-dashed">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+                                  <FiBriefcase />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-slate-400 uppercase">
+                                    Pay To
+                                  </p>
+                                  <p className="font-bold text-slate-800">
+                                    {vendor ? vendor.name : "School Office"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-bold text-slate-400 uppercase">
+                                  Amount
+                                </p>
+                                <p className="font-black text-brand-primary">
+                                  Rp {group.subtotal.toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
 
-                        <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4 shadow-sm">
-                          <div className="flex justify-between items-center group">
-                            <span className="text-xs text-slate-400 font-bold uppercase">
-                              Bank Name
-                            </span>
-                            <span className="font-bold text-slate-700">
-                              {bankDetails.bankName || "Not Set"}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center group">
-                            <span className="text-xs text-slate-400 font-bold uppercase">
-                              Account Number
-                            </span>
-                            <button
-                              onClick={() =>
-                                copyToClipboard(bankDetails.accountNumber)
-                              }
-                              className="flex items-center gap-2 font-mono font-bold text-slate-700 hover:text-brand-primary transition-colors bg-slate-50 px-2 py-1 rounded"
-                            >
-                              {bankDetails.accountNumber || "Not Set"}{" "}
-                              <FiCopy />
-                            </button>
-                          </div>
-                          <div className="flex justify-between items-center group">
-                            <span className="text-xs text-slate-400 font-bold uppercase">
-                              Account Name
-                            </span>
-                            <span className="font-bold text-slate-700 text-right">
-                              {bankDetails.accountName || "Not Set"}
-                            </span>
-                          </div>
-                        </div>
+                            {/* CCAs in this group */}
+                            <div className="mb-4">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">
+                                For Activities:
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {group.ccas.map((c) => (
+                                  <span
+                                    key={c.id}
+                                    className="text-xs font-bold px-2 py-1 bg-white border border-slate-200 rounded text-slate-600"
+                                  >
+                                    {c.name}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
 
-                        <div className="bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-4 rounded-xl leading-relaxed font-medium flex gap-3">
-                          <FiAlertCircle className="shrink-0 text-lg mt-0.5" />
-                          <p>
-                            Please include the <strong>Student Name</strong> and{" "}
-                            <strong>Reference ID</strong> in your transfer news
-                            for faster verification.
-                          </p>
-                        </div>
-                      </div>
+                            {/* Bank Details Card */}
+                            {vendor ? (
+                              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3 shadow-sm">
+                                <div className="flex justify-between items-center group">
+                                  <span className="text-xs text-slate-400 font-bold uppercase">
+                                    Bank Name
+                                  </span>
+                                  <span className="font-bold text-slate-700">
+                                    {vendor.bankName || "Not Set"}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center group">
+                                  <span className="text-xs text-slate-400 font-bold uppercase">
+                                    Account Number
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      copyToClipboard(vendor.accountNumber)
+                                    }
+                                    className="flex items-center gap-2 font-mono font-bold text-slate-700 hover:text-brand-primary transition-colors bg-slate-50 px-2 py-1 rounded"
+                                  >
+                                    {vendor.accountNumber || "Not Set"}{" "}
+                                    <FiCopy />
+                                  </button>
+                                </div>
+                                <div className="flex justify-between items-center group">
+                                  <span className="text-xs text-slate-400 font-bold uppercase">
+                                    Account Name
+                                  </span>
+                                  <span className="font-bold text-slate-700 text-right">
+                                    {vendor.bankAccountName || "Not Set"}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              // Fallback if no vendor associated (or orphaned data)
+                              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-center">
+                                <FiAlertCircle className="mx-auto text-yellow-500 mb-2" />
+                                <p className="text-xs text-yellow-800 font-medium">
+                                  Bank details not found for this provider.
+                                  Please contact the school office.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                     ) : (
-                      // Fallback if data is missing
-                      <div className="flex flex-col items-center justify-center py-12 text-center text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">
-                        <FiAlertCircle
-                          size={32}
-                          className="mb-3 text-slate-300"
-                        />
-                        <p className="font-bold text-sm">
-                          Payment Details Unavailable
-                        </p>
-                        <p className="text-xs mt-1 max-w-[200px]">
-                          Please contact the school office for payment
-                          instructions.
-                        </p>
+                      // This shouldn't theoretically happen if totalAmount > 0, but as a safe fallback:
+                      <div className="text-center py-8 text-slate-400 text-sm">
+                        No payment details available.
                       </div>
                     )}
+
+                    <div className="bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-4 rounded-xl leading-relaxed font-medium flex gap-3">
+                      <FiAlertCircle className="shrink-0 text-lg mt-0.5" />
+                      <p>
+                        Please perform separate transfers for different vendors.
+                        Include <strong>Student Name</strong> and{" "}
+                        <strong>Ref ID</strong> in transfer news.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   // NO PAYMENT REQUIRED CARD
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-8 text-center h-full flex flex-col items-center justify-center">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-8 text-center h-full flex flex-col items-center justify-center min-h-[300px]">
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
                       <FiCheckCircle className="text-emerald-500" size={32} />
                     </div>
@@ -320,18 +453,21 @@ export default function LockedView({
             </div>
 
             {/* FOOTER */}
+            {/* CHANGED: INCREASED SIZE OF CONTACT DETAILS */}
             <div className="mt-12 pt-8 border-t border-slate-50 text-center">
               {adminDetails.contact && (
-                <div className="text-xs text-slate-400 space-y-1">
-                  <p className="flex items-center justify-center gap-1">
+                <div className="space-y-2">
+                  <p className="flex items-center justify-center gap-1 text-slate-400 text-sm font-medium">
                     <FiHelpCircle /> Need help? Contact:
                   </p>
-                  <p className="font-bold text-slate-600">
-                    {adminDetails.name}
-                  </p>
-                  <p className="text-brand-primary font-bold hover:underline cursor-pointer select-all">
-                    {adminDetails.contact}
-                  </p>
+                  <div className="flex flex-col items-center">
+                    <p className="font-bold text-slate-700 text-lg">
+                      {adminDetails.name}
+                    </p>
+                    <p className="text-brand-primary font-bold text-lg hover:underline cursor-pointer select-all">
+                      {adminDetails.contact}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
