@@ -174,6 +174,7 @@ export default function StudentDashboard() {
               (existingSelection?.selectedCCAs?.length || 0) < maxSelections
             }
             onSelectMore={() => setIsAddingMore(true)}
+            classes={classes}
           />
         ) : (
           <>

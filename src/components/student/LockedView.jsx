@@ -18,6 +18,7 @@ export default function LockedView({
   existingSelection,
   canSelectMore,
   onSelectMore,
+  classes = [],
 }) {
   const [adminDetails, setAdminDetails] = useState({
     name: "Administrator",
@@ -35,6 +36,14 @@ export default function LockedView({
     title: "",
     message: "",
   });
+
+  // Logic to resolve Class Name from ID
+  const displayClassName = useMemo(() => {
+    const matchedClass = classes.find(
+      (c) => c.id === existingSelection?.classId,
+    );
+    return matchedClass ? matchedClass.name : existingSelection?.classId || "";
+  }, [classes, existingSelection]);
 
   // Helper to safely parse fees
   const parseFee = (value) => {
@@ -206,7 +215,7 @@ export default function LockedView({
                   Student Name
                 </p>
                 <p className="text-lg font-bold text-slate-800">
-                  {existingSelection?.studentName}
+                  {existingSelection?.studentName} ({displayClassName})
                 </p>
               </div>
               <div className="text-center sm:text-right">

@@ -26,7 +26,7 @@ export default function CCAManager({
             CCA Management
           </h2>
           <p className="text-slate-500 text-sm">
-            Create and manage activities ({filteredCCAs.length} found)
+            Create and manage CCAs ({filteredCCAs.length} found)
           </p>
         </div>
 
