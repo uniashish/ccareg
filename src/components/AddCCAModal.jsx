@@ -6,15 +6,17 @@ import {
   FiCalendar,
   FiZap,
   FiRefreshCw,
+  FiLink,
 } from "react-icons/fi";
-import { db } from "../firebase"; // Import db
-import { collection, query, where, getDocs } from "firebase/firestore"; // Import Firestore functions
+import { db } from "../firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
   const [form, setForm] = useState({
     name: "",
     teacher: "",
     description: "",
+    hyperlinks: [], // Hyperlinks array
     sessionDates: [],
     startTime: "",
     endTime: "",
@@ -32,10 +34,10 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
   const [genConfig, setGenConfig] = useState({
     startDate: "",
     endDate: "",
-    selectedWeekdays: [], // 0 = Sunday, 1 = Monday, etc.
+    selectedWeekdays: [],
   });
 
-  // --- NEW: AVAILABLE TEACHERS STATE ---
+  // --- AVAILABLE TEACHERS STATE ---
   const [availableTeachers, setAvailableTeachers] = useState([]);
 
   const WEEKDAYS = [
@@ -48,50 +50,40 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
     { id: 0, label: "Sun" },
   ];
 
-  // --- NEW: FETCH TEACHERS/ADMINS ---
   useEffect(() => {
-    if (isOpen) {
-      const fetchTeachers = async () => {
-        try {
-          const usersRef = collection(db, "users");
-          // Query for users with role 'teacher' OR 'admin'
-          const q = query(usersRef, where("role", "in", ["teacher", "admin"]));
-          const snapshot = await getDocs(q);
-
-          const names = snapshot.docs
-            .map((doc) => {
-              const data = doc.data();
-              // Prefer displayName, fallback to name, then email
-              return data.displayName || data.name || data.email;
-            })
-            .filter((name) => name && name.trim() !== ""); // Filter out empty names
-
-          // Remove duplicates and sort alphabetically
-          setAvailableTeachers([...new Set(names)].sort());
-        } catch (error) {
-          console.error("Error fetching teachers:", error);
-        }
-      };
-
-      fetchTeachers();
-    }
+    if (!isOpen) return;
+    const fetchTeachers = async () => {
+      try {
+        const q = query(
+          collection(db, "users"),
+          where("role", "==", "teacher"),
+        );
+        const snapshot = await getDocs(q);
+        const teacherList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setAvailableTeachers(teacherList);
+      } catch (error) {
+        console.error("Error fetching teachers:", error);
+      }
+    };
+    fetchTeachers();
   }, [isOpen]);
 
-  // Handle Edit vs Create Mode
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
         setForm({
           ...initialData,
-          sessionDates: initialData.sessionDates || [],
-          price: initialData.price || 0,
-          maxSeats: initialData.maxSeats === 0 ? "" : initialData.maxSeats,
+          hyperlinks: initialData.hyperlinks || [],
         });
       } else {
         setForm({
           name: "",
           teacher: "",
           description: "",
+          hyperlinks: [],
           sessionDates: [],
           startTime: "",
           endTime: "",
@@ -101,32 +93,49 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
           venue: "",
           isActive: true,
         });
+        setTempDate("");
+        setGenConfig({ startDate: "", endDate: "", selectedWeekdays: [] });
+        setShowGenerator(false);
       }
-      setTempDate("");
-      setShowGenerator(false);
-      setGenConfig({ startDate: "", endDate: "", selectedWeekdays: [] });
     }
-  }, [isOpen, initialData]);
+  }, [initialData, isOpen]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: type === "checkbox" && name === "isActive" ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  // --- DATE MANAGEMENT LOGIC ---
-  const handleAddDate = () => {
-    if (!tempDate) return;
-    if (form.sessionDates.includes(tempDate)) {
-      alert("This date is already added.");
-      return;
-    }
+  // --- HYPERLINK HANDLERS ---
+  const handleAddLink = () => {
+    setForm((prev) => ({
+      ...prev,
+      hyperlinks: [...prev.hyperlinks, { label: "", url: "" }],
+    }));
+  };
 
-    const newDates = [...form.sessionDates, tempDate].sort();
-    setForm((prev) => ({ ...prev, sessionDates: newDates }));
-    setTempDate("");
+  const handleLinkChange = (index, field, value) => {
+    const updatedLinks = [...form.hyperlinks];
+    updatedLinks[index][field] = value;
+    setForm((prev) => ({ ...prev, hyperlinks: updatedLinks }));
+  };
+
+  const handleRemoveLink = (index) => {
+    const updatedLinks = form.hyperlinks.filter((_, i) => i !== index);
+    setForm((prev) => ({ ...prev, hyperlinks: updatedLinks }));
+  };
+
+  // --- DATE HANDLERS ---
+  const handleAddDate = () => {
+    if (tempDate && !form.sessionDates.includes(tempDate)) {
+      setForm((prev) => ({
+        ...prev,
+        sessionDates: [...prev.sessionDates, tempDate].sort(),
+      }));
+      setTempDate("");
+    }
   };
 
   const handleRemoveDate = (dateToRemove) => {
@@ -137,69 +146,38 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
   };
 
   // --- GENERATOR LOGIC ---
-  const toggleGenWeekday = (dayId) => {
+  const toggleWeekday = (id) => {
     setGenConfig((prev) => {
-      const exists = prev.selectedWeekdays.includes(dayId);
-      if (exists) {
-        return {
-          ...prev,
-          selectedWeekdays: prev.selectedWeekdays.filter((d) => d !== dayId),
-        };
+      const current = prev.selectedWeekdays;
+      if (current.includes(id)) {
+        return { ...prev, selectedWeekdays: current.filter((d) => d !== id) };
       } else {
-        return { ...prev, selectedWeekdays: [...prev.selectedWeekdays, dayId] };
+        return { ...prev, selectedWeekdays: [...current, id] };
       }
     });
   };
 
-  const handleGenerateSessions = () => {
-    if (
-      !genConfig.startDate ||
-      !genConfig.endDate ||
-      genConfig.selectedWeekdays.length === 0
-    ) {
-      alert("Please select a Start Date, End Date, and at least one Weekday.");
+  const handleGenerateDates = () => {
+    const { startDate, endDate, selectedWeekdays } = genConfig;
+    if (!startDate || !endDate || selectedWeekdays.length === 0) {
+      alert(
+        "Please fill in start date, end date, and select at least one weekday.",
+      );
       return;
     }
-
-    const start = new Date(genConfig.startDate);
-    const end = new Date(genConfig.endDate);
-
-    if (start > end) {
-      alert("Start date must be before End date.");
-      return;
-    }
-
-    const generatedDates = [];
-    const loopDate = new Date(start);
-
-    // Loop through dates
-    while (loopDate <= end) {
-      if (genConfig.selectedWeekdays.includes(loopDate.getDay())) {
-        // Format as YYYY-MM-DD
-        const dateStr = loopDate.toISOString().split("T")[0];
-        generatedDates.push(dateStr);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const generated = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (selectedWeekdays.includes(d.getDay())) {
+        generated.push(d.toISOString().split("T")[0]);
       }
-      loopDate.setDate(loopDate.getDate() + 1);
     }
-
-    if (generatedDates.length === 0) {
-      alert("No dates matched your selection criteria.");
-      return;
-    }
-
-    // Merge with existing dates, remove duplicates, and sort
-    const combinedDates = [
-      ...new Set([...form.sessionDates, ...generatedDates]),
-    ].sort();
-
-    setForm((prev) => ({ ...prev, sessionDates: combinedDates }));
-    setShowGenerator(false); // Close generator
-    setGenConfig({ startDate: "", endDate: "", selectedWeekdays: [] }); // Reset generator
-  };
-
-  const getDayName = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", { weekday: "short" });
+    const uniqueDates = Array.from(
+      new Set([...form.sessionDates, ...generated]),
+    ).sort();
+    setForm((prev) => ({ ...prev, sessionDates: uniqueDates }));
+    setShowGenerator(false);
   };
 
   const handleSubmit = (e) => {
@@ -212,340 +190,347 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
         onClick={onClose}
       ></div>
 
-      <div className="relative bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
+      <div className="relative bg-white rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <h2 className="text-xl font-black text-slate-800">
-            {initialData ? "Edit Activity" : "Add New Activity"}
+        <div className="flex justify-between items-center p-6 border-b border-slate-100">
+          <h2 className="text-2xl font-black text-slate-800">
+            {initialData ? "Edit Activity" : "New Activity"}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
+            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
           >
-            <FiX size={20} />
+            <FiX size={24} />
           </button>
         </div>
 
-        {/* Scrollable Form Content */}
+        {/* Scrollable Form */}
         <div className="flex-1 overflow-y-auto p-6">
           <form id="ccaForm" onSubmit={handleSubmit} className="space-y-6">
-            {/* 1. Basic Info */}
+            {/* 1. Top Grid: Name, Teacher, Venue */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="col-span-1 md:col-span-2">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-bold text-slate-700 mb-1">
                   Activity Name
                 </label>
                 <input
-                  required
                   type="text"
                   name="name"
                   value={form.name}
                   onChange={handleChange}
-                  placeholder="e.g. Badminton Club"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 placeholder:font-normal"
-                />
-              </div>
-
-              {/* MODIFIED TEACHER INPUT: HYBRID DROPDOWN/TEXT */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  Instructor / Teacher
-                </label>
-                <input
                   required
-                  type="text"
-                  name="teacher"
-                  list="teacher-options" // CONNECTS TO DATALIST
-                  value={form.teacher}
-                  onChange={handleChange}
-                  placeholder="Select or type name..."
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                  autoComplete="off"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700"
+                  placeholder="e.g. Basketball, Chess Club"
                 />
-                <datalist id="teacher-options">
-                  {availableTeachers.map((teacherName, index) => (
-                    <option key={index} value={teacherName} />
-                  ))}
-                </datalist>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                <label className="block text-sm font-bold text-slate-700 mb-1">
+                  Teacher / Instructor
+                </label>
+                {availableTeachers.length > 0 ? (
+                  <select
+                    name="teacher"
+                    value={form.teacher}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                  >
+                    <option value="">-- Select Teacher --</option>
+                    {availableTeachers.map((t) => (
+                      <option key={t.id} value={t.name}>
+                        {t.name} ({t.email})
+                      </option>
+                    ))}
+                    <option value="External Vendor">External Vendor</option>
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    name="teacher"
+                    value={form.teacher}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Instructor Name"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">
                   Venue / Location
                 </label>
                 <input
-                  required
                   type="text"
                   name="venue"
                   value={form.venue}
                   onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder="e.g. Sports Hall"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>
             </div>
 
-            {/* 2. Schedule Section */}
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-              <h3 className="text-sm font-black text-slate-700 mb-4 flex items-center gap-2">
-                <FiCalendar className="text-indigo-500" /> Session Schedule
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                {/* Time Selection */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Start Time
-                  </label>
-                  <input
-                    required
-                    type="time"
-                    name="startTime"
-                    value={form.startTime}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    End Time
-                  </label>
-                  <input
-                    required
-                    type="time"
-                    name="endTime"
-                    value={form.endTime}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Date Selection */}
+            {/* 2. Timing & Price Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <div className="flex justify-between items-end mb-2">
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Session Dates ({form.sessionDates.length})
-                  </label>
-
-                  {/* GENERATE BUTTON */}
-                  <button
-                    type="button"
-                    onClick={() => setShowGenerator(!showGenerator)}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 hover:border-indigo-200 transition-all"
-                  >
-                    <FiZap size={12} />{" "}
-                    {showGenerator ? "Hide Generator" : "Generate Sessions"}
-                  </button>
-                </div>
-
-                {/* DATE GENERATOR PANEL */}
-                {showGenerator && (
-                  <div className="mb-4 p-4 bg-white border border-indigo-100 rounded-xl shadow-sm animate-in slide-in-from-top-2">
-                    <h4 className="text-xs font-black text-indigo-800 uppercase tracking-wide mb-3 flex items-center gap-2">
-                      <FiRefreshCw
-                        className={
-                          genConfig.startDate && genConfig.endDate
-                            ? "animate-spin-slow"
-                            : ""
-                        }
-                      />
-                      Auto-Generate Sessions
-                    </h4>
-
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                          From
-                        </label>
-                        <input
-                          type="date"
-                          value={genConfig.startDate}
-                          onChange={(e) =>
-                            setGenConfig({
-                              ...genConfig,
-                              startDate: e.target.value,
-                            })
-                          }
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                          To
-                        </label>
-                        <input
-                          type="date"
-                          value={genConfig.endDate}
-                          onChange={(e) =>
-                            setGenConfig({
-                              ...genConfig,
-                              endDate: e.target.value,
-                            })
-                          }
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">
-                        Repeat On
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {WEEKDAYS.map((day) => (
-                          <button
-                            key={day.id}
-                            type="button"
-                            onClick={() => toggleGenWeekday(day.id)}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                              genConfig.selectedWeekdays.includes(day.id)
-                                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                                : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
-                            }`}
-                          >
-                            {day.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={handleGenerateSessions}
-                        className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm"
-                      >
-                        Generate Dates
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowGenerator(false)}
-                        className="px-4 py-2 bg-white border border-slate-200 text-slate-500 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* MANUAL ADD INPUT */}
-                <div className="flex gap-2 mb-3">
-                  <input
-                    type="date"
-                    value={tempDate}
-                    onChange={(e) => setTempDate(e.target.value)}
-                    className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddDate}
-                    disabled={!tempDate}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                  >
-                    <FiPlus /> Add
-                  </button>
-                </div>
-
-                {/* Date List Chips */}
-                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                  {form.sessionDates.length > 0 ? (
-                    form.sessionDates.map((date, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm shadow-sm group"
-                      >
-                        <span className="font-mono font-bold text-indigo-600 text-xs uppercase">
-                          {getDayName(date)}
-                        </span>
-                        <span className="text-slate-700 font-medium">
-                          {date}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveDate(date)}
-                          className="text-slate-300 hover:text-red-500 transition-colors"
-                        >
-                          <FiTrash2 size={14} />
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-slate-400 text-xs italic">
-                      No dates added yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Pricing & Capacity */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="col-span-2">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  Price (IDR)
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Start Time
                 </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-2.5 text-slate-400 font-bold">
-                    Rp
-                  </span>
-                  <input
-                    type="number"
-                    name="price"
-                    min="0"
-                    value={form.price}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Leave 0 for free activities
-                </p>
+                <input
+                  type="time"
+                  name="startTime"
+                  value={form.startTime}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  End Time
+                </label>
+                <input
+                  type="time"
+                  name="endTime"
+                  value={form.endTime}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                   Max Seats
                 </label>
                 <input
                   type="number"
                   name="maxSeats"
-                  min="0"
-                  placeholder="∞"
                   value={form.maxSeats}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="Unlimited"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Price ({form.currency})
+                </label>
+                <input
+                  type="number"
+                  name="price"
+                  value={form.price}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>
             </div>
 
-            {/* 4. Description */}
+            {/* 3. Session Dates Manager */}
+            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+              <div className="flex justify-between items-center mb-3">
+                <label className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                  <FiCalendar /> Session Dates
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowGenerator(!showGenerator)}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-white px-2 py-1 rounded shadow-sm"
+                >
+                  <FiRefreshCw
+                    className={showGenerator ? "animate-spin" : ""}
+                  />
+                  {showGenerator ? "Hide Generator" : "Auto-Generate"}
+                </button>
+              </div>
+
+              {/* Generator UI */}
+              {showGenerator && (
+                <div className="mb-4 bg-white p-3 rounded-xl shadow-sm border border-indigo-100 animate-in slide-in-from-top-2">
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={genConfig.startDate}
+                        onChange={(e) =>
+                          setGenConfig({
+                            ...genConfig,
+                            startDate: e.target.value,
+                          })
+                        }
+                        className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={genConfig.endDate}
+                        onChange={(e) =>
+                          setGenConfig({
+                            ...genConfig,
+                            endDate: e.target.value,
+                          })
+                        }
+                        className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase block mb-1">
+                      Repeats On
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAYS.map((day) => (
+                        <button
+                          key={day.id}
+                          type="button"
+                          onClick={() => toggleWeekday(day.id)}
+                          className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                            genConfig.selectedWeekdays.includes(day.id)
+                              ? "bg-indigo-600 text-white border-indigo-600"
+                              : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300"
+                          }`}
+                        >
+                          {day.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateDates}
+                    className="w-full py-2 bg-indigo-100 text-indigo-700 font-bold rounded-lg hover:bg-indigo-200 transition-colors text-xs flex items-center justify-center gap-2"
+                  >
+                    <FiZap /> Generate Dates
+                  </button>
+                </div>
+              )}
+
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="date"
+                  value={tempDate}
+                  onChange={(e) => setTempDate(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:border-indigo-500 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddDate}
+                  disabled={!tempDate}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiPlus />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                {form.sessionDates.length > 0 ? (
+                  form.sessionDates.map((date) => (
+                    <span
+                      key={date}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-indigo-100 text-indigo-700 text-xs font-bold rounded-full shadow-sm"
+                    >
+                      {date}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDate(date)}
+                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-100 hover:text-red-500 transition-colors"
+                      >
+                        <FiX size={12} />
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-indigo-300 italic">
+                    No dates added yet.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* 4. Description (Moved Here) */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+              <label className="block text-sm font-bold text-slate-700 mb-1">
                 Description
               </label>
               <textarea
                 name="description"
-                rows="3"
                 value={form.description}
                 onChange={handleChange}
-                placeholder="Brief details about the activity..."
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-              ></textarea>
+                rows="3"
+                className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                placeholder="Brief description of the activity..."
+              />
             </div>
 
-            {/* 5. Status Toggle */}
-            <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
+            {/* 5. NEW: External Links & Resources (Placed Below Description) */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-bold text-slate-700">
+                  External Links & Resources
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAddLink}
+                  className="text-xs font-bold text-indigo-600 flex items-center gap-1 hover:text-indigo-800"
+                >
+                  <FiPlus /> Add Link
+                </button>
+              </div>
+              <div className="space-y-2">
+                {form.hyperlinks.map((link, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Label (e.g. Brochure)"
+                      value={link.label}
+                      onChange={(e) =>
+                        handleLinkChange(index, "label", e.target.value)
+                      }
+                      className="flex-1 px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="URL (https://...)"
+                      value={link.url}
+                      onChange={(e) =>
+                        handleLinkChange(index, "url", e.target.value)
+                      }
+                      className="flex-[2] px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveLink(index)}
+                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                      title="Remove Link"
+                    >
+                      <FiTrash2 />
+                    </button>
+                  </div>
+                ))}
+                {form.hyperlinks.length === 0 && (
+                  <p className="text-xs text-slate-400 italic">
+                    No links added yet. Click "Add Link" to attach resources.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* 6. Status Toggle */}
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
               <div>
-                <span className="block text-sm font-bold text-slate-700">
-                  Activity Status
+                <span className="block font-bold text-slate-700">
+                  Registration Active
                 </span>
                 <span className="text-xs text-slate-500">
-                  Hidden activities won't appear to students
+                  Allow students to sign up for this activity
                 </span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -576,7 +561,7 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
             form="ccaForm"
             className="px-6 py-2.5 bg-indigo-600 border border-transparent rounded-xl text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
           >
-            Save Activity
+            {initialData ? "Save Changes" : "Create Activity"}
           </button>
         </div>
       </div>
