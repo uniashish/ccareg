@@ -18,7 +18,7 @@ export default function LockedView({
   existingSelection,
   canSelectMore,
   onSelectMore,
-  classes = [],
+  // Removed classes prop since we're not using it anymore
 }) {
   const [adminDetails, setAdminDetails] = useState({
     name: "Administrator",
@@ -37,13 +37,7 @@ export default function LockedView({
     message: "",
   });
 
-  // Logic to resolve Class Name from ID
-  const displayClassName = useMemo(() => {
-    const matchedClass = classes.find(
-      (c) => c.id === existingSelection?.classId,
-    );
-    return matchedClass ? matchedClass.name : existingSelection?.classId || "";
-  }, [classes, existingSelection]);
+  // Removed displayClassName logic since we're not displaying it anymore
 
   // Helper to safely parse fees
   const parseFee = (value) => {
@@ -214,8 +208,9 @@ export default function LockedView({
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">
                   Student Name
                 </p>
+                {/* REMOVED: Class name display */}
                 <p className="text-lg font-bold text-slate-800">
-                  {existingSelection?.studentName} ({displayClassName})
+                  {existingSelection?.studentName}
                 </p>
               </div>
               <div className="text-center sm:text-right">
@@ -278,7 +273,6 @@ export default function LockedView({
                             <FiCalendar size={10} /> Session Schedule (
                             {cca.sessionDates.length})
                           </p>
-                          {/* CHANGED: DARKER TEXT COLOR AND SLIGHTLY LARGER FONT */}
                           <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto custom-scrollbar pr-1">
                             {cca.sessionDates.sort().map((dateStr, idx) => (
                               <span
@@ -416,7 +410,6 @@ export default function LockedView({
                                 </div>
                               </div>
                             ) : (
-                              // Fallback if no vendor associated (or orphaned data)
                               <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-center">
                                 <FiAlertCircle className="mx-auto text-yellow-500 mb-2" />
                                 <p className="text-xs text-yellow-800 font-medium">
@@ -429,7 +422,6 @@ export default function LockedView({
                         );
                       })
                     ) : (
-                      // This shouldn't theoretically happen if totalAmount > 0, but as a safe fallback:
                       <div className="text-center py-8 text-slate-400 text-sm">
                         No payment details available.
                       </div>
@@ -445,7 +437,6 @@ export default function LockedView({
                     </div>
                   </div>
                 ) : (
-                  // NO PAYMENT REQUIRED CARD
                   <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-8 text-center h-full flex flex-col items-center justify-center min-h-[300px]">
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
                       <FiCheckCircle className="text-emerald-500" size={32} />
@@ -462,7 +453,6 @@ export default function LockedView({
             </div>
 
             {/* FOOTER */}
-            {/* CHANGED: INCREASED SIZE OF CONTACT DETAILS */}
             <div className="mt-12 pt-8 border-t border-slate-50 text-center">
               {adminDetails.contact && (
                 <div className="space-y-2">

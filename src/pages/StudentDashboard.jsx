@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { FiGrid, FiCheckCircle } from "react-icons/fi";
 import { db } from "../firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import Header from "../components/Header";
 
 // 1. IMPORT THE BRAIN
@@ -33,6 +33,10 @@ export default function StudentDashboard() {
 
   const [minSelections, setMinSelections] = useState(1);
   const [maxSelections, setMaxSelections] = useState(3);
+
+  // --- NEW STATE: ADMIN CONTACT INFO ---
+  const [adminName, setAdminName] = useState("");
+  const [adminContact, setAdminContact] = useState("");
 
   // --- NEW STATE: TRACK MANUAL EDIT MODE ---
   const [isAddingMore, setIsAddingMore] = useState(false);
@@ -66,13 +70,16 @@ export default function StudentDashboard() {
     ? closeLocalModal
     : closeHookModal;
 
-  // --- 1. FETCH LIMITS ---
+  // --- 1. FETCH LIMITS AND ADMIN CONTACT INFO ---
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.minCCAs !== undefined) setMinSelections(Number(data.minCCAs));
         if (data.maxCCAs !== undefined) setMaxSelections(Number(data.maxCCAs));
+        // Fetch admin contact details
+        if (data.adminName) setAdminName(data.adminName);
+        if (data.adminContact) setAdminContact(data.adminContact);
       }
     });
     return () => unsub();
@@ -129,7 +136,20 @@ export default function StudentDashboard() {
     setSelectedCCAs([]);
   };
 
-  // --- 5. SMART TOGGLE LOGIC ---
+  // --- 5. HELPER FUNCTION TO FORMAT CONTACT INFO ---
+  const getContactInfo = () => {
+    if (adminName && adminContact) {
+      return `For assistance, please contact ${adminName} at ${adminContact}.`;
+    } else if (adminContact) {
+      return `For assistance, please contact ${adminContact}.`;
+    } else if (adminName) {
+      return `For assistance, please contact ${adminName}.`;
+    } else {
+      return "Please contact the school office for assistance.";
+    }
+  };
+
+  // --- 6. SMART TOGGLE LOGIC WITH ENHANCED ERROR MESSAGES ---
   const handleToggleCCA = (cca) => {
     const isPreviouslyLocked = previouslySelectedIds.includes(cca.id);
 
@@ -137,7 +157,7 @@ export default function StudentDashboard() {
       showLocalModal(
         "error",
         "Action Denied",
-        "You cannot remove an activity that was confirmed in a previous session.",
+        `You cannot remove the CCA that was confirmed earlier. ${getContactInfo()}`,
       );
       return;
     }
@@ -153,7 +173,7 @@ export default function StudentDashboard() {
       showLocalModal(
         "info",
         "Limit Reached",
-        `You can only select up to ${maxSelections} activities.`,
+        `You can only select up to ${maxSelections} CCAs. ${getContactInfo()}`,
       );
       return;
     }
@@ -228,23 +248,13 @@ export default function StudentDashboard() {
                     const isLocked = previouslySelectedIds.includes(cca.id);
 
                     return (
-                      <div
+                      <CCACard
                         key={cca.id}
-                        className={isLocked ? "opacity-75 grayscale-[0.3]" : ""}
-                      >
-                        <CCACard
-                          cca={cca}
-                          isSelected={isSelected}
-                          onToggle={() => handleToggleCCA(cca)}
-                        />
-                        {isLocked && isSelected && (
-                          <div className="mt-1 text-center">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-100 px-2 py-0.5 rounded-full">
-                              Previously Confirmed
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                        cca={cca}
+                        isSelected={isSelected}
+                        isLocked={isLocked} // ✅ ADDED: Pass isLocked to CCACard
+                        onToggle={() => handleToggleCCA(cca)}
+                      />
                     );
                   })}
                 </div>
@@ -276,6 +286,12 @@ export default function StudentDashboard() {
             )}
           </>
         )}
+
+        <footer className="py-6 text-center">
+          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+            Developed and Maintained by Ashish Bhatnagar SISKGNEJ
+          </p>
+        </footer>
       </main>
 
       {/* --- SHARED MESSAGE MODAL --- */}

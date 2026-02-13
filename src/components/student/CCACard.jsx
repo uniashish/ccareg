@@ -8,10 +8,16 @@ import {
   FiAlertCircle,
   FiLink,
   FiExternalLink,
+  FiLock, // Added for locked indicator
 } from "react-icons/fi";
 import { formatTime12hr, formatPriceIDR } from "../../utils/formatters";
 
-export default function CCACard({ cca, isSelected, onToggle }) {
+export default function CCACard({
+  cca,
+  isSelected,
+  isLocked = false,
+  onToggle,
+}) {
   // 1. Calculate Availability
   const enrolled = cca.enrolledCount || 0;
   const max = cca.maxSeats || 0;
@@ -37,27 +43,56 @@ export default function CCACard({ cca, isSelected, onToggle }) {
   };
 
   const handleClick = () => {
+    // Prevent interaction if locked
+    if (isLocked) return;
+
     // Only allow toggle if not full, OR if we are unselecting (removing) it
     if (!isFull || isSelected) {
       onToggle(cca);
     }
   };
 
+  // Determine styling based on priority: locked > selected > full > normal
+  const getCardClasses = () => {
+    if (isLocked) {
+      return "border-red-400 bg-red-50/50 opacity-75 cursor-not-allowed";
+    }
+    if (isSelected) {
+      return "border-brand-primary shadow-xl shadow-brand-primary/10 ring-4 ring-brand-primary/10 scale-[1.02]";
+    }
+    if (isFull) {
+      return "border-slate-100 opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0";
+    }
+    return "border-transparent shadow-sm hover:shadow-md hover:border-slate-200 hover:-translate-y-1";
+  };
+
   return (
     <div
       onClick={handleClick}
-      className={`relative group flex flex-col h-full bg-white rounded-2xl border-2 transition-all duration-300 cursor-pointer overflow-hidden ${
-        isSelected
-          ? "border-brand-primary shadow-xl shadow-brand-primary/10 ring-4 ring-brand-primary/10 scale-[1.02]"
-          : isFull
-            ? "border-slate-100 opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0"
-            : "border-transparent shadow-sm hover:shadow-md hover:border-slate-200 hover:-translate-y-1"
-      }`}
+      className={`relative group flex flex-col h-full bg-white rounded-2xl border-2 transition-all duration-300 overflow-hidden ${
+        isLocked ? "cursor-not-allowed" : "cursor-pointer"
+      } ${getCardClasses()}`}
     >
-      {/* SELECTION INDICATOR OVERLAY */}
-      {isSelected && (
+      {/* LOCKED INDICATOR OVERLAY */}
+      {isLocked && (
+        <div className="absolute top-3 right-3 z-20 bg-red-500 text-white p-1.5 rounded-full shadow-lg animate-in zoom-in duration-300">
+          <FiLock size={16} className="stroke-[3px]" />
+        </div>
+      )}
+
+      {/* SELECTION INDICATOR OVERLAY (only if not locked) */}
+      {isSelected && !isLocked && (
         <div className="absolute top-3 right-3 z-20 bg-brand-primary text-white p-1.5 rounded-full shadow-lg animate-in zoom-in spin-in-180 duration-300">
           <FiCheckCircle size={20} className="stroke-[3px]" />
+        </div>
+      )}
+
+      {/* LOCKED LABEL (additional visual indicator) */}
+      {isLocked && (
+        <div className="absolute top-3 left-3 z-20 bg-red-500 text-white px-2 py-1 rounded-full shadow-lg">
+          <span className="text-[10px] font-bold uppercase tracking-wide">
+            Previously Selected
+          </span>
         </div>
       )}
 
@@ -80,7 +115,11 @@ export default function CCACard({ cca, isSelected, onToggle }) {
 
           <h3
             className={`text-lg font-black leading-tight mb-2 ${
-              isSelected ? "text-brand-primary" : "text-slate-800"
+              isLocked
+                ? "text-red-600"
+                : isSelected
+                  ? "text-brand-primary"
+                  : "text-slate-800"
             }`}
           >
             {cca.name}
@@ -99,7 +138,10 @@ export default function CCACard({ cca, isSelected, onToggle }) {
                   href={link.url}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Still allow links to work even when locked
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wide rounded-full hover:bg-indigo-100 transition-colors border border-indigo-100"
                 >
                   <FiLink size={10} />
@@ -171,7 +213,11 @@ export default function CCACard({ cca, isSelected, onToggle }) {
               {cca.sessionDates.sort().map((date) => (
                 <span
                   key={date}
-                  className="px-2 py-1 bg-white border border-slate-200 rounded text-[10px] text-slate-600 font-medium whitespace-nowrap shadow-sm"
+                  className={`px-2 py-1 border border-slate-200 rounded text-[10px] font-medium whitespace-nowrap shadow-sm ${
+                    isLocked
+                      ? "bg-red-100 text-red-700 border-red-200"
+                      : "bg-white text-slate-600"
+                  }`}
                 >
                   {new Date(date).toLocaleDateString("en-US", {
                     month: "short",
@@ -189,7 +235,13 @@ export default function CCACard({ cca, isSelected, onToggle }) {
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
             <FiUsers size={10} />
-            {isFull ? "Class Full" : `${max - enrolled} Spots Left`}
+            {isLocked
+              ? "Previously Confirmed"
+              : isFull
+                ? "Class Full"
+                : max > 0
+                  ? `${max - enrolled} Spots Left`
+                  : `${enrolled} Seat Booked`}
           </span>
           <span className="text-[10px] font-bold text-slate-300">
             {enrolled} / {max > 0 ? max : "∞"}
@@ -200,17 +252,20 @@ export default function CCACard({ cca, isSelected, onToggle }) {
         <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              isFull
+              isLocked
                 ? "bg-red-400"
-                : percentage > 80
-                  ? "bg-amber-400"
-                  : "bg-brand-primary"
+                : isFull
+                  ? "bg-red-400"
+                  : percentage > 80
+                    ? "bg-amber-400"
+                    : "bg-brand-primary"
             }`}
             style={{ width: `${percentage}%` }}
           />
         </div>
 
-        {isFull && !isSelected && (
+        {/* Full overlay (only show if not locked and not selected) */}
+        {isFull && !isSelected && !isLocked && (
           <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-2xl">
             <span className="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest shadow-sm border border-red-100 flex items-center gap-2">
               <FiAlertCircle /> Fully Booked

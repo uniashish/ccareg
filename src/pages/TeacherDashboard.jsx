@@ -17,7 +17,7 @@ import {
   FiLayers,
 } from "react-icons/fi";
 
-// --- SUB-COMPONENT: CCA DETAILS MODAL (NEW) ---
+// --- SUB-COMPONENT: CCA DETAILS MODAL (MODIFIED) ---
 function CCADetailsModal({ isOpen, onClose, cca }) {
   if (!isOpen || !cca) return null;
 
@@ -27,13 +27,54 @@ function CCADetailsModal({ isOpen, onClose, cca }) {
   const isFull = max > 0 && enrolled >= max;
   const percentage = max > 0 ? Math.min((enrolled / max) * 100, 100) : 0;
 
+  // Helper function to format date as "9th March"
+  const formatDateWithoutYear = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      const day = date.getDate();
+      const month = date.toLocaleString("en-US", { month: "long" });
+
+      // Add ordinal suffix
+      const getOrdinalSuffix = (day) => {
+        if (day > 3 && day < 21) return "th";
+        switch (day % 10) {
+          case 1:
+            return "st";
+          case 2:
+            return "nd";
+          case 3:
+            return "rd";
+          default:
+            return "th";
+        }
+      };
+
+      return `${day}${getOrdinalSuffix(day)} ${month}`;
+    } catch (error) {
+      return dateString; // Return original if parsing fails
+    }
+  };
+
+  // Format session dates
+  const formatSchedule = () => {
+    if (!cca.sessionDates) return "TBA";
+
+    if (Array.isArray(cca.sessionDates)) {
+      return cca.sessionDates
+        .map((date) => formatDateWithoutYear(date))
+        .join(", ");
+    } else {
+      return formatDateWithoutYear(cca.sessionDates);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
         <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
           <div>
             <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-2 py-1 rounded-md">
-              Activity Details
+              CCA Details
             </span>
             <h2 className="text-2xl font-black text-slate-800 mt-2 leading-tight">
               {cca.name}
@@ -57,7 +98,7 @@ function CCADetailsModal({ isOpen, onClose, cca }) {
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase">
-                Enrollment Status
+                No. of Students
               </span>
               <span
                 className={`text-xs font-black px-2 py-0.5 rounded ${isFull ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}
@@ -85,10 +126,10 @@ function CCADetailsModal({ isOpen, onClose, cca }) {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase">
-                  Instructor
+                  Teacher In-Charge
                 </p>
                 <p className="font-bold text-slate-700">
-                  {cca.instructor || "To Be Announced"}
+                  {cca.teacher || "To Be Announced"}
                 </p>
               </div>
             </div>
@@ -113,11 +154,7 @@ function CCADetailsModal({ isOpen, onClose, cca }) {
                 <p className="text-xs font-bold text-slate-400 uppercase">
                   Schedule
                 </p>
-                <p className="font-bold text-slate-700">
-                  {Array.isArray(cca.schedule)
-                    ? cca.schedule.join(", ")
-                    : cca.schedule || "TBA"}
-                </p>
+                <p className="font-bold text-slate-700">{formatSchedule()}</p>
               </div>
             </div>
             <div className="flex gap-3 items-start">
@@ -153,7 +190,7 @@ function CCADetailsModal({ isOpen, onClose, cca }) {
   );
 }
 
-// --- SUB-COMPONENT: STUDENT DETAILS MODAL ---
+// --- SUB-COMPONENT: STUDENT DETAILS MODAL (RESTRUCTURED) ---
 function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
   if (!isOpen || !selection) return null;
 
@@ -184,7 +221,7 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto">
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">
-            Selected Activities ({selection.selectedCCAs?.length || 0})
+            Selected CCAs ({selection.selectedCCAs?.length || 0})
           </h3>
 
           <div className="space-y-3">
@@ -195,10 +232,6 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
                 const timeDisplay = fullDetails.startTime
                   ? `${fullDetails.startTime}${fullDetails.endTime ? " - " + fullDetails.endTime : ""}`
                   : "Time TBD";
-
-                const scheduleDisplay = Array.isArray(fullDetails.schedule)
-                  ? fullDetails.schedule.join(", ")
-                  : fullDetails.schedule || "Dates TBD";
 
                 return (
                   <div
@@ -216,13 +249,8 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex items-center gap-2 text-slate-500 bg-white p-2 rounded-lg border border-slate-100">
-                        <FiCalendar className="text-brand-primary shrink-0" />
-                        <span className="truncate font-medium">
-                          {scheduleDisplay}
-                        </span>
-                      </div>
+                    {/* Restructured to 3-column grid without schedule */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
                       <div className="flex items-center gap-2 text-slate-500 bg-white p-2 rounded-lg border border-slate-100">
                         <FiClock className="text-brand-primary shrink-0" />
                         <span className="truncate font-medium">
@@ -238,7 +266,7 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
                       <div className="flex items-center gap-2 text-slate-500 bg-white p-2 rounded-lg border border-slate-100">
                         <FiUser className="text-amber-500 shrink-0" />
                         <span className="truncate">
-                          {fullDetails.instructor || "Instructor TBD"}
+                          {fullDetails.teacher || "Instructor TBD"}
                         </span>
                       </div>
                     </div>
@@ -247,7 +275,7 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
               })
             ) : (
               <div className="text-center py-8 text-slate-400 italic">
-                No activities selected.
+                No CCA selected.
               </div>
             )}
           </div>
@@ -329,10 +357,12 @@ export default function TeacherDashboard() {
   }, [selections, classes, searchTerm, filterClass, filterCCA]);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    // UPDATED CONTAINER: Using Flexbox column to push footer to bottom
+    <div className="flex flex-col min-h-screen bg-slate-50">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      {/* UPDATED MAIN: flex-grow ensures it takes up available space */}
+      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* --- PAGE HEADER & FILTERS --- */}
         <div className="mb-8">
           <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-6">
@@ -379,7 +409,7 @@ export default function TeacherDashboard() {
                 onChange={(e) => setFilterCCA(e.target.value)}
                 className="w-full pl-9 pr-4 py-3 bg-slate-50 border-transparent focus:bg-white focus:border-brand-primary rounded-xl text-xs font-bold text-slate-600 transition-all outline-none cursor-pointer appearance-none truncate"
               >
-                <option value="">All Selections</option>
+                <option value="">All CCAs</option>
                 {ccas.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -403,18 +433,21 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
-        {/* --- 2-COLUMN LAYOUT --- */}
+        {/* --- 2-COLUMN LAYOUT WITH EXPLICIT HEIGHTS --- */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* LEFT COLUMN: CCA LIST (Span 4) */}
+          {/* LEFT COLUMN: CCA LIST (Span 4) - Fixed Height with Scrollbar */}
           <div className="lg:col-span-4 space-y-4">
             <div className="flex items-center gap-2 mb-2 px-1">
               <FiLayers className="text-brand-primary" />
               <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
-                Activities Directory
+                CCA List
               </h2>
             </div>
 
-            <div className="space-y-3">
+            <div
+              className="space-y-3 overflow-y-auto border border-slate-200 bg-slate-50/50 rounded-2xl p-4"
+              style={{ height: "calc(100vh - 400px)", minHeight: "400px" }}
+            >
               {loading ? (
                 <div className="text-center py-10 text-slate-400">
                   Loading CCAs...
@@ -438,9 +471,7 @@ export default function TeacherDashboard() {
                     </div>
                     <div className="mt-2 text-xs text-slate-500 flex items-center gap-2">
                       <FiUser size={12} />
-                      <span className="truncate">
-                        {cca.instructor || "TBA"}
-                      </span>
+                      <span className="truncate">{cca.teacher || "TBA"}</span>
                     </div>
                     {/* Mini Progress Bar */}
                     <div className="mt-3 flex items-center gap-2">
@@ -466,7 +497,7 @@ export default function TeacherDashboard() {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: STUDENT LIST (Span 8) */}
+          {/* RIGHT COLUMN: STUDENT LIST (Span 8) - Fixed Height with Scrollbar */}
           <div className="lg:col-span-8">
             <div className="flex items-center gap-2 mb-6 px-1">
               <FiUsers className="text-brand-primary" />
@@ -478,7 +509,10 @@ export default function TeacherDashboard() {
               </span>
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div
+              className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden"
+              style={{ height: "calc(100vh - 400px)", minHeight: "400px" }}
+            >
               {loading ? (
                 <div className="p-12 flex justify-center text-slate-400">
                   <span className="animate-pulse font-bold">
@@ -486,9 +520,9 @@ export default function TeacherDashboard() {
                   </span>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="h-full overflow-y-auto">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-100">
+                    <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
                       <tr>
                         <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
                           Student
@@ -561,6 +595,13 @@ export default function TeacherDashboard() {
           </div>
         </div>
       </main>
+
+      {/* --- ADDED FOOTER --- */}
+      <footer className="w-full py-6 text-center border-t border-slate-200 bg-slate-50 mt-auto">
+        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+          Developed and Maintained by Ashish Bhatnagar SISKGNEJ
+        </p>
+      </footer>
 
       {/* --- MODALS --- */}
       <StudentDetailsModal
