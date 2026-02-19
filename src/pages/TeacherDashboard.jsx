@@ -4,7 +4,6 @@ import { db } from "../firebase";
 import { collection, getDocs } from "firebase/firestore";
 import {
   FiSearch,
-  FiFilter,
   FiUser,
   FiGrid,
   FiActivity,
@@ -12,13 +11,15 @@ import {
   FiCalendar,
   FiMapPin,
   FiClock,
-  FiInfo,
+  FiChevronDown,
   FiUsers,
   FiLayers,
 } from "react-icons/fi";
+import { downloadSelectionsCSV } from "../utils/csvExporter";
+import { downloadSelectionsPDF } from "../utils/pdfExporter";
 
 // --- SUB-COMPONENT: CCA DETAILS MODAL (MODIFIED) ---
-function CCADetailsModal({ isOpen, onClose, cca }) {
+function CCADetailsModal({ isOpen, onClose, cca, classes }) {
   if (!isOpen || !cca) return null;
 
   // Calculate stats
@@ -27,12 +28,44 @@ function CCADetailsModal({ isOpen, onClose, cca }) {
   const isFull = max > 0 && enrolled >= max;
   const percentage = max > 0 ? Math.min((enrolled / max) * 100, 100) : 0;
 
+  // Compute which classes this CCA is available to (allowedCCAs)
+  const assignedClasses =
+    classes
+      ?.filter((c) => c.allowedCCAs?.includes(cca.id))
+      .map((c) => c.name)
+      .sort()
+      .join(", ") || "None";
+
   // Helper function to format date as "9th March"
   const formatDateWithoutYear = (dateString) => {
     try {
-      const date = new Date(dateString);
-      const day = date.getDate();
-      const month = date.toLocaleString("en-US", { month: "long" });
+      if (!dateString) return dateString;
+
+      // Normalize possible Firestore Timestamp, epoch seconds, or plain string
+      let dateObj = dateString;
+      // Firestore Timestamp instance (has toDate)
+      if (typeof dateObj === "object" && typeof dateObj.toDate === "function") {
+        dateObj = dateObj.toDate();
+      } else if (
+        typeof dateObj === "object" &&
+        dateObj !== null &&
+        ("seconds" in dateObj || "nanoseconds" in dateObj)
+      ) {
+        // Raw Firestore timestamp-like object
+        dateObj = new Date((dateObj.seconds || 0) * 1000);
+      } else if (typeof dateObj === "number") {
+        // Unix ms epoch or seconds? assume ms if > 1e12 else seconds
+        dateObj = new Date(dateObj > 1e12 ? dateObj : dateObj * 1000);
+      } else {
+        // string or other
+        dateObj = new Date(dateObj);
+      }
+
+      if (!(dateObj instanceof Date) || isNaN(dateObj.getTime()))
+        return dateString;
+
+      const day = dateObj.getDate();
+      const month = dateObj.toLocaleString("en-US", { month: "short" });
 
       // Add ordinal suffix
       const getOrdinalSuffix = (day) => {
@@ -50,37 +83,24 @@ function CCADetailsModal({ isOpen, onClose, cca }) {
       };
 
       return `${day}${getOrdinalSuffix(day)} ${month}`;
-    } catch (error) {
+    } catch {
       return dateString; // Return original if parsing fails
-    }
-  };
-
-  // Format session dates
-  const formatSchedule = () => {
-    if (!cca.sessionDates) return "TBA";
-
-    if (Array.isArray(cca.sessionDates)) {
-      return cca.sessionDates
-        .map((date) => formatDateWithoutYear(date))
-        .join(", ");
-    } else {
-      return formatDateWithoutYear(cca.sessionDates);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+        <div className="p-5 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-2 py-1 rounded-md">
+            <span className="text-[9px] font-black uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded-md">
               CCA Details
             </span>
-            <h2 className="text-2xl font-black text-slate-800 mt-2 leading-tight">
+            <h2 className="text-xl font-black text-slate-800 mt-2 leading-tight">
               {cca.name}
             </h2>
             {cca.category && (
-              <span className="text-sm font-bold text-slate-400">
+              <span className="text-xs font-bold text-slate-400">
                 {cca.category}
               </span>
             )}
@@ -93,15 +113,15 @@ function CCADetailsModal({ isOpen, onClose, cca }) {
           </button>
         </div>
 
-        <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+        <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
           {/* Stats Bar */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold text-slate-500 uppercase">
+              <span className="text-[10px] font-bold text-slate-500 uppercase">
                 No. of Students
               </span>
               <span
-                className={`text-xs font-black px-2 py-0.5 rounded ${isFull ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}
+                className={`text-[10px] font-black px-2 py-0.5 rounded ${isFull ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}
               >
                 {isFull ? "FULL" : "OPEN"}
               </span>
@@ -113,73 +133,105 @@ function CCADetailsModal({ isOpen, onClose, cca }) {
                   style={{ width: `${percentage}%` }}
                 ></div>
               </div>
-              <span className="text-sm font-bold text-slate-700">
+              <span className="text-xs font-bold text-slate-700">
                 {enrolled} / {max > 0 ? max : "∞"}
               </span>
             </div>
           </div>
 
-          <div className="grid gap-4">
-            <div className="flex gap-3 items-start">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
-                <FiUser />
+          <div className="grid gap-3">
+            <div className="flex gap-2 items-start">
+              <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
+                <FiUser size={14} />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">
                   Teacher In-Charge
                 </p>
-                <p className="font-bold text-slate-700">
+                <p className="text-xs font-bold text-slate-700">
                   {cca.teacher || "To Be Announced"}
                 </p>
               </div>
             </div>
-            <div className="flex gap-3 items-start">
-              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg shrink-0">
-                <FiMapPin />
+            <div className="flex gap-2 items-start">
+              <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg shrink-0">
+                <FiMapPin size={14} />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">
                   Venue
                 </p>
-                <p className="font-bold text-slate-700">
+                <p className="text-xs font-bold text-slate-700">
                   {cca.venue || "To Be Announced"}
                 </p>
               </div>
             </div>
-            <div className="flex gap-3 items-start">
-              <div className="p-2 bg-amber-50 text-amber-600 rounded-lg shrink-0">
-                <FiCalendar />
+            <div className="flex gap-2 items-start">
+              <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg shrink-0">
+                <FiCalendar size={14} />
               </div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">
+              <div className="flex-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">
                   Schedule
                 </p>
-                <p className="font-bold text-slate-700">{formatSchedule()}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {!cca.sessionDates ? (
+                    <span className="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full">
+                      TBA
+                    </span>
+                  ) : Array.isArray(cca.sessionDates) ? (
+                    cca.sessionDates.map((date, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200"
+                      >
+                        {formatDateWithoutYear(date)}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="px-2 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200">
+                      {formatDateWithoutYear(cca.sessionDates)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex gap-3 items-start">
-              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shrink-0">
-                <FiClock />
+            <div className="flex gap-2 items-start">
+              <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg shrink-0">
+                <FiClock size={14} />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">
                   Time
                 </p>
-                <p className="font-bold text-slate-700">
+                <p className="text-xs font-bold text-slate-700">
                   {cca.startTime
                     ? `${cca.startTime} - ${cca.endTime || "?"}`
                     : "TBA"}
                 </p>
               </div>
             </div>
+            <div className="flex gap-2 items-start">
+              <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg shrink-0">
+                <FiGrid size={14} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">
+                  Available To
+                </p>
+                <p className="text-xs font-bold text-slate-700">
+                  {assignedClasses}
+                </p>
+              </div>
+            </div>
           </div>
 
           {cca.description && (
-            <div className="pt-4 border-t border-slate-100">
-              <p className="text-xs font-bold text-slate-400 uppercase mb-2">
+            <div className="pt-3 border-t border-slate-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">
                 Description
               </p>
-              <p className="text-slate-600 text-sm leading-relaxed">
+              <p className="text-slate-600 text-xs leading-relaxed">
                 {cca.description}
               </p>
             </div>
@@ -235,7 +287,7 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
 
                 return (
                   <div
-                    key={idx}
+                    key={item.id ?? item.name ?? idx}
                     className="p-4 rounded-2xl border border-slate-100 bg-slate-50/30 flex flex-col gap-3"
                   >
                     <div className="flex justify-between items-start">
@@ -300,6 +352,7 @@ export default function TeacherDashboard() {
   // Modal State
   const [viewingSelection, setViewingSelection] = useState(null);
   const [viewingCCA, setViewingCCA] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // --- FETCH DATA ---
   useEffect(() => {
@@ -356,6 +409,25 @@ export default function TeacherDashboard() {
       });
   }, [selections, classes, searchTerm, filterClass, filterCCA]);
 
+  // Export currently visible students to CSV
+  const handleExportCSV = () => {
+    if (!filteredStudents || filteredStudents.length === 0) return;
+
+    // convert classes array to map for the exporter (expects classes[id])
+    const classesMap = classes.reduce((map, c) => {
+      map[c.id] = c;
+      return map;
+    }, {});
+
+    // Call exporter with visible selections; users param is optional here
+    downloadSelectionsCSV(filteredStudents, null, classesMap);
+  };
+
+  const handleExportPDF = () => {
+    if (!filteredStudents || filteredStudents.length === 0) return;
+    downloadSelectionsPDF(filteredStudents, classes);
+  };
+
   return (
     // UPDATED CONTAINER: Using Flexbox column to push footer to bottom
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -365,10 +437,6 @@ export default function TeacherDashboard() {
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* --- PAGE HEADER & FILTERS --- */}
         <div className="mb-8">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-6">
-            Teacher Dashboard
-          </h1>
-
           {/* Filters Bar (Controls the Right Column) */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
             <div className="relative flex-1 w-full">
@@ -430,6 +498,40 @@ export default function TeacherDashboard() {
                 <FiX />
               </button>
             )}
+            <div className="relative">
+              <button
+                onClick={() => setExportOpen((v) => !v)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl font-bold transition-colors ${filteredStudents && filteredStudents.length > 0 ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-slate-50 text-slate-300 cursor-not-allowed"}`}
+                title="Export options"
+                disabled={!filteredStudents || filteredStudents.length === 0}
+              >
+                Export
+                <FiChevronDown />
+              </button>
+
+              {exportOpen && (
+                <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-50">
+                  <button
+                    onClick={() => {
+                      handleExportCSV();
+                      setExportOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50"
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleExportPDF();
+                      setExportOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50"
+                  >
+                    Export PDF
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -558,16 +660,14 @@ export default function TeacherDashboard() {
                             </td>
                             <td className="p-4">
                               <div className="flex flex-wrap gap-1">
-                                {student.selectedCCAs
-                                  ?.slice(0, 2)
-                                  .map((c, i) => (
-                                    <span
-                                      key={i}
-                                      className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded border border-indigo-100 whitespace-nowrap"
-                                    >
-                                      {c.name}
-                                    </span>
-                                  ))}
+                                {student.selectedCCAs?.slice(0, 2).map((c) => (
+                                  <span
+                                    key={c.id}
+                                    className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded border border-indigo-100 whitespace-nowrap"
+                                  >
+                                    {c.name}
+                                  </span>
+                                ))}
                                 {student.selectedCCAs?.length > 2 && (
                                   <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded">
                                     +{student.selectedCCAs.length - 2}
@@ -615,6 +715,7 @@ export default function TeacherDashboard() {
         isOpen={!!viewingCCA}
         onClose={() => setViewingCCA(null)}
         cca={viewingCCA}
+        classes={classes}
       />
     </div>
   );
