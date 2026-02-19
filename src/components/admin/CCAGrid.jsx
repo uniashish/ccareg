@@ -7,6 +7,7 @@ export default function CCAGrid({
   onEdit,
   onDelete,
   onViewDetails,
+  onOpenStudentList,
   onClearSearch,
 }) {
   const scrollRef = useRef(null);
@@ -109,6 +110,7 @@ export default function CCAGrid({
               onEdit={() => onEdit(cca)}
               onDelete={() => onDelete(cca.id)}
               onViewDetails={() => onViewDetails(cca)}
+              onOpenStudentList={() => onOpenStudentList?.(cca)}
             />
           </div>
         ))}

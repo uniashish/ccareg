@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { FiSave, FiCheck, FiPhone, FiUser } from "react-icons/fi";
+import MessageModal from "../common/MessageModal";
 
 export default function AdminContactManager() {
   const [adminName, setAdminName] = useState("");
@@ -9,6 +10,12 @@ export default function AdminContactManager() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   // --- FETCH EXISTING ADMIN SETTINGS ---
   useEffect(() => {
@@ -51,7 +58,12 @@ export default function AdminContactManager() {
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
-      alert("Failed to save.");
+      setModalConfig({
+        isOpen: true,
+        type: "error",
+        title: "Save Failed",
+        message: "Failed to save admin contact details.",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -134,6 +146,14 @@ export default function AdminContactManager() {
           </span>
         )}
       </div>
+
+      <MessageModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+      />
     </div>
   );
 }

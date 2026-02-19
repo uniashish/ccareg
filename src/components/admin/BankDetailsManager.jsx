@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { FiSave, FiCheck, FiCreditCard, FiDollarSign } from "react-icons/fi";
+import MessageModal from "../common/MessageModal";
 
 export default function BankDetailsManager() {
   const [bankName, setBankName] = useState("");
@@ -11,6 +12,12 @@ export default function BankDetailsManager() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [messageModal, setMessageModal] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   // Fetch existing payment settings
   useEffect(() => {
@@ -55,7 +62,12 @@ export default function BankDetailsManager() {
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
-      alert("Failed to save payment details");
+      setMessageModal({
+        isOpen: true,
+        type: "error",
+        title: "Save Failed",
+        message: "Failed to save payment details.",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -147,6 +159,19 @@ export default function BankDetailsManager() {
           </span>
         )}
       </div>
+
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={() =>
+          setMessageModal((prev) => ({
+            ...prev,
+            isOpen: false,
+          }))
+        }
+        type={messageModal.type}
+        title={messageModal.title}
+        message={messageModal.message}
+      />
     </div>
   );
 }

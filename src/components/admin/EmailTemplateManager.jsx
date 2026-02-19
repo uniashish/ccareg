@@ -3,6 +3,7 @@ import { db } from "../../firebase";
 import { doc, getDoc, updateDoc, deleteField } from "firebase/firestore";
 import { FiMail, FiPlus, FiEdit2, FiTrash2, FiCheck } from "react-icons/fi";
 import EmailComposerModal from "./EmailComposerModal"; // <--- NEW IMPORT
+import MessageModal from "../common/MessageModal";
 
 export default function EmailTemplateManager() {
   const [hasTemplate, setHasTemplate] = useState(false);
@@ -10,6 +11,12 @@ export default function EmailTemplateManager() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [messageModal, setMessageModal] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   // Modal State
   const [isComposerOpen, setIsComposerOpen] = useState(false);
@@ -55,7 +62,12 @@ export default function EmailTemplateManager() {
       setTemplateData(null);
     } catch (error) {
       console.error("Error deleting template:", error);
-      alert("Failed to delete template.");
+      setMessageModal({
+        isOpen: true,
+        type: "error",
+        title: "Delete Failed",
+        message: "Failed to delete template.",
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -149,6 +161,19 @@ export default function EmailTemplateManager() {
         onClose={() => setIsComposerOpen(false)}
         initialData={templateData}
         onSaveSuccess={checkTemplate}
+      />
+
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={() =>
+          setMessageModal((prev) => ({
+            ...prev,
+            isOpen: false,
+          }))
+        }
+        type={messageModal.type}
+        title={messageModal.title}
+        message={messageModal.message}
       />
     </>
   );

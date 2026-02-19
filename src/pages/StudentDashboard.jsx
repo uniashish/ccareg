@@ -37,6 +37,7 @@ export default function StudentDashboard() {
   // --- NEW STATE: ADMIN CONTACT INFO ---
   const [adminName, setAdminName] = useState("");
   const [adminContact, setAdminContact] = useState("");
+  const [isStudentPortalActive, setIsStudentPortalActive] = useState(true);
 
   // --- NEW STATE: TRACK MANUAL EDIT MODE ---
   const [isAddingMore, setIsAddingMore] = useState(false);
@@ -77,9 +78,12 @@ export default function StudentDashboard() {
         const data = docSnap.data();
         if (data.minCCAs !== undefined) setMinSelections(Number(data.minCCAs));
         if (data.maxCCAs !== undefined) setMaxSelections(Number(data.maxCCAs));
+        setIsStudentPortalActive(data.studentPortalActive !== false);
         // Fetch admin contact details
         if (data.adminName) setAdminName(data.adminName);
         if (data.adminContact) setAdminContact(data.adminContact);
+      } else {
+        setIsStudentPortalActive(true);
       }
     });
     return () => unsub();
@@ -186,7 +190,26 @@ export default function StudentDashboard() {
       <Header />
 
       <main className="max-w-7xl mx-auto px-6 py-4 md:px-10">
-        {showLockedView ? (
+        {!isStudentPortalActive ? (
+          <div className="max-w-3xl mx-auto mt-8 bg-white border border-slate-200 rounded-3xl p-8 shadow-sm text-center">
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight mb-3">
+              Student Portal Not Active
+            </h1>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              The student portal is currently not active. Please contact the
+              administrator.
+            </p>
+            <p className="text-slate-700 text-sm font-bold mt-4">
+              {adminName && adminContact
+                ? `${adminName} - ${adminContact}`
+                : adminContact
+                  ? adminContact
+                  : adminName
+                    ? adminName
+                    : "School administration"}
+            </p>
+          </div>
+        ) : showLockedView ? (
           <LockedView
             existingSelection={existingSelection}
             // Pass the logic to allow adding more

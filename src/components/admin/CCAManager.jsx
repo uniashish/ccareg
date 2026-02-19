@@ -1,15 +1,20 @@
 import React, { useState } from "react";
 import { FiPlus, FiSearch } from "react-icons/fi";
 import CCAGrid from "./CCAGrid"; // Import the new grid component
+import CCAStudentsModal from "./CCAStudentsModal";
 
 export default function CCAManager({
   ccas,
+  selections,
+  users,
+  classesList,
   onAddClick,
   onEditClick,
   onDeleteClick,
   onViewDetails,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCCAForStudents, setSelectedCCAForStudents] = useState(null);
 
   // Filter logic based on CCA name
   const filteredCCAs = ccas.filter((cca) =>
@@ -58,7 +63,17 @@ export default function CCAManager({
         onEdit={onEditClick}
         onDelete={onDeleteClick}
         onViewDetails={onViewDetails}
+        onOpenStudentList={setSelectedCCAForStudents}
         onClearSearch={() => setSearchQuery("")}
+      />
+
+      <CCAStudentsModal
+        isOpen={!!selectedCCAForStudents}
+        onClose={() => setSelectedCCAForStudents(null)}
+        cca={selectedCCAForStudents}
+        selections={selections}
+        users={users}
+        classesList={classesList}
       />
     </section>
   );

@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   FiSearch,
   FiDownload,
+  FiChevronDown,
   FiUser,
   FiGrid,
   FiCalendar,
@@ -15,6 +16,8 @@ import {
 } from "react-icons/fi";
 import { db } from "../../firebase"; // Import DB
 import { doc, getDoc } from "firebase/firestore"; // Import Firestore functions
+import { downloadSelectionsPDF } from "../../utils/pdfExporter";
+import MessageModal from "../common/MessageModal";
 
 // --- SUB-COMPONENT: STUDENT DETAILS MODAL ---
 function StudentDetailsModal({ isOpen, onClose, selection, classMap }) {
@@ -206,6 +209,54 @@ export default function SelectionsManager({
 
   // --- MODAL STATE ---
   const [viewingSelection, setViewingSelection] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportMenuRef = useRef(null);
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
+
+  const showModal = (type, title, message) => {
+    setModalConfig({
+      isOpen: true,
+      type,
+      title,
+      message,
+    });
+  };
+
+  const closeModal = () => {
+    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(event.target)
+      ) {
+        setExportOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setExportOpen(false);
+      }
+    };
+
+    if (exportOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [exportOpen]);
 
   const classMap = useMemo(() => {
     return classesList.reduce((acc, cls) => {
@@ -250,7 +301,7 @@ export default function SelectionsManager({
   // --- INTERNAL CSV EXPORT FUNCTION ---
   const handleExportCSV = () => {
     if (filteredSelections.length === 0) {
-      alert("No data to export");
+      showModal("info", "No Data", "No data to export.");
       return;
     }
 
@@ -329,7 +380,7 @@ export default function SelectionsManager({
     }
 
     // Sanitize filename
-    fileName = fileName.replace(/[\/\\:*?"<>|]/g, "");
+    fileName = fileName.replace(/[\\/:*?"<>|]/g, "");
 
     // 5. Trigger Download
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -343,6 +394,23 @@ export default function SelectionsManager({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    if (filteredSelections.length === 0) {
+      showModal("info", "No Data", "No data to export.");
+      return;
+    }
+
+    const exportData = filteredSelections.map((sel) => {
+      const user = users ? users[sel.studentUid] : null;
+      return {
+        ...sel,
+        studentName: user?.displayName || sel.studentName || "Unknown",
+      };
+    });
+
+    downloadSelectionsPDF(exportData, classesList);
   };
 
   return (
@@ -409,15 +477,42 @@ export default function SelectionsManager({
             />
           </div>
 
-          {/* DOWNLOAD BUTTON */}
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 shadow-sm"
-            title="Download CSV"
-          >
-            <FiDownload />
-            <span className="hidden sm:inline">CSV</span>
-          </button>
+          {/* EXPORT DROPDOWN */}
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              onClick={() => setExportOpen((v) => !v)}
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 border rounded-xl font-bold transition-all active:scale-95 shadow-sm ${filteredSelections.length > 0 ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300" : "bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed"}`}
+              title="Export options"
+              disabled={filteredSelections.length === 0}
+            >
+              <FiDownload />
+              <span className="hidden sm:inline">Export</span>
+              <FiChevronDown />
+            </button>
+
+            {exportOpen && (
+              <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+                <button
+                  onClick={() => {
+                    handleExportCSV();
+                    setExportOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => {
+                    handleExportPDF();
+                    setExportOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Export PDF
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -565,6 +660,14 @@ export default function SelectionsManager({
         onClose={() => setViewingSelection(null)}
         selection={viewingSelection}
         classMap={classMap}
+      />
+
+      <MessageModal
+        isOpen={modalConfig.isOpen}
+        onClose={closeModal}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
       />
     </div>
   );

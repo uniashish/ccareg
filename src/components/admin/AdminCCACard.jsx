@@ -10,7 +10,13 @@ import {
   FiCalendar,
 } from "react-icons/fi";
 
-export default function AdminCCACard({ cca, onEdit, onDelete, onViewDetails }) {
+export default function AdminCCACard({
+  cca,
+  onEdit,
+  onDelete,
+  onViewDetails,
+  onOpenStudentList,
+}) {
   // --- HELPERS ---
   const formatTime12hr = (timeStr) => {
     if (!timeStr) return "TBD";
@@ -67,12 +73,14 @@ export default function AdminCCACard({ cca, onEdit, onDelete, onViewDetails }) {
               {cca.isActive ? "Active" : "Hidden"}
             </span>
           </div>
-          <h3
-            className="text-lg font-black text-slate-800 leading-tight line-clamp-2"
+          <button
+            type="button"
+            onClick={() => onOpenStudentList?.(cca)}
+            className="text-left text-lg font-black text-slate-800 leading-tight line-clamp-2 hover:text-brand-primary hover:underline transition-colors"
             title={cca.name}
           >
             {cca.name}
-          </h3>
+          </button>
           <p className="text-xs font-bold text-brand-primary mt-1">
             {Number(cca.price) === 0
               ? "Free"

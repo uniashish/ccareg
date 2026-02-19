@@ -7,9 +7,10 @@ import {
   FiCheck,
   FiAlertCircle,
   FiBriefcase,
+  FiPower,
 } from "react-icons/fi";
 import { db } from "../../firebase"; // Import db
-import { collection, onSnapshot } from "firebase/firestore"; // Import Firestore hooks
+import { collection, onSnapshot, doc, setDoc } from "firebase/firestore"; // Import Firestore hooks
 
 // --- EXISTING IMPORTS ---
 import LimitManager from "./LimitManager";
@@ -17,6 +18,7 @@ import TermManager from "./TermManager";
 import AdminContactManager from "./AdminContactManager";
 import EmailTemplateManager from "./EmailTemplateManager";
 import MissingStudentsModal from "./MissingStudentsModal";
+import MessageModal from "../common/MessageModal";
 
 // --- IMPORT ---
 import VendorManagerModal from "./VendorManagerModal";
@@ -44,6 +46,27 @@ export default function HousekeepingManager({
 
   // --- NEW STATE: VENDORS LIST ---
   const [vendors, setVendors] = useState([]);
+  const [isStudentPortalActive, setIsStudentPortalActive] = useState(true);
+  const [isTeacherPortalActive, setIsTeacherPortalActive] = useState(true);
+  const [isSavingStudentPortalState, setIsSavingStudentPortalState] =
+    useState(false);
+  const [isSavingTeacherPortalState, setIsSavingTeacherPortalState] =
+    useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
+
+  const showModal = (type, title, message) => {
+    setModalConfig({
+      isOpen: true,
+      type,
+      title,
+      message,
+    });
+  };
 
   // --- FETCH VENDORS ---
   useEffect(() => {
@@ -58,6 +81,71 @@ export default function HousekeepingManager({
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setIsStudentPortalActive(data.studentPortalActive !== false);
+        setIsTeacherPortalActive(data.teacherPortalActive !== false);
+      } else {
+        setIsStudentPortalActive(true);
+        setIsTeacherPortalActive(true);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  const handleToggleStudentPortal = async () => {
+    if (isSavingStudentPortalState) return;
+
+    setIsSavingStudentPortalState(true);
+    try {
+      await setDoc(
+        doc(db, "settings", "general"),
+        {
+          studentPortalActive: !isStudentPortalActive,
+          updatedAt: new Date(),
+        },
+        { merge: true },
+      );
+    } catch (error) {
+      console.error("Error updating student portal state:", error);
+      showModal(
+        "error",
+        "Update Failed",
+        "Failed to update student portal state.",
+      );
+    } finally {
+      setIsSavingStudentPortalState(false);
+    }
+  };
+
+  const handleToggleTeacherPortal = async () => {
+    if (isSavingTeacherPortalState) return;
+
+    setIsSavingTeacherPortalState(true);
+    try {
+      await setDoc(
+        doc(db, "settings", "general"),
+        {
+          teacherPortalActive: !isTeacherPortalActive,
+          updatedAt: new Date(),
+        },
+        { merge: true },
+      );
+    } catch (error) {
+      console.error("Error updating teacher portal state:", error);
+      showModal(
+        "error",
+        "Update Failed",
+        "Failed to update teacher portal state.",
+      );
+    } finally {
+      setIsSavingTeacherPortalState(false);
+    }
+  };
 
   // --- EXISTING LOGIC: CSV ---
   const handleFileUpload = (e) => {
@@ -108,10 +196,86 @@ export default function HousekeepingManager({
           {/* 2. ADMIN CONTACT */}
           <AdminContactManager />
 
-          {/* 3. EMAIL TEMPLATE MANAGER */}
+          {/* 3. PORTAL CONTROL */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between h-full min-h-[300px]">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <FiPower size={20} />
+                </div>
+                <h3 className="font-bold text-slate-800">Portal Controls</h3>
+              </div>
+
+              <p className="text-slate-500 text-xs mb-4 leading-relaxed">
+                Turn student and teacher portal access on or off.
+              </p>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50">
+                  <span className="text-sm font-bold text-slate-700">
+                    Student Portal
+                  </span>
+                  <div
+                    className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                      isStudentPortalActive
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}
+                  >
+                    <FiAlertCircle size={12} />
+                    {isStudentPortalActive ? "ON" : "OFF"}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50">
+                  <span className="text-sm font-bold text-slate-700">
+                    Teacher Portal
+                  </span>
+                  <div
+                    className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                      isTeacherPortalActive
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}
+                  >
+                    <FiAlertCircle size={12} />
+                    {isTeacherPortalActive ? "ON" : "OFF"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={handleToggleStudentPortal}
+                disabled={isSavingStudentPortalState}
+                className="w-full py-2.5 px-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none transition-all"
+              >
+                {isSavingStudentPortalState
+                  ? "Saving..."
+                  : isStudentPortalActive
+                    ? "Switch OFF Student"
+                    : "Switch ON Student"}
+              </button>
+
+              <button
+                onClick={handleToggleTeacherPortal}
+                disabled={isSavingTeacherPortalState}
+                className="w-full py-2.5 px-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none transition-all"
+              >
+                {isSavingTeacherPortalState
+                  ? "Saving..."
+                  : isTeacherPortalActive
+                    ? "Switch OFF Teacher"
+                    : "Switch ON Teacher"}
+              </button>
+            </div>
+          </div>
+
+          {/* 4. EMAIL TEMPLATE MANAGER */}
           <EmailTemplateManager />
 
-          {/* 4. VENDOR MANAGEMENT */}
+          {/* 5. VENDOR MANAGEMENT */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between h-full min-h-[300px]">
             <div className="flex flex-col h-full">
               <div className="flex items-center gap-3 mb-4 shrink-0">
@@ -173,7 +337,7 @@ export default function HousekeepingManager({
             </div>
           </div>
 
-          {/* 5. DEFAULTER CHECKER */}
+          {/* 6. DEFAULTER CHECKER */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-3 mb-4">
@@ -233,7 +397,7 @@ export default function HousekeepingManager({
             </div>
           </div>
 
-          {/* 6. DANGER ZONE */}
+          {/* 7. DANGER ZONE */}
           <TermManager
             selections={selections}
             users={users}
@@ -252,6 +416,14 @@ export default function HousekeepingManager({
       <VendorManagerModal
         isOpen={isVendorModalOpen}
         onClose={() => setIsVendorModalOpen(false)}
+      />
+
+      <MessageModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
       />
     </div>
   );

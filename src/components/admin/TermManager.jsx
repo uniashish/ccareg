@@ -4,11 +4,18 @@ import { collection, getDocs, writeBatch, doc } from "firebase/firestore";
 import { FiTrash2, FiAlertOctagon, FiCheckCircle } from "react-icons/fi";
 import DeleteAllModal from "./DeleteAllModal";
 import { downloadSelectionsCSV } from "../../utils/csvExporter";
+import MessageModal from "../common/MessageModal";
 
 export default function TermManager({ selections, users, classMap }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [messageModal, setMessageModal] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   const handleStartNewTerm = async () => {
     setIsDeleting(true);
@@ -59,7 +66,12 @@ export default function TermManager({ selections, users, classMap }) {
       setTimeout(() => setSuccessMsg(""), 5000);
     } catch (error) {
       console.error("Error clearing term data:", error);
-      alert("Failed. Check console.");
+      setMessageModal({
+        isOpen: true,
+        type: "error",
+        title: "Action Failed",
+        message: "Failed to start new term. Please check console and retry.",
+      });
     } finally {
       setIsDeleting(false);
       setIsModalOpen(false);
@@ -112,6 +124,19 @@ export default function TermManager({ selections, users, classMap }) {
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleStartNewTerm}
         isDeleting={isDeleting}
+      />
+
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={() =>
+          setMessageModal((prev) => ({
+            ...prev,
+            isOpen: false,
+          }))
+        }
+        type={messageModal.type}
+        title={messageModal.title}
+        message={messageModal.message}
       />
     </>
   );

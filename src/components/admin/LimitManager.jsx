@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { FiSave, FiCheck, FiSliders } from "react-icons/fi";
+import MessageModal from "../common/MessageModal";
 
 export default function LimitManager() {
   const [minCCAs, setMinCCAs] = useState(1);
@@ -9,6 +10,12 @@ export default function LimitManager() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -33,7 +40,12 @@ export default function LimitManager() {
 
   const handleSave = async () => {
     if (Number(minCCAs) > Number(maxCCAs)) {
-      alert("Minimum CCAs cannot be greater than Maximum CCAs");
+      setModalConfig({
+        isOpen: true,
+        type: "info",
+        title: "Invalid Limits",
+        message: "Minimum CCAs cannot be greater than Maximum CCAs.",
+      });
       return;
     }
 
@@ -55,7 +67,12 @@ export default function LimitManager() {
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
-      alert("Failed to save settings");
+      setModalConfig({
+        isOpen: true,
+        type: "error",
+        title: "Save Failed",
+        message: "Failed to save settings.",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -134,6 +151,14 @@ export default function LimitManager() {
           </span>
         )}
       </div>
+
+      <MessageModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+      />
     </div>
   );
 }

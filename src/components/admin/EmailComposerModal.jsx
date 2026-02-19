@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { FiX, FiSave, FiZap, FiLayout } from "react-icons/fi";
 import { db } from "../../firebase";
 import { doc, setDoc } from "firebase/firestore";
+import MessageModal from "../common/MessageModal";
 
 // Available placeholders for the user to insert
 const DYNAMIC_FIELDS = [
@@ -21,6 +22,12 @@ export default function EmailComposerModal({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [messageModal, setMessageModal] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   // Ref for the textarea to handle cursor insertion
   const bodyRef = useRef(null);
@@ -61,7 +68,12 @@ export default function EmailComposerModal({
 
   const handleSave = async () => {
     if (!subject.trim() || !body.trim()) {
-      alert("Please fill in both Subject and Message fields.");
+      setMessageModal({
+        isOpen: true,
+        type: "info",
+        title: "Missing Fields",
+        message: "Please fill in both Subject and Message fields.",
+      });
       return;
     }
 
@@ -81,7 +93,12 @@ export default function EmailComposerModal({
       onClose();
     } catch (error) {
       console.error("Error saving template:", error);
-      alert("Failed to save template.");
+      setMessageModal({
+        isOpen: true,
+        type: "error",
+        title: "Save Failed",
+        message: "Failed to save template.",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -190,6 +207,19 @@ export default function EmailComposerModal({
           </button>
         </div>
       </div>
+
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={() =>
+          setMessageModal((prev) => ({
+            ...prev,
+            isOpen: false,
+          }))
+        }
+        type={messageModal.type}
+        title={messageModal.title}
+        message={messageModal.message}
+      />
     </div>
   );
 }

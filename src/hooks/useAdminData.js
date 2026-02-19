@@ -14,7 +14,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 
-export function useAdminData() {
+export function useAdminData(showMessage = () => {}) {
   // --- STATE ---
   const [ccas, setCcas] = useState([]);
   const [classesList, setClassesList] = useState([]);
@@ -106,16 +106,58 @@ export function useAdminData() {
       setIsClassModalOpen(false);
     } catch (error) {
       console.error("Error saving class:", error);
-      alert("Failed to save class.");
+      showMessage({
+        type: "error",
+        title: "Save Failed",
+        message: "Failed to save class.",
+      });
     }
   };
 
   const handleDeleteClass = async (id) => {
+    const classDoc = classesList.find((cls) => cls.id === id);
+    if (!classDoc) return;
+
+    const hasSelectionsInClass = selections.some((selection) => {
+      if (selection.classId !== id) return false;
+      return (
+        Array.isArray(selection.selectedCCAs) &&
+        selection.selectedCCAs.length > 0
+      );
+    });
+
+    const hasAssociatedCCAs =
+      Array.isArray(classDoc.allowedCCAs) && classDoc.allowedCCAs.length > 0;
+
+    if (hasSelectionsInClass || hasAssociatedCCAs) {
+      const reasons = [];
+      if (hasSelectionsInClass) {
+        reasons.push(
+          "students in this class have already submitted selections",
+        );
+      }
+      if (hasAssociatedCCAs) {
+        reasons.push("the class still has CCAs associated with it");
+      }
+
+      showMessage({
+        type: "info",
+        title: "Cannot Delete Class",
+        message: `${classDoc.name} cannot be deleted because ${reasons.join(" and ")}.`,
+      });
+      return;
+    }
+
     if (window.confirm("Delete this class?")) {
       try {
         await deleteDoc(doc(db, "classes", id));
       } catch (error) {
         console.error("Error deleting class:", error);
+        showMessage({
+          type: "error",
+          title: "Delete Failed",
+          message: "Failed to delete class.",
+        });
       }
     }
   };
@@ -140,7 +182,11 @@ export function useAdminData() {
       setIsCCAModalOpen(false);
     } catch (error) {
       console.error("Error saving CCA:", error);
-      alert("Failed to save CCA.");
+      showMessage({
+        type: "error",
+        title: "Save Failed",
+        message: "Failed to save activity.",
+      });
     }
   };
 
@@ -161,6 +207,29 @@ export function useAdminData() {
 
     const currentAllowed = classDoc.allowedCCAs || [];
     const isAllowed = currentAllowed.includes(ccaId);
+
+    if (isAllowed) {
+      const hasSelectionsInClass = selections.some((selection) => {
+        if (selection.classId !== classId) return false;
+        return (
+          Array.isArray(selection.selectedCCAs) &&
+          selection.selectedCCAs.some((cca) => cca.id === ccaId)
+        );
+      });
+
+      if (hasSelectionsInClass) {
+        const className = classDoc.name || "this class";
+        const ccaName =
+          ccas.find((cca) => cca.id === ccaId)?.name || "this CCA";
+
+        showMessage({
+          type: "info",
+          title: "Cannot Unassign",
+          message: `${ccaName} cannot be removed from ${className} because students have already selected it.`,
+        });
+        return;
+      }
+    }
 
     let newAllowed;
     if (isAllowed) {
@@ -192,7 +261,11 @@ export function useAdminData() {
       const selSnap = await getDoc(selRef);
 
       if (!selSnap.exists()) {
-        alert("Selection not found.");
+        showMessage({
+          type: "info",
+          title: "Not Found",
+          message: "Selection not found.",
+        });
         return;
       }
 
@@ -214,7 +287,11 @@ export function useAdminData() {
       // No need to manually update state, the listeners above will do it!
     } catch (err) {
       console.error("Error resetting student:", err);
-      alert("Error: " + err.message);
+      showMessage({
+        type: "error",
+        title: "Reset Failed",
+        message: `Error: ${err.message}`,
+      });
     }
   };
 

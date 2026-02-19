@@ -21,6 +21,7 @@ import AddClassModal from "../components/AddClassModal";
 import AddCCAModal from "../components/AddCCAModal";
 import CCADetailsModal from "../components/admin/CCADetailsModal";
 import UpdateRoleModal from "../components/admin/UpdateRoleModal";
+import MessageModal from "../components/common/MessageModal";
 
 // --- HOOKS ---
 import { useAdminData } from "../hooks/useAdminData";
@@ -37,6 +38,21 @@ import {
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("Classes");
+  const [messageModal, setMessageModal] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
+
+  const showMessage = ({ type = "info", title = "Notice", message = "" }) => {
+    setMessageModal({
+      isOpen: true,
+      type,
+      title,
+      message,
+    });
+  };
 
   // Local State for User Management Tab
   const [localUsersList, setLocalUsersList] = useState([]);
@@ -66,7 +82,7 @@ export default function AdminDashboard() {
     handleSaveCCA,
     handleDeleteCCA,
     toggleCCAMap,
-  } = useAdminData();
+  } = useAdminData(showMessage);
 
   // Listener for "Users" Tab
   useEffect(() => {
@@ -109,16 +125,30 @@ export default function AdminDashboard() {
           transaction.update(ccaRef, { enrolledCount: newCount });
         }
 
-        // E. Save Student Selection
-        transaction.update(selectionRef, {
-          selectedCCAs: updatedCCAList,
-        });
+        // E. Save or Delete Student Selection
+        if (updatedCCAList.length === 0) {
+          transaction.delete(selectionRef);
+        } else {
+          transaction.update(selectionRef, {
+            selectedCCAs: updatedCCAList,
+          });
+        }
       });
 
-      alert(`Successfully removed ${ccaToRemove.name}`);
+      setMessageModal({
+        isOpen: true,
+        type: "success",
+        title: "Activity Removed",
+        message: `Successfully removed ${ccaToRemove.name}.`,
+      });
     } catch (error) {
       console.error("Error removing CCA:", error);
-      alert("Failed to remove CCA: " + error.message);
+      setMessageModal({
+        isOpen: true,
+        type: "error",
+        title: "Removal Failed",
+        message: "Failed to remove activity. Please try again.",
+      });
     }
   };
 
@@ -135,7 +165,11 @@ export default function AdminDashboard() {
       setSelectedUser(null);
     } catch (error) {
       console.error("Error updating role:", error);
-      alert("Failed to update user role.");
+      showMessage({
+        type: "error",
+        title: "Update Failed",
+        message: "Failed to update user role.",
+      });
     }
   };
 
@@ -209,6 +243,9 @@ export default function AdminDashboard() {
             {activeTab === "CCAs" && (
               <CCAManager
                 ccas={ccas}
+                selections={selections}
+                users={usersData}
+                classesList={classesList}
                 onAddClick={() => {
                   setEditingCCA(null);
                   setIsCCAModalOpen(true);
@@ -287,6 +324,19 @@ export default function AdminDashboard() {
         onClose={() => setIsUserModalOpen(false)}
         user={selectedUser}
         onUpdate={handleUpdateRole}
+      />
+
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={() =>
+          setMessageModal((prev) => ({
+            ...prev,
+            isOpen: false,
+          }))
+        }
+        type={messageModal.type}
+        title={messageModal.title}
+        message={messageModal.message}
       />
     </div>
   );
