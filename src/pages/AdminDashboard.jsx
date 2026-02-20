@@ -304,6 +304,10 @@ export default function AdminDashboard() {
         </div>
       </main>
 
+      <footer className="px-4 md:px-8 py-3 text-center text-xs md:text-sm font-medium text-slate-400 bg-transparent border-t border-slate-200/60">
+        Developed and Maintained by Ashish Bhatnagar SISKGNEJ
+      </footer>
+
       {/* MODALS */}
       <AddClassModal
         isOpen={isClassModalOpen}
