@@ -80,15 +80,20 @@ export default function LimitManager() {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 flex items-center justify-center min-h-[200px] h-full">
-        <span className="text-slate-400 font-medium">Loading limits...</span>
+      <div className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] rounded-3xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] p-8 flex items-center justify-center min-h-[200px] h-full">
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+        <span className="relative z-10 text-slate-400 font-medium">
+          Loading limits...
+        </span>
       </div>
     );
   }
 
   // Added h-full and flex flex-col
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 relative overflow-hidden h-full flex flex-col">
+    <div className="bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] rounded-3xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] transition-all duration-300 p-8 relative overflow-hidden h-full flex flex-col">
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
       <div className="absolute top-0 right-0 p-6 opacity-5 text-indigo-500 pointer-events-none">
         <FiSliders size={100} />
       </div>

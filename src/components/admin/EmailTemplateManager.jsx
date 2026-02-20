@@ -75,8 +75,9 @@ export default function EmailTemplateManager() {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 flex items-center justify-center min-h-[200px] h-full">
-        <span className="text-slate-400 font-medium">
+      <div className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] rounded-3xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] p-8 flex items-center justify-center min-h-[200px] h-full">
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+        <span className="relative z-10 text-slate-400 font-medium">
           Checking templates...
         </span>
       </div>
@@ -85,22 +86,24 @@ export default function EmailTemplateManager() {
 
   return (
     <>
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 relative overflow-hidden h-full flex flex-col">
+      <div className="bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] rounded-3xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] transition-all duration-300 p-8 relative overflow-hidden h-full flex flex-col">
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
         <div className="absolute top-0 right-0 p-6 opacity-5 text-indigo-500 pointer-events-none">
           <FiMail size={100} />
         </div>
 
-        <h2 className="text-lg font-bold text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2">
+        <h2 className="text-lg font-bold text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2 relative z-10">
           <FiMail className="text-brand-primary" />
           Email Confirmation
         </h2>
 
-        <p className="text-xs text-slate-500 mb-6">
+        <p className="text-xs text-slate-500 mb-6 relative z-10">
           Configure the automated email sent to students after they lock their
           selections.
         </p>
 
-        <div className="flex-1 flex flex-col justify-center">
+        <div className="flex-1 flex flex-col justify-center relative z-10">
           {hasTemplate ? (
             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 mb-4 animate-in fade-in">
               <div className="flex items-center gap-3 mb-2">
@@ -148,7 +151,7 @@ export default function EmailTemplateManager() {
           )}
         </div>
 
-        <div className="mt-auto pt-4 text-[10px] text-slate-400 text-center">
+        <div className="mt-auto pt-4 text-[10px] text-slate-400 text-center relative z-10">
           {hasTemplate
             ? "Students will receive this email upon submission."
             : "No email is currently being sent."}

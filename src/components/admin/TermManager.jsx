@@ -81,16 +81,18 @@ export default function TermManager({ selections, users, classMap }) {
   // Added h-full and flex flex-col
   return (
     <>
-      <div className="bg-white rounded-3xl shadow-sm border border-red-100 p-8 relative overflow-hidden h-full flex flex-col">
+      <div className="bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] rounded-3xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] transition-all duration-300 p-8 relative overflow-hidden h-full flex flex-col">
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
         <div className="absolute top-0 right-0 p-8 opacity-5 text-red-500 pointer-events-none">
           <FiAlertOctagon size={120} />
         </div>
 
-        <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+        <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2 relative z-10">
           <FiTrash2 className="text-red-500" />
           Start New Term
         </h2>
-        <p className="text-sm text-slate-500 mb-6 max-w-lg leading-relaxed flex-1">
+        <p className="text-sm text-slate-500 mb-6 max-w-lg leading-relaxed flex-1 relative z-10">
           This action will{" "}
           <strong className="text-red-600">
             automatically download a backup
@@ -102,7 +104,7 @@ export default function TermManager({ selections, users, classMap }) {
           and reset seat counts.
         </p>
 
-        <div className="flex items-center gap-4 mt-auto">
+        <div className="flex items-center gap-4 mt-auto relative z-10">
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 rounded-xl font-bold transition-all text-sm flex items-center gap-2 shadow-sm"

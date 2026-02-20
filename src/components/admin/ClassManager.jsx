@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   FiPlus,
   FiEdit2,
@@ -13,10 +13,13 @@ import ClassDetailsModal from "./ClassDetailsModal";
 
 // --- SUB-COMPONENT: SELECTIONS MODAL ---
 function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
-  if (!isOpen || !classData) return null;
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportMenuRef = useRef(null);
 
   // Filter selections for this specific class
-  const classSelections = selections.filter((s) => s.classId === classData.id);
+  const classSelections = (selections || []).filter(
+    (s) => s.classId === classData?.id,
+  );
 
   const handleExportCSV = () => {
     if (classSelections.length === 0) return;
@@ -48,11 +51,108 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `${classData.name}_Selections.csv`);
+    link.setAttribute(
+      "download",
+      `${classData?.name || "Class"}_Selections.csv`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
+
+  const handleExportPDF = () => {
+    if (classSelections.length === 0) return;
+
+    const escapeHtml = (value) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    const rowsHtml = classSelections
+      .map((s, idx) => {
+        const activities = s.selectedCCAs?.length
+          ? s.selectedCCAs.map((c) => c.name).join(", ")
+          : "No selections";
+        return `<tr>
+          <td>${idx + 1}</td>
+          <td>${escapeHtml(s.studentName)}</td>
+          <td>${escapeHtml(s.studentEmail)}</td>
+          <td>${escapeHtml(activities)}</td>
+          <td>${escapeHtml(s.status || "Submitted")}</td>
+        </tr>`;
+      })
+      .join("\n");
+
+    const html = `
+      <html>
+        <head>
+          <title>${escapeHtml(classData?.name || "Class")} Selections</title>
+          <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
+            h2{font-size:13px;margin-bottom:6px}
+            table{width:100%;border-collapse:collapse}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
+            th{background:#f3f4f6;font-weight:700}
+          </style>
+        </head>
+        <body>
+          <h2>${escapeHtml(classData?.name || "Class")} - Student Selections</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Student Name</th>
+                <th>Email</th>
+                <th>Selected Activities</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => {
+      w.focus();
+      w.print();
+    }, 300);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(event.target)
+      ) {
+        setExportOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setExportOpen(false);
+      }
+    };
+
+    if (isOpen && exportOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen, exportOpen]);
+
+  if (!isOpen || !classData) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -155,18 +255,47 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
 
         {/* Footer Actions */}
         <div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3 shrink-0">
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              type="button"
+              onClick={() => setExportOpen((prev) => !prev)}
+              disabled={classSelections.length === 0}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-200 transition-all"
+            >
+              <FiDownload /> Export
+            </button>
+
+            {exportOpen && classSelections.length > 0 && (
+              <div className="absolute right-0 bottom-full mb-2 w-40 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleExportCSV();
+                    setExportOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleExportPDF();
+                    setExportOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 border-t border-slate-100"
+                >
+                  Export PDF
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={onClose}
             className="px-6 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition-colors"
           >
             Close
-          </button>
-          <button
-            onClick={handleExportCSV}
-            disabled={classSelections.length === 0}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-200 transition-all"
-          >
-            <FiDownload /> Export CSV
           </button>
         </div>
       </div>

@@ -19,11 +19,17 @@ export default function CCAGrid({
   onOpenStudentList,
   onClearSearch,
 }) {
+  const VIEW_MODE_STORAGE_KEY = "ccaManager.viewMode";
   const scrollRef = useRef(null);
   const exportMenuRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const [viewMode, setViewMode] = useState("cards");
+  const [viewMode, setViewMode] = useState(() => {
+    const savedViewMode = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    return savedViewMode === "table" || savedViewMode === "cards"
+      ? savedViewMode
+      : "cards";
+  });
   const [exportOpen, setExportOpen] = useState(false);
 
   const formatTime12hr = (timeStr) => {
@@ -46,7 +52,7 @@ export default function CCAGrid({
       ),
     ];
 
-    if (days.length === 1) return `${days[0]}s (${dates.length} Sessions)`;
+    if (days.length === 1) return `${days[0]} (${dates.length} Sessions)`;
     if (days.length <= 2)
       return `${days.join(" & ")} (${dates.length} Sessions)`;
     return `${dates.length} Scheduled Sessions`;
@@ -95,6 +101,10 @@ export default function CCAGrid({
       document.removeEventListener("keydown", handleEscape);
     };
   }, [exportOpen]);
+
+  useEffect(() => {
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+  }, [VIEW_MODE_STORAGE_KEY, viewMode]);
 
   const scroll = (direction) => {
     const { current } = scrollRef;

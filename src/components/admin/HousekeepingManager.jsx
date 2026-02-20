@@ -31,6 +31,9 @@ export default function HousekeepingManager({
   users,
   classesList,
 }) {
+  const housekeepingCardClass =
+    "relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] rounded-3xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] transition-all duration-300";
+
   const classMap = useMemo(() => {
     return (classesList || []).reduce((acc, cls) => {
       acc[cls.id] = cls;
@@ -208,8 +211,12 @@ export default function HousekeepingManager({
           <AdminContactManager />
 
           {/* 3. PORTAL CONTROL */}
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between h-full min-h-[300px]">
-            <div>
+          <div
+            className={`${housekeepingCardClass} p-6 flex flex-col justify-between h-full min-h-[300px]`}
+          >
+            <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
+            <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                   <FiPower size={20} />
@@ -256,7 +263,7 @@ export default function HousekeepingManager({
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
               <button
                 onClick={handleToggleStudentPortal}
                 disabled={isSavingStudentPortalState}
@@ -287,8 +294,12 @@ export default function HousekeepingManager({
           <EmailTemplateManager />
 
           {/* 5. VENDOR MANAGEMENT */}
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between h-full min-h-[300px]">
-            <div className="flex flex-col h-full">
+          <div
+            className={`${housekeepingCardClass} p-6 flex flex-col justify-between h-full min-h-[300px]`}
+          >
+            <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
+            <div className="flex flex-col h-full relative z-10">
               <div className="flex items-center gap-3 mb-4 shrink-0">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                   <FiBriefcase size={20} />
@@ -338,7 +349,7 @@ export default function HousekeepingManager({
               </div>
             </div>
 
-            <div className="shrink-0 pt-2">
+            <div className="shrink-0 pt-2 relative z-10">
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <button
                   onClick={handleExportVendorsCSV}
@@ -363,8 +374,12 @@ export default function HousekeepingManager({
           </div>
 
           {/* 6. DEFAULTER CHECKER */}
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between">
-            <div>
+          <div
+            className={`${housekeepingCardClass} p-6 flex flex-col justify-between`}
+          >
+            <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
+            <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                   <FiSearch size={20} />
@@ -384,7 +399,7 @@ export default function HousekeepingManager({
               </p>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 relative z-10">
               <input
                 type="file"
                 accept=".csv"

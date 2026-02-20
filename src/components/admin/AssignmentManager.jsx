@@ -255,13 +255,15 @@ export default function AssignmentManager({
                         e.stopPropagation(); // Prevent bubbling issues
                         onToggleCCA(selectedClassId, cca.id);
                       }}
-                      className={`relative group p-4 rounded-2xl border-2 text-left transition-all duration-200 ${
+                      className={`relative group p-4 rounded-2xl border text-left transition-all duration-300 overflow-hidden shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] ${
                         isAssigned
-                          ? "bg-brand-primary/5 border-brand-primary shadow-inner"
-                          : "bg-white border-slate-200 hover:border-brand-primary/50 hover:shadow-md"
+                          ? "bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] border-brand-primary ring-2 ring-brand-primary/20"
+                          : "bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] border-slate-200 hover:border-brand-primary/50"
                       }`}
                     >
-                      <div className="flex justify-between items-start mb-2">
+                      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
+                      <div className="flex justify-between items-start mb-2 relative z-10">
                         <div
                           className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold transition-colors ${
                             isAssigned
@@ -273,7 +275,7 @@ export default function AssignmentManager({
                         </div>
                       </div>
 
-                      <div className="mt-2">
+                      <div className="mt-2 relative z-10">
                         <p
                           className={`font-bold text-sm leading-tight break-words ${
                             isAssigned ? "text-brand-primary" : "text-slate-700"
@@ -287,7 +289,7 @@ export default function AssignmentManager({
                       </div>
 
                       {isAssigned && (
-                        <div className="absolute top-3 right-3 text-brand-neutral animate-in zoom-in">
+                        <div className="absolute top-3 right-3 text-brand-neutral animate-in zoom-in z-10">
                           <FiActivity size={14} />
                         </div>
                       )}

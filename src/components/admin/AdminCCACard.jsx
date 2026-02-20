@@ -41,7 +41,7 @@ export default function AdminCCACard({
     ];
 
     if (days.length === 1) {
-      return `${days[0]}s (${dates.length} Sessions)`;
+      return `${days[0]} (${dates.length} Sessions)`;
     } else if (days.length <= 2) {
       return `${days.join(" & ")} (${dates.length} Sessions)`;
     } else {
@@ -57,12 +57,14 @@ export default function AdminCCACard({
 
   return (
     <div
-      className={`w-full snap-center bg-white p-6 rounded-3xl border shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full min-h-[290px] ${
-        isFull ? "border-red-500" : "border-slate-100"
+      className={`w-full snap-center bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] p-6 rounded-3xl border shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] transition-all duration-300 group relative overflow-hidden flex flex-col h-full min-h-[290px] ${
+        isFull ? "border-red-500" : "border-slate-300"
       }`}
     >
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
       {/* HEADER */}
-      <div className="flex justify-between items-start mb-4">
+      <div className="flex justify-between items-start mb-4 relative z-10">
         <div className="flex-1 min-w-0 pr-2">
           {/* Status Dot */}
           <div className="flex items-center gap-2 mb-2">
@@ -112,7 +114,7 @@ export default function AdminCCACard({
       </div>
 
       {/* BODY INFO */}
-      <div className="grid grid-cols-2 gap-y-4 gap-x-2 mb-4 flex-1">
+      <div className="grid grid-cols-2 gap-y-4 gap-x-2 mb-4 flex-1 relative z-10">
         {/* CHANGED: Schedule Summary */}
         <div className="col-span-2">
           <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
@@ -192,7 +194,7 @@ export default function AdminCCACard({
       {/* FOOTER BUTTON */}
       <button
         onClick={() => onViewDetails(cca)}
-        className="w-full py-2.5 bg-slate-50 hover:bg-brand-primary hover:text-white text-brand-primary text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-100 hover:border-brand-primary shadow-sm"
+        className="w-full py-2.5 bg-slate-50 hover:bg-brand-primary hover:text-white text-brand-primary text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-100 hover:border-brand-primary shadow-sm relative z-10"
       >
         <FiInfo size={14} /> View Details & Enrollments
       </button>

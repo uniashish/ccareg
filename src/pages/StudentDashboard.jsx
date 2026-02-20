@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { FiGrid, FiCheckCircle } from "react-icons/fi";
 import { db } from "../firebase";
-import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import Header from "../components/Header";
+import sisBackground from "../assets/sisbackground.png";
 
 // 1. IMPORT THE BRAIN
 import { useStudentDash } from "../hooks/useStudentDash";
@@ -93,15 +94,6 @@ export default function StudentDashboard() {
   // Show locked view if they have submitted AND they are not currently adding more.
   const showLockedView = hasSubmitted && !isAddingMore;
 
-  // --- 3. AUTO-LOCK ON SUCCESSFUL SUBMIT ---
-  // When existingSelection updates (meaning the DB has processed the new submit),
-  // we exit "Adding Mode" and go back to the Locked View receipt.
-  useEffect(() => {
-    if (existingSelection) {
-      setIsAddingMore(false);
-    }
-  }, [existingSelection]);
-
   // --- 4. RESTORE STATE ---
   const previouslySelectedIds =
     existingSelection?.selectedCCAs?.map((c) => c.id) || [];
@@ -112,11 +104,10 @@ export default function StudentDashboard() {
       if (!selectedClassId && existingSelection.classId) {
         setSelectedClassId(existingSelection.classId);
       }
-      if (
-        existingSelection.selectedCCAs?.length > 0 &&
-        selectedCCAs.length === 0
-      ) {
-        setSelectedCCAs(existingSelection.selectedCCAs);
+      if (existingSelection.selectedCCAs?.length > 0) {
+        setSelectedCCAs((prev) =>
+          prev.length === 0 ? existingSelection.selectedCCAs : prev,
+        );
       }
     }
   }, [
@@ -125,7 +116,6 @@ export default function StudentDashboard() {
     selectedClassId,
     setSelectedClassId,
     setSelectedCCAs,
-    // Note: removed selectedCCAs.length to prevent loops
   ]);
 
   const availableCCAs = selectedClassId
@@ -138,6 +128,11 @@ export default function StudentDashboard() {
   const handleClassSelect = (id) => {
     setSelectedClassId(id);
     setSelectedCCAs([]);
+  };
+
+  const handleSubmitSelection = async () => {
+    await handleSubmit();
+    setIsAddingMore(false);
   };
 
   // --- 5. HELPER FUNCTION TO FORMAT CONTACT INFO ---
@@ -186,7 +181,10 @@ export default function StudentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div
+      className="min-h-screen bg-cover bg-center bg-no-repeat font-sans"
+      style={{ backgroundImage: `url(${sisBackground})` }}
+    >
       <Header />
 
       <main className="max-w-7xl mx-auto px-6 py-4 md:px-10">
@@ -287,7 +285,7 @@ export default function StudentDashboard() {
                     disabled={
                       selectedCCAs.length < minSelections || isSubmitting
                     }
-                    onClick={handleSubmit}
+                    onClick={handleSubmitSelection}
                     className="px-12 py-4 bg-brand-primary text-white rounded-2xl font-black shadow-2xl shadow-brand-primary/40 hover:scale-105 disabled:opacity-20 disabled:scale-100 transition-all active:scale-95 flex items-center gap-3"
                   >
                     {isSubmitting

@@ -61,18 +61,20 @@ export default function CCACard({
       return "border-brand-primary shadow-xl shadow-brand-primary/10 ring-4 ring-brand-primary/10 scale-[1.02]";
     }
     if (isFull) {
-      return "border-slate-100 opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0";
+      return "border-slate-300 opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0";
     }
-    return "border-transparent shadow-sm hover:shadow-md hover:border-slate-200 hover:-translate-y-1";
+    return "border-slate-200 hover:border-slate-300";
   };
 
   return (
     <div
       onClick={handleClick}
-      className={`relative group flex flex-col h-full bg-white rounded-2xl border-2 transition-all duration-300 overflow-hidden ${
+      className={`relative group flex flex-col h-full bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] rounded-2xl border shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] transition-all duration-300 overflow-hidden ${
         isLocked ? "cursor-not-allowed" : "cursor-pointer"
-      } ${!isLocked ? "hover:scale-[1.07] hover:z-10" : ""} ${getCardClasses()}`}
+      } ${!isLocked ? "hover:z-10" : ""} ${getCardClasses()}`}
     >
+      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
       {/* LOCKED INDICATOR OVERLAY */}
       {isLocked && (
         <div className="absolute top-3 right-3 z-20 bg-red-500 text-white p-1.5 rounded-full shadow-lg animate-in zoom-in duration-300">
@@ -97,7 +99,7 @@ export default function CCACard({
       )}
 
       {/* CARD BODY */}
-      <div className="p-5 flex-1 flex flex-col gap-4">
+      <div className="p-5 flex-1 flex flex-col gap-4 relative z-10">
         {/* Header Section */}
         <div>
           {/* Changed justify-between to justify-end since label is removed */}
@@ -231,7 +233,7 @@ export default function CCACard({
       </div>
 
       {/* Footer / Status Bar */}
-      <div className="px-5 pb-4 pt-0">
+      <div className="px-5 pb-4 pt-0 relative z-10">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
             <FiUsers size={10} />

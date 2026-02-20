@@ -146,8 +146,8 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
   }, [exportOpen]);
 
   return (
-    <section className="animate-in fade-in duration-500">
-      <div className="flex flex-col gap-6 mb-8">
+    <section className="animate-in fade-in duration-500 h-full flex flex-col min-h-0">
+      <div className="flex flex-col gap-6 mb-6 shrink-0">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className="text-3xl font-black text-slate-800 tracking-tight">
@@ -159,7 +159,7 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
           </div>
 
           {/* SEARCH BAR + EXPORT */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
             <div className="relative w-full md:w-80">
               <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -175,7 +175,7 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
               <button
                 type="button"
                 onClick={() => setExportOpen((prev) => !prev)}
-                className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2"
+                className="w-full sm:w-auto px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm flex items-center justify-center gap-2"
               >
                 <FiDownload size={14} /> Export
               </button>
@@ -237,8 +237,8 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto overflow-y-auto max-h-[68vh]">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto h-full">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
@@ -300,7 +300,7 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
                         </span>
                       </td>
                       <td className="px-8 py-5">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => onEditRole(u)}
                             className="flex items-center gap-2 px-4 py-2 text-brand-primary hover:bg-brand-primary/10 rounded-xl font-bold text-xs transition-all active:scale-95"
