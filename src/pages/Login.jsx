@@ -185,7 +185,7 @@ export default function Login() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-dvh flex items-center justify-center bg-gray-100 px-4">
         Checking login...
       </div>
     );
@@ -193,7 +193,7 @@ export default function Login() {
 
   return (
     <div
-      className="relative h-screen w-screen flex items-center justify-center bg-center bg-cover"
+      className="relative min-h-dvh w-full flex items-center justify-center bg-center bg-cover px-4 sm:px-6 lg:px-8 py-6"
       style={{ backgroundImage: `url(${loginBackdrop})` }}
     >
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"></div>
@@ -206,8 +206,8 @@ export default function Login() {
             alt="CCA icon"
             className="login-backdrop-icon absolute select-none"
             style={{
-              width: `${icon.size}px`,
-              height: `${icon.size}px`,
+              width: `clamp(28px, ${icon.size * 0.08}vw, ${icon.size}px)`,
+              height: `clamp(28px, ${icon.size * 0.08}vw, ${icon.size}px)`,
               left: 0,
               top: 0,
             }}
@@ -218,20 +218,20 @@ export default function Login() {
         ))}
       </div>
 
-      <div className="login-card-float login-card-glow relative z-10 flex flex-col items-center justify-center gap-6 bg-white/95 p-10 rounded-3xl border border-white/50 transform transition-transform hover:scale-[1.02]">
-        <h1 className="text-3xl font-bold text-gray-800 text-center">
+      <div className="login-card-float login-card-glow relative z-10 w-full max-w-[620px] flex flex-col items-center justify-center gap-5 sm:gap-6 bg-white/95 px-5 py-7 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl border border-white/50 transform transition-transform hover:scale-[1.02]">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 text-center leading-tight">
           SIS KGNEJ CCA Registration Portal
         </h1>
 
         {!user && (
           <button
             onClick={handleLogin}
-            className="group flex items-center gap-3 px-7 py-3.5 bg-white border border-slate-200 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95"
+            className="group w-full sm:w-auto flex items-center justify-center gap-3 px-5 sm:px-7 py-3 sm:py-3.5 bg-white border border-slate-200 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95"
           >
-            <span className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-              <FcGoogle size={20} />
+            <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+              <FcGoogle size={18} />
             </span>
-            <span className="text-slate-800 font-semibold tracking-tight">
+            <span className="text-slate-800 font-semibold tracking-tight text-sm sm:text-base text-center">
               Login with SIS KGNEJ Google Account
             </span>
           </button>
