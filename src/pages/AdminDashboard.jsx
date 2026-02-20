@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import {
   collection,
@@ -22,6 +22,7 @@ import AddCCAModal from "../components/AddCCAModal";
 import CCADetailsModal from "../components/admin/CCADetailsModal";
 import UpdateRoleModal from "../components/admin/UpdateRoleModal";
 import MessageModal from "../components/common/MessageModal";
+import sisBackground from "../assets/sisbackground.png";
 
 // --- HOOKS ---
 import { useAdminData } from "../hooks/useAdminData";
@@ -184,7 +185,10 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
+    <div
+      className="min-h-screen flex flex-col font-sans text-slate-900 bg-cover bg-center bg-fixed"
+      style={{ backgroundImage: `url(${sisBackground})` }}
+    >
       <Header />
 
       <main className="flex-1 flex overflow-hidden">

@@ -210,6 +210,8 @@ export default function Login() {
               height: `clamp(28px, ${icon.size * 0.08}vw, ${icon.size}px)`,
               left: 0,
               top: 0,
+              "--icon-glow-duration": `${3.2 + pseudoRandom(icon.seed, 14) * 2.8}s`,
+              "--icon-glow-delay": `-${pseudoRandom(icon.seed, 15) * 3.5}s`,
             }}
             ref={(el) => {
               iconRefs.current[index] = el;

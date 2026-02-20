@@ -96,9 +96,26 @@ button:focus-visible {
 }
 
 .login-backdrop-icon {
-  opacity: 0.85;
-  will-change: transform;
+  opacity: 0.82;
+  will-change: transform, filter, opacity;
   filter: drop-shadow(0 8px 14px rgba(15, 23, 42, 0.32));
+  animation: loginBackdropIconGlow var(--icon-glow-duration, 4.6s) ease-in-out
+    infinite;
+  animation-delay: var(--icon-glow-delay, 0s);
+}
+
+@keyframes loginBackdropIconGlow {
+  0%,
+  100% {
+    opacity: 0.78;
+    filter: drop-shadow(0 6px 12px rgba(15, 23, 42, 0.24))
+      drop-shadow(0 0 6px rgba(251, 146, 60, 0.18));
+  }
+  50% {
+    opacity: 0.94;
+    filter: drop-shadow(0 10px 18px rgba(15, 23, 42, 0.36))
+      drop-shadow(0 0 14px rgba(251, 146, 60, 0.34));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
