@@ -164,6 +164,23 @@ export function useAdminData(showMessage = () => {}) {
 
   const handleSaveCCA = async (ccaData) => {
     try {
+      const enrolledCount = Number(editingCCA?.enrolledCount || 0);
+      const parsedMaxSeats = Number(ccaData.maxSeats);
+
+      if (
+        editingCCA &&
+        ccaData.maxSeats !== "" &&
+        parsedMaxSeats > 0 &&
+        parsedMaxSeats < enrolledCount
+      ) {
+        showMessage({
+          type: "error",
+          title: "Invalid Capacity",
+          message: `Max seats cannot be less than occupied seats (${enrolledCount}).`,
+        });
+        return;
+      }
+
       // Ensure numbers are stored as numbers
       const formattedData = {
         ...ccaData,

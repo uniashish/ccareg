@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FiCheckCircle,
   FiPlusCircle,
   FiUsers,
   FiBookOpen,
   FiActivity,
+  FiDownload,
 } from "react-icons/fi";
 
 export default function AssignmentManager({
@@ -14,8 +15,137 @@ export default function AssignmentManager({
   setSelectedClassId,
   onToggleCCA,
 }) {
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportMenuRef = useRef(null);
+
   const selectedClass = classesList.find((c) => c.id === selectedClassId);
   const activeCCAs = ccas.filter((cca) => cca.isActive !== false);
+
+  const assignedCCAs = activeCCAs.filter((cca) =>
+    selectedClass?.allowedCCAs?.includes(cca.id),
+  );
+
+  const escapeCSV = (value) => {
+    const safeValue = value == null ? "" : String(value);
+    return `"${safeValue.replace(/"/g, '""')}"`;
+  };
+
+  const getExportRows = () => {
+    return assignedCCAs.map((cca) => [
+      selectedClass?.name || "",
+      cca.name || "",
+      cca.teacher || "",
+      cca.venue || "",
+      cca.isActive === false ? "Hidden" : "Active",
+    ]);
+  };
+
+  const handleExportCSV = () => {
+    if (!selectedClass) return;
+
+    const headers = ["Class", "CCA", "Teacher", "Venue", "Status"];
+    const rows = getExportRows().map((row) =>
+      row.map((cell) => escapeCSV(cell)).join(","),
+    );
+    const csvContent = [headers.join(","), ...rows].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `${selectedClass.name}_Assigned_CCAs_${new Date().toISOString().split("T")[0]}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = () => {
+    if (!selectedClass) return;
+
+    const escapeHtml = (value) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    const rowsHtml = getExportRows()
+      .map(
+        (row) =>
+          `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`,
+      )
+      .join("\n");
+
+    const html = `
+      <html>
+        <head>
+          <title>Assigned CCAs - ${escapeHtml(selectedClass.name)}</title>
+          <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
+            h2{font-size:13px;margin-bottom:6px}
+            table{width:100%;border-collapse:collapse}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
+            th{background:#f3f4f6;font-weight:700}
+          </style>
+        </head>
+        <body>
+          <h2>Assigned CCAs - ${escapeHtml(selectedClass.name)}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>CCA</th>
+                <th>Teacher</th>
+                <th>Venue</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => {
+      w.focus();
+      w.print();
+    }, 300);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(event.target)
+      ) {
+        setExportOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setExportOpen(false);
+      }
+    };
+
+    if (exportOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [exportOpen]);
 
   return (
     <div className="flex h-[calc(100vh-200px)] gap-6 animate-in fade-in duration-500">
@@ -67,9 +197,46 @@ export default function AssignmentManager({
                   </span>
                 </p>
               </div>
-              <div className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold flex items-center gap-2">
-                <FiActivity />
-                {selectedClass?.allowedCCAs?.length || 0} Assigned
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold flex items-center gap-2">
+                  <FiActivity />
+                  {selectedClass?.allowedCCAs?.length || 0} Assigned
+                </div>
+                <div className="relative" ref={exportMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setExportOpen((prev) => !prev)}
+                    className="px-3 py-1 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-slate-50 transition-colors"
+                    title="Export class assignments"
+                  >
+                    <FiDownload size={12} /> Export
+                  </button>
+
+                  {exportOpen && (
+                    <div className="absolute right-0 mt-2 w-32 bg-white border border-slate-200 rounded-lg shadow-lg z-20 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleExportCSV();
+                          setExportOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        Export CSV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleExportPDF();
+                          setExportOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 border-t border-slate-100"
+                      >
+                        Export PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

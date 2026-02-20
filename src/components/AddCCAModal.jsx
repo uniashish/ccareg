@@ -28,6 +28,7 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
   });
 
   const [tempDate, setTempDate] = useState("");
+  const [seatsError, setSeatsError] = useState("");
 
   // --- GENERATOR STATE ---
   const [showGenerator, setShowGenerator] = useState(false);
@@ -78,6 +79,7 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
           ...initialData,
           hyperlinks: initialData.hyperlinks || [],
         });
+        setSeatsError("");
       } else {
         setForm({
           name: "",
@@ -96,12 +98,30 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
         setTempDate("");
         setGenConfig({ startDate: "", endDate: "", selectedWeekdays: [] });
         setShowGenerator(false);
+        setSeatsError("");
       }
     }
   }, [initialData, isOpen]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    if (name === "maxSeats") {
+      const enrolledCount = Number(initialData?.enrolledCount || 0);
+      const parsedMaxSeats = Number(value);
+      if (
+        initialData &&
+        value !== "" &&
+        parsedMaxSeats > 0 &&
+        parsedMaxSeats < enrolledCount
+      ) {
+        setSeatsError(
+          `Max seats cannot be less than occupied seats (${enrolledCount}).`,
+        );
+      } else {
+        setSeatsError("");
+      }
+    }
+
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -182,6 +202,23 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    const enrolledCount = Number(initialData?.enrolledCount || 0);
+    const parsedMaxSeats = Number(form.maxSeats);
+    const isEditing = !!initialData;
+
+    if (
+      isEditing &&
+      form.maxSeats !== "" &&
+      parsedMaxSeats > 0 &&
+      parsedMaxSeats < enrolledCount
+    ) {
+      setSeatsError(
+        `Max seats cannot be less than occupied seats (${enrolledCount}).`,
+      );
+      return;
+    }
+
     onSave(form);
   };
 
@@ -309,9 +346,15 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
                   name="maxSeats"
                   value={form.maxSeats}
                   onChange={handleChange}
+                  min={initialData ? Number(initialData.enrolledCount || 0) : 0}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder="Unlimited"
                 />
+                {seatsError && (
+                  <p className="mt-1 text-xs font-semibold text-red-600">
+                    {seatsError}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">

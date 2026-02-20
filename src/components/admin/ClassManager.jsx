@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FiPlus,
   FiEdit2,
@@ -201,6 +201,19 @@ export default function ClassManager({
     return () => unsub();
   }, []);
 
+  const availableCCAIds = useMemo(
+    () => new Set(ccas.map((cca) => cca.id)),
+    [ccas],
+  );
+
+  const classRegistrationCounts = useMemo(() => {
+    return selectionsData.reduce((acc, selection) => {
+      if (!selection.classId) return acc;
+      acc[selection.classId] = (acc[selection.classId] || 0) + 1;
+      return acc;
+    }, {});
+  }, [selectionsData]);
+
   return (
     <section className="animate-in fade-in duration-500">
       <div className="flex justify-between items-center mb-8">
@@ -230,6 +243,12 @@ export default function ClassManager({
               <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-wider text-xs">
                 Class Name
               </th>
+              <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-wider text-xs text-center">
+                Total CCA
+              </th>
+              <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-wider text-xs text-center">
+                Students Registered
+              </th>
               <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-wider text-xs text-right">
                 Actions
               </th>
@@ -238,6 +257,12 @@ export default function ClassManager({
           <tbody className="divide-y divide-slate-100">
             {classesList.length > 0 ? (
               classesList.map((c, index) => {
+                const totalCCAs = (c.allowedCCAs || []).filter((ccaId) =>
+                  availableCCAIds.has(ccaId),
+                ).length;
+                const totalStudentsRegistered =
+                  classRegistrationCounts[c.id] || 0;
+
                 return (
                   <tr
                     key={c.id}
@@ -257,6 +282,19 @@ export default function ClassManager({
                       <div className="text-xs text-slate-400 font-medium mt-1">
                         Click to view selections
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => setViewingClass(c)}
+                        className="text-sm font-bold text-brand-primary hover:underline underline-offset-2"
+                      >
+                        {totalCCAs}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center min-w-10 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm font-bold">
+                        {totalStudentsRegistered}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-3">
@@ -280,7 +318,7 @@ export default function ClassManager({
             ) : (
               <tr>
                 <td
-                  colSpan="3"
+                  colSpan="5"
                   className="px-8 py-12 text-center text-slate-400 italic"
                 >
                   No classes found. Click "Add New Class" to get started.

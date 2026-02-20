@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FiPlus, FiSearch } from "react-icons/fi";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../../firebase";
 import CCAGrid from "./CCAGrid"; // Import the new grid component
 import CCAStudentsModal from "./CCAStudentsModal";
 
@@ -15,11 +17,59 @@ export default function CCAManager({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCCAForStudents, setSelectedCCAForStudents] = useState(null);
+  const [vendorNamesByCcaId, setVendorNamesByCcaId] = useState({});
 
-  // Filter logic based on CCA name
-  const filteredCCAs = ccas.filter((cca) =>
-    cca.name.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  useEffect(() => {
+    const fetchVendorMappings = async () => {
+      try {
+        const vendorsSnap = await getDocs(collection(db, "vendors"));
+        const map = {};
+
+        vendorsSnap.forEach((vendorDoc) => {
+          const vendorData = vendorDoc.data();
+          const vendorName = (vendorData?.name || "").toLowerCase();
+          const associatedCCAs = Array.isArray(vendorData?.associatedCCAs)
+            ? vendorData.associatedCCAs
+            : [];
+
+          associatedCCAs.forEach((associatedCCA) => {
+            const ccaId =
+              typeof associatedCCA === "string"
+                ? associatedCCA
+                : associatedCCA?.id;
+
+            if (!ccaId || !vendorName) return;
+
+            if (!map[ccaId]) {
+              map[ccaId] = vendorName;
+            } else if (!map[ccaId].includes(vendorName)) {
+              map[ccaId] = `${map[ccaId]} ${vendorName}`;
+            }
+          });
+        });
+
+        setVendorNamesByCcaId(map);
+      } catch (error) {
+        console.error("Error fetching vendor mappings:", error);
+        setVendorNamesByCcaId({});
+      }
+    };
+
+    fetchVendorMappings();
+  }, []);
+
+  // Filter logic based on CCA name + vendor name (vendor not displayed in UI)
+  const normalizedQuery = searchQuery.toLowerCase().trim();
+  const filteredCCAs = ccas.filter((cca) => {
+    if (!normalizedQuery) return true;
+
+    const ccaName = (cca.name || "").toLowerCase();
+    const vendorName = vendorNamesByCcaId[cca.id] || "";
+
+    return (
+      ccaName.includes(normalizedQuery) || vendorName.includes(normalizedQuery)
+    );
+  });
 
   return (
     <section className="space-y-8">

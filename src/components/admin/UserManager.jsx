@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FiUser,
   FiMail,
@@ -7,11 +7,14 @@ import {
   FiTrash2,
   FiSearch,
   FiFilter,
+  FiDownload,
 } from "react-icons/fi";
 
 export default function UserManager({ users, onEditRole, onDeleteUser }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportMenuRef = useRef(null);
 
   const roles = ["all", "admin", "teacher", "student"];
 
@@ -28,6 +31,120 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
     return matchesSearch && matchesRole;
   });
 
+  const getExportRows = () => {
+    return filteredUsers.map((u) => {
+      const userName =
+        u.displayName || u.name || u.email?.split("@")[0] || "Unknown User";
+      return [userName, u.email || "", u.role || ""];
+    });
+  };
+
+  const escapeCSV = (value) => {
+    const safeValue = value == null ? "" : String(value);
+    return `"${safeValue.replace(/"/g, '""')}"`;
+  };
+
+  const handleExportCSV = () => {
+    const headers = ["Full Name", "Email Address", "Access Level"];
+    const rows = getExportRows().map((row) =>
+      row.map((cell) => escapeCSV(cell)).join(","),
+    );
+    const csvContent = [headers.join(","), ...rows].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `Users_${activeFilter}_${new Date().toISOString().split("T")[0]}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = () => {
+    const escapeHtml = (value) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    const rowsHtml = getExportRows()
+      .map(
+        (row) =>
+          `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`,
+      )
+      .join("\n");
+
+    const html = `
+      <html>
+        <head>
+          <title>User List Export</title>
+          <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
+            h2{font-size:13px;margin-bottom:6px}
+            table{width:100%;border-collapse:collapse}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
+            th{background:#f3f4f6;font-weight:700}
+          </style>
+        </head>
+        <body>
+          <h2>User List (${escapeHtml(activeFilter)})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Full Name</th>
+                <th>Email Address</th>
+                <th>Access Level</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => {
+      w.focus();
+      w.print();
+    }, 300);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(event.target)
+      ) {
+        setExportOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setExportOpen(false);
+      }
+    };
+
+    if (exportOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [exportOpen]);
+
   return (
     <section className="animate-in fade-in duration-500">
       <div className="flex flex-col gap-6 mb-8">
@@ -41,16 +158,53 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
             </p>
           </div>
 
-          {/* SEARCH BAR */}
-          <div className="relative w-full md:w-80">
-            <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-brand-primary/10 focus:border-brand-primary transition-all text-sm font-medium shadow-sm"
-            />
+          {/* SEARCH BAR + EXPORT */}
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative w-full md:w-80">
+              <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-brand-primary/10 focus:border-brand-primary transition-all text-sm font-medium shadow-sm"
+              />
+            </div>
+
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                type="button"
+                onClick={() => setExportOpen((prev) => !prev)}
+                className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2"
+              >
+                <FiDownload size={14} /> Export
+              </button>
+
+              {exportOpen && (
+                <div className="absolute right-0 mt-2 w-36 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleExportCSV();
+                      setExportOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleExportPDF();
+                      setExportOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 border-t border-slate-100"
+                  >
+                    Export PDF
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
