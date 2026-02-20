@@ -610,9 +610,11 @@ export default function TeacherDashboard() {
                         <div
                           key={cca.id}
                           onClick={() => setViewingCCA(cca)}
-                          className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-primary/30 hover:bg-slate-50 cursor-pointer transition-all group"
+                          className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] p-4 rounded-xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] cursor-pointer transition-all duration-300 group"
                         >
-                          <div className="flex justify-between items-start">
+                          <div className="pointer-events-none absolute inset-0 rounded-xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
+                          <div className="flex justify-between items-start relative z-10">
                             <h3 className="font-bold text-slate-800 text-sm group-hover:text-brand-primary transition-colors">
                               {cca.name}
                             </h3>
@@ -622,14 +624,14 @@ export default function TeacherDashboard() {
                               </span>
                             )}
                           </div>
-                          <div className="mt-2 text-xs text-slate-500 flex items-center gap-2">
+                          <div className="mt-2 text-xs text-slate-500 flex items-center gap-2 relative z-10">
                             <FiUser size={12} />
                             <span className="truncate">
                               {cca.teacher || "TBA"}
                             </span>
                           </div>
                           {/* Mini Progress Bar */}
-                          <div className="mt-3 flex items-center gap-2">
+                          <div className="mt-3 flex items-center gap-2 relative z-10">
                             <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-slate-300 group-hover:bg-brand-primary"
