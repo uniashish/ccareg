@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Header from "../components/Header";
+import TeacherAttendancePanel from "../components/teacher/TeacherAttendancePanel";
+import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase";
 import { collection, getDocs, doc, onSnapshot } from "firebase/firestore";
 import {
@@ -340,6 +342,7 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
 
 // --- MAIN COMPONENT ---
 export default function TeacherDashboard() {
+  const { user } = useAuth();
   const [selections, setSelections] = useState([]);
   const [classes, setClasses] = useState([]);
   const [ccas, setCCAs] = useState([]);
@@ -357,6 +360,7 @@ export default function TeacherDashboard() {
   const [viewingSelection, setViewingSelection] = useState(null);
   const [viewingCCA, setViewingCCA] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [activeView, setActiveView] = useState("dashboard");
 
   // --- FETCH DATA ---
   useEffect(() => {
@@ -492,7 +496,12 @@ export default function TeacherDashboard() {
                       placeholder="Search student name..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border-transparent focus:bg-white focus:border-brand-primary rounded-xl text-sm font-bold text-slate-700 transition-all outline-none focus:ring-4 focus:ring-brand-primary/10"
+                      disabled={activeView === "attendance"}
+                      className={`w-full pl-10 pr-4 py-3 bg-slate-50 border-transparent rounded-xl text-sm font-bold text-slate-700 transition-all outline-none ${
+                        activeView === "attendance"
+                          ? "cursor-not-allowed opacity-60"
+                          : "focus:bg-white focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10"
+                      }`}
                     />
                   </div>
                   <div className="relative w-full md:w-48">
@@ -503,7 +512,12 @@ export default function TeacherDashboard() {
                     <select
                       value={filterClass}
                       onChange={(e) => setFilterClass(e.target.value)}
-                      className="w-full pl-9 pr-4 py-3 bg-slate-50 border-transparent focus:bg-white focus:border-brand-primary rounded-xl text-xs font-bold text-slate-600 transition-all outline-none cursor-pointer appearance-none"
+                      disabled={activeView === "attendance"}
+                      className={`w-full pl-9 pr-4 py-3 bg-slate-50 border-transparent rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none ${
+                        activeView === "attendance"
+                          ? "cursor-not-allowed opacity-60"
+                          : "cursor-pointer focus:bg-white focus:border-brand-primary"
+                      }`}
                     >
                       <option value="">All Classes</option>
                       {classes.map((c) => (
@@ -521,7 +535,12 @@ export default function TeacherDashboard() {
                     <select
                       value={filterCCA}
                       onChange={(e) => setFilterCCA(e.target.value)}
-                      className="w-full pl-9 pr-4 py-3 bg-slate-50 border-transparent focus:bg-white focus:border-brand-primary rounded-xl text-xs font-bold text-slate-600 transition-all outline-none cursor-pointer appearance-none truncate"
+                      disabled={activeView === "attendance"}
+                      className={`w-full pl-9 pr-4 py-3 bg-slate-50 border-transparent rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none truncate ${
+                        activeView === "attendance"
+                          ? "cursor-not-allowed opacity-60"
+                          : "cursor-pointer focus:bg-white focus:border-brand-primary"
+                      }`}
                     >
                       <option value="">All CCAs</option>
                       {ccas.map((c) => (
@@ -538,12 +557,40 @@ export default function TeacherDashboard() {
                         setFilterClass("");
                         setFilterCCA("");
                       }}
-                      className="p-3 text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
+                      disabled={activeView === "attendance"}
+                      className={`p-3 rounded-xl transition-colors ${
+                        activeView === "attendance"
+                          ? "text-slate-300 bg-slate-100 cursor-not-allowed"
+                          : "text-red-500 bg-red-50 hover:bg-red-100"
+                      }`}
                       title="Clear Filters"
                     >
                       <FiX />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveView((prev) =>
+                        prev === "attendance" ? "dashboard" : "attendance",
+                      );
+                      setExportOpen(false);
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl font-bold transition-colors ${
+                      activeView === "attendance"
+                        ? "bg-slate-800 text-white hover:bg-slate-700"
+                        : "bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20"
+                    }`}
+                    title={
+                      activeView === "attendance"
+                        ? "Back to dashboard"
+                        : "Take Attendance"
+                    }
+                  >
+                    {activeView === "attendance"
+                      ? "Back to Dashboard"
+                      : "Take Attendance"}
+                  </button>
                   <div className="relative">
                     <button
                       onClick={() => setExportOpen((v) => !v)}
@@ -583,177 +630,192 @@ export default function TeacherDashboard() {
                 </div>
               </div>
 
-              {/* --- 2-COLUMN LAYOUT WITH EXPLICIT HEIGHTS --- */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* LEFT COLUMN: CCA LIST (Span 4) - Fixed Height with Scrollbar */}
-                <div className="lg:col-span-4 space-y-4">
-                  <div className="flex items-center gap-2 mb-2 px-1">
-                    <FiLayers className="text-brand-primary" />
-                    <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
-                      CCA List
-                    </h2>
-                  </div>
-
-                  <div
-                    className="space-y-3 overflow-y-auto border border-slate-200 bg-slate-50/50 rounded-2xl p-4"
-                    style={{
-                      height: "calc(100vh - 400px)",
-                      minHeight: "400px",
-                    }}
-                  >
-                    {loading ? (
-                      <div className="text-center py-10 text-slate-400">
-                        Loading CCAs...
+              {activeView === "attendance" ? (
+                <TeacherAttendancePanel
+                  user={user}
+                  ccas={ccas}
+                  selections={selections}
+                  classes={classes}
+                />
+              ) : (
+                <>
+                  {/* --- 2-COLUMN LAYOUT WITH EXPLICIT HEIGHTS --- */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    {/* LEFT COLUMN: CCA LIST (Span 4) - Fixed Height with Scrollbar */}
+                    <div className="lg:col-span-4 space-y-4">
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <FiLayers className="text-brand-primary" />
+                        <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                          CCA List
+                        </h2>
                       </div>
-                    ) : ccas.length > 0 ? (
-                      ccas.map((cca) => (
-                        <div
-                          key={cca.id}
-                          onClick={() => setViewingCCA(cca)}
-                          className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] p-4 rounded-xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] cursor-pointer transition-all duration-300 group"
-                        >
-                          <div className="pointer-events-none absolute inset-0 rounded-xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
 
-                          <div className="flex justify-between items-start relative z-10">
-                            <h3 className="font-bold text-slate-800 text-sm group-hover:text-brand-primary transition-colors">
-                              {cca.name}
-                            </h3>
-                            {cca.category && (
-                              <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">
-                                {cca.category}
-                              </span>
-                            )}
+                      <div
+                        className="space-y-3 overflow-y-auto border border-slate-200 bg-slate-50/50 rounded-2xl p-4"
+                        style={{
+                          height: "calc(100vh - 400px)",
+                          minHeight: "400px",
+                        }}
+                      >
+                        {loading ? (
+                          <div className="text-center py-10 text-slate-400">
+                            Loading CCAs...
                           </div>
-                          <div className="mt-2 text-xs text-slate-500 flex items-center gap-2 relative z-10">
-                            <FiUser size={12} />
-                            <span className="truncate">
-                              {cca.teacher || "TBA"}
-                            </span>
-                          </div>
-                          {/* Mini Progress Bar */}
-                          <div className="mt-3 flex items-center gap-2 relative z-10">
-                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-slate-300 group-hover:bg-brand-primary"
-                                style={{
-                                  width: `${Math.min(((cca.enrolledCount || 0) / (cca.maxSeats || 1)) * 100, 100)}%`,
-                                }}
-                              ></div>
+                        ) : ccas.length > 0 ? (
+                          ccas.map((cca) => (
+                            <div
+                              key={cca.id}
+                              onClick={() => setViewingCCA(cca)}
+                              className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] p-4 rounded-xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] cursor-pointer transition-all duration-300 group"
+                            >
+                              <div className="pointer-events-none absolute inset-0 rounded-xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
+
+                              <div className="flex justify-between items-start relative z-10">
+                                <h3 className="font-bold text-slate-800 text-sm group-hover:text-brand-primary transition-colors">
+                                  {cca.name}
+                                </h3>
+                                {cca.category && (
+                                  <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">
+                                    {cca.category}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-2 text-xs text-slate-500 flex items-center gap-2 relative z-10">
+                                <FiUser size={12} />
+                                <span className="truncate">
+                                  {cca.teacher || "TBA"}
+                                </span>
+                              </div>
+                              {/* Mini Progress Bar */}
+                              <div className="mt-3 flex items-center gap-2 relative z-10">
+                                <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-slate-300 group-hover:bg-brand-primary"
+                                    style={{
+                                      width: `${Math.min(((cca.enrolledCount || 0) / (cca.maxSeats || 1)) * 100, 100)}%`,
+                                    }}
+                                  ></div>
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-400">
+                                  {cca.enrolledCount || 0}/{cca.maxSeats || "∞"}
+                                </span>
+                              </div>
                             </div>
-                            <span className="text-[9px] font-bold text-slate-400">
-                              {cca.enrolledCount || 0}/{cca.maxSeats || "∞"}
-                            </span>
+                          ))
+                        ) : (
+                          <div className="text-slate-400 text-sm italic">
+                            No CCAs found.
                           </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-slate-400 text-sm italic">
-                        No CCAs found.
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
 
-                {/* RIGHT COLUMN: STUDENT LIST (Span 8) - Fixed Height with Scrollbar */}
-                <div className="lg:col-span-8">
-                  <div className="flex items-center gap-2 mb-6 px-1">
-                    <FiUsers className="text-brand-primary" />
-                    <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
-                      Student Selections
-                    </h2>
-                    <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">
-                      {filteredStudents.length}
-                    </span>
-                  </div>
-
-                  <div
-                    className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden"
-                    style={{
-                      height: "calc(100vh - 400px)",
-                      minHeight: "400px",
-                    }}
-                  >
-                    {loading ? (
-                      <div className="p-12 flex justify-center text-slate-400">
-                        <span className="animate-pulse font-bold">
-                          Loading records...
+                    {/* RIGHT COLUMN: STUDENT LIST (Span 8) - Fixed Height with Scrollbar */}
+                    <div className="lg:col-span-8">
+                      <div className="flex items-center gap-2 mb-6 px-1">
+                        <FiUsers className="text-brand-primary" />
+                        <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                          Student Selections
+                        </h2>
+                        <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                          {filteredStudents.length}
                         </span>
                       </div>
-                    ) : (
-                      <div className="h-full overflow-y-auto">
-                        <table className="w-full text-left">
-                          <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
-                            <tr>
-                              <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                Student
-                              </th>
-                              <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                Class
-                              </th>
-                              <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                Choices
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                            {filteredStudents.length > 0 ? (
-                              filteredStudents.map((student) => (
-                                <tr
-                                  key={student.id}
-                                  onClick={() => setViewingSelection(student)}
-                                  className="group hover:bg-brand-primary/5 cursor-pointer transition-colors"
-                                >
-                                  <td className="p-4">
-                                    <div className="font-bold text-slate-700 group-hover:text-brand-primary text-sm">
-                                      {student.studentName}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 font-mono">
-                                      {student.studentEmail}
-                                    </div>
-                                  </td>
-                                  <td className="p-4">
-                                    <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md whitespace-nowrap">
-                                      {student.className}
-                                    </span>
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="flex flex-wrap gap-1">
-                                      {student.selectedCCAs
-                                        ?.slice(0, 2)
-                                        .map((c) => (
-                                          <span
-                                            key={c.id}
-                                            className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded border border-indigo-100 whitespace-nowrap"
-                                          >
-                                            {c.name}
-                                          </span>
-                                        ))}
-                                      {student.selectedCCAs?.length > 2 && (
-                                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded">
-                                          +{student.selectedCCAs.length - 2}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
+
+                      <div
+                        className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden"
+                        style={{
+                          height: "calc(100vh - 400px)",
+                          minHeight: "400px",
+                        }}
+                      >
+                        {loading ? (
+                          <div className="p-12 flex justify-center text-slate-400">
+                            <span className="animate-pulse font-bold">
+                              Loading records...
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="h-full overflow-y-auto">
+                            <table className="w-full text-left">
+                              <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
+                                <tr>
+                                  <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                    Student
+                                  </th>
+                                  <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                    Class
+                                  </th>
+                                  <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                    Choices
+                                  </th>
                                 </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td
-                                  colSpan="3"
-                                  className="p-12 text-center text-slate-400"
-                                >
-                                  <p className="text-sm">No matches found.</p>
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {filteredStudents.length > 0 ? (
+                                  filteredStudents.map((student) => (
+                                    <tr
+                                      key={student.id}
+                                      onClick={() =>
+                                        setViewingSelection(student)
+                                      }
+                                      className="group hover:bg-brand-primary/5 cursor-pointer transition-colors"
+                                    >
+                                      <td className="p-4">
+                                        <div className="font-bold text-slate-700 group-hover:text-brand-primary text-sm">
+                                          {student.studentName}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-mono">
+                                          {student.studentEmail}
+                                        </div>
+                                      </td>
+                                      <td className="p-4">
+                                        <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md whitespace-nowrap">
+                                          {student.className}
+                                        </span>
+                                      </td>
+                                      <td className="p-4">
+                                        <div className="flex flex-wrap gap-1">
+                                          {student.selectedCCAs
+                                            ?.slice(0, 2)
+                                            .map((c) => (
+                                              <span
+                                                key={c.id}
+                                                className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded border border-indigo-100 whitespace-nowrap"
+                                              >
+                                                {c.name}
+                                              </span>
+                                            ))}
+                                          {student.selectedCCAs?.length > 2 && (
+                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded">
+                                              +{student.selectedCCAs.length - 2}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td
+                                      colSpan="3"
+                                      className="p-12 text-center text-slate-400"
+                                    >
+                                      <p className="text-sm">
+                                        No matches found.
+                                      </p>
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              </div>
+                </>
+              )}
             </>
           )}
         </main>
