@@ -10,7 +10,6 @@ import {
   FiActivity,
   FiX,
   FiFilter,
-  FiDollarSign,
   FiMapPin,
   FiBriefcase,
 } from "react-icons/fi";
@@ -130,9 +129,8 @@ function StudentDetailsModal({ isOpen, onClose, selection, classMap }) {
                         {cca.name}
                       </h5>
                       <div className="flex items-center gap-1 text-slate-600 font-bold bg-slate-100 px-2 py-1 rounded text-xs">
-                        <FiDollarSign />{" "}
                         {cca.price || cca.fee
-                          ? Number(cca.price || cca.fee).toLocaleString()
+                          ? `Rp ${Number(cca.price || cca.fee).toLocaleString()}`
                           : "Free"}
                       </div>
                     </div>
@@ -214,21 +212,85 @@ export default function SelectionsManager({
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
     type: "info",
+    mode: "info",
     title: "",
     message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    onConfirm: null,
   });
 
   const showModal = (type, title, message) => {
     setModalConfig({
       isOpen: true,
       type,
+      mode: "info",
       title,
       message,
+      confirmText: "Confirm",
+      cancelText: "Cancel",
+      onConfirm: null,
+    });
+  };
+
+  const showConfirmModal = ({
+    type = "info",
+    title,
+    message,
+    onConfirm,
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+  }) => {
+    setModalConfig({
+      isOpen: true,
+      type,
+      mode: "confirm",
+      title,
+      message,
+      confirmText,
+      cancelText,
+      onConfirm,
     });
   };
 
   const closeModal = () => {
     setModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const handleConfirmSingleCCARemoval = (selectionId, cca) => {
+    showConfirmModal({
+      type: "error",
+      title: "Remove Activity?",
+      message: `Are you sure you want to remove ${cca.name} for this student?`,
+      confirmText: "Remove",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        closeModal();
+        await onDeleteCCA(selectionId, cca);
+      },
+    });
+  };
+
+  const handleConfirmResetStudent = (selectionId) => {
+    showConfirmModal({
+      type: "error",
+      title: "Delete Student Record?",
+      message:
+        "This will remove all selections for this student and free all occupied seats.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        closeModal();
+        const deleted = await onResetStudent(selectionId, true);
+        if (deleted) {
+          showModal(
+            "success",
+            "Record Deleted",
+            "The student selection record has been deleted successfully.",
+          );
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -599,7 +661,7 @@ export default function SelectionsManager({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    onDeleteCCA(sel.id, cca); // Call the prop
+                                    handleConfirmSingleCCARemoval(sel.id, cca);
                                   }}
                                   className="ml-1 p-0.5 rounded-full hover:bg-red-200 text-indigo-400 hover:text-red-700 opacity-0 group-hover/tag:opacity-100 transition-all"
                                   title="Remove this activity only"
@@ -631,7 +693,7 @@ export default function SelectionsManager({
 
                       <td className="p-5 text-right">
                         <button
-                          onClick={() => onResetStudent(sel.id)}
+                          onClick={() => handleConfirmResetStudent(sel.id)}
                           title="Reset Entire Selection (Wipe Clean)"
                           className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                         >
@@ -666,8 +728,12 @@ export default function SelectionsManager({
         isOpen={modalConfig.isOpen}
         onClose={closeModal}
         type={modalConfig.type}
+        mode={modalConfig.mode}
         title={modalConfig.title}
         message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
       />
     </div>
   );

@@ -7,6 +7,10 @@ export default function MessageModal({
   type = "info",
   title,
   message,
+  mode = "info",
+  onConfirm,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
 }) {
   if (!isOpen) return null;
 
@@ -70,12 +74,29 @@ export default function MessageModal({
           </p>
 
           {/* Action Button */}
-          <button
-            onClick={onClose}
-            className={`w-full py-3 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 ${currentConfig.buttonColor}`}
-          >
-            Got it
-          </button>
+          {mode === "confirm" ? (
+            <div className="w-full flex gap-3">
+              <button
+                onClick={onClose}
+                className="w-1/2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all active:scale-95"
+              >
+                {cancelText}
+              </button>
+              <button
+                onClick={onConfirm}
+                className={`w-1/2 py-3 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 ${currentConfig.buttonColor}`}
+              >
+                {confirmText}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onClose}
+              className={`w-full py-3 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 ${currentConfig.buttonColor}`}
+            >
+              Got it
+            </button>
+          )}
         </div>
       </div>
     </div>

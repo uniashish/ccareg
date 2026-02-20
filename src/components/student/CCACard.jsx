@@ -71,7 +71,7 @@ export default function CCACard({
       onClick={handleClick}
       className={`relative group flex flex-col h-full bg-white rounded-2xl border-2 transition-all duration-300 overflow-hidden ${
         isLocked ? "cursor-not-allowed" : "cursor-pointer"
-      } ${getCardClasses()}`}
+      } ${!isLocked ? "hover:scale-[1.07] hover:z-10" : ""} ${getCardClasses()}`}
     >
       {/* LOCKED INDICATOR OVERLAY */}
       {isLocked && (

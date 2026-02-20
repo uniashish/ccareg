@@ -291,13 +291,14 @@ export function useAdminData(showMessage = () => {}) {
   };
 
   // Full Reset Logic (Wipe Student)
-  const resetStudent = async (studentUid) => {
+  const resetStudent = async (studentUid, skipConfirm = false) => {
     if (
+      !skipConfirm &&
       !window.confirm(
         "This will remove all selections for this student. Continue?",
       )
     )
-      return;
+      return false;
 
     try {
       const selRef = doc(db, "selections", studentUid);
@@ -309,7 +310,7 @@ export function useAdminData(showMessage = () => {}) {
           title: "Not Found",
           message: "Selection not found.",
         });
-        return;
+        return false;
       }
 
       const data = selSnap.data();
@@ -328,6 +329,7 @@ export function useAdminData(showMessage = () => {}) {
 
       await batch.commit();
       // No need to manually update state, the listeners above will do it!
+      return true;
     } catch (err) {
       console.error("Error resetting student:", err);
       showMessage({
@@ -335,6 +337,7 @@ export function useAdminData(showMessage = () => {}) {
         title: "Reset Failed",
         message: `Error: ${err.message}`,
       });
+      return false;
     }
   };
 

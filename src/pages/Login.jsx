@@ -1,12 +1,163 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInWithGoogle, logout } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import { FcGoogle } from "react-icons/fc"; // Google icon
+import loginBackdrop from "../assets/loginbackdrop.png";
+
+const ccaPngIcons = Object.values(
+  import.meta.glob("../assets/ccaicons/*.png", {
+    eager: true,
+    import: "default",
+  }),
+);
 
 export default function Login() {
   const { user, role, loading } = useAuth();
   const navigate = useNavigate();
+  const iconRefs = useRef([]);
+  const iconStatesRef = useRef([]);
+  const viewportRef = useRef({ width: 0, height: 0 });
+
+  const pseudoRandom = (seed, salt) => {
+    const value = Math.sin(seed * 97.13 + salt * 31.7) * 43758.5453;
+    return value - Math.floor(value);
+  };
+
+  const backdropIcons = useMemo(
+    () =>
+      ccaPngIcons.map((src, index) => {
+        const seed = index + 1;
+        return {
+          id: `${index}-${src}`,
+          src,
+          size: 46 + pseudoRandom(seed, 3) * 40,
+          seed,
+        };
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    if (backdropIcons.length === 0) return;
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    const updateViewport = () => {
+      viewportRef.current = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+    };
+
+    const applyIconTransforms = () => {
+      iconStatesRef.current.forEach((state, index) => {
+        const iconEl = iconRefs.current[index];
+        if (!iconEl) return;
+        iconEl.style.transform = `translate3d(${state.x}px, ${state.y}px, 0) rotate(${state.rotation}deg)`;
+      });
+    };
+
+    updateViewport();
+
+    iconStatesRef.current = backdropIcons.map((icon) => {
+      const { width, height } = viewportRef.current;
+      const maxX = Math.max(width - icon.size, 0);
+      const maxY = Math.max(height - icon.size, 0);
+      const initialX = pseudoRandom(icon.seed, 1) * maxX;
+      const initialY = pseudoRandom(icon.seed, 2) * maxY;
+      const speed = 1 + pseudoRandom(icon.seed, 4) * 1.5;
+      const angle = pseudoRandom(icon.seed, 5) * Math.PI * 2;
+
+      return {
+        x: initialX,
+        y: initialY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        rotation: pseudoRandom(icon.seed, 6) * 24 - 12,
+        spin: pseudoRandom(icon.seed, 7) * 0.4 - 0.2,
+        size: icon.size,
+      };
+    });
+
+    applyIconTransforms();
+
+    if (prefersReducedMotion) {
+      const handleResizeStatic = () => {
+        updateViewport();
+        iconStatesRef.current.forEach((state) => {
+          const maxX = Math.max(viewportRef.current.width - state.size, 0);
+          const maxY = Math.max(viewportRef.current.height - state.size, 0);
+          state.x = Math.min(Math.max(state.x, 0), maxX);
+          state.y = Math.min(Math.max(state.y, 0), maxY);
+        });
+        applyIconTransforms();
+      };
+
+      window.addEventListener("resize", handleResizeStatic);
+      return () => {
+        window.removeEventListener("resize", handleResizeStatic);
+      };
+    }
+
+    let rafId;
+    let lastTime = performance.now();
+
+    const handleResize = () => {
+      updateViewport();
+      iconStatesRef.current.forEach((state) => {
+        const maxX = Math.max(viewportRef.current.width - state.size, 0);
+        const maxY = Math.max(viewportRef.current.height - state.size, 0);
+        state.x = Math.min(Math.max(state.x, 0), maxX);
+        state.y = Math.min(Math.max(state.y, 0), maxY);
+      });
+    };
+
+    const animate = (time) => {
+      const delta = Math.min((time - lastTime) / 16.67, 2);
+      lastTime = time;
+
+      const { width, height } = viewportRef.current;
+
+      iconStatesRef.current.forEach((state) => {
+        const maxX = Math.max(width - state.size, 0);
+        const maxY = Math.max(height - state.size, 0);
+
+        state.x += state.vx * delta;
+        state.y += state.vy * delta;
+        state.rotation += state.spin * delta;
+
+        if (state.x <= 0) {
+          state.x = 0;
+          state.vx = Math.abs(state.vx);
+        } else if (state.x >= maxX) {
+          state.x = maxX;
+          state.vx = -Math.abs(state.vx);
+        }
+
+        if (state.y <= 0) {
+          state.y = 0;
+          state.vy = Math.abs(state.vy);
+        } else if (state.y >= maxY) {
+          state.y = maxY;
+          state.vy = -Math.abs(state.vy);
+        }
+      });
+
+      applyIconTransforms();
+      rafId = requestAnimationFrame(animate);
+    };
+
+    window.addEventListener("resize", handleResize);
+    rafId = requestAnimationFrame(animate);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(rafId);
+    };
+  }, [backdropIcons]);
 
   useEffect(() => {
     if (!loading && user && role) {
@@ -41,20 +192,47 @@ export default function Login() {
   }
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-300">
-      <div className="flex flex-col items-center justify-center gap-6 bg-white p-10 rounded-3xl shadow-2xl transform transition-transform hover:scale-105">
+    <div
+      className="relative h-screen w-screen flex items-center justify-center bg-center bg-cover"
+      style={{ backgroundImage: `url(${loginBackdrop})` }}
+    >
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"></div>
+
+      <div className="absolute inset-0 z-[5] pointer-events-none overflow-hidden">
+        {backdropIcons.map((icon, index) => (
+          <img
+            key={icon.id}
+            src={icon.src}
+            alt="CCA icon"
+            className="login-backdrop-icon absolute select-none"
+            style={{
+              width: `${icon.size}px`,
+              height: `${icon.size}px`,
+              left: 0,
+              top: 0,
+            }}
+            ref={(el) => {
+              iconRefs.current[index] = el;
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="login-card-float login-card-glow relative z-10 flex flex-col items-center justify-center gap-6 bg-white/95 p-10 rounded-3xl border border-white/50 transform transition-transform hover:scale-[1.02]">
         <h1 className="text-3xl font-bold text-gray-800 text-center">
-          CCA Registration Portal
+          SIS KGNEJ CCA Registration Portal
         </h1>
 
         {!user && (
           <button
             onClick={handleLogin}
-            className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow hover:shadow-md transition-all transform active:scale-95"
+            className="group flex items-center gap-3 px-7 py-3.5 bg-white border border-slate-200 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95"
           >
-            <FcGoogle size={24} />
-            <span className="text-gray-800 font-medium">
-              Login with SISNEJ Google Account
+            <span className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+              <FcGoogle size={20} />
+            </span>
+            <span className="text-slate-800 font-semibold tracking-tight">
+              Login with SIS KGNEJ Google Account
             </span>
           </button>
         )}

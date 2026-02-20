@@ -306,7 +306,7 @@ export default function LockedView({
                       onClick={onSelectMore}
                       className="w-full py-3 rounded-xl border-2 border-dashed border-brand-primary text-brand-primary font-bold hover:bg-brand-primary/5 transition-colors flex items-center justify-center gap-2"
                     >
-                      <FiPlus size={18} /> Add Another Activity (
+                      <FiPlus size={18} /> Select Another CCA (
                       {3 - currentCount} remaining)
                     </button>
                   </div>

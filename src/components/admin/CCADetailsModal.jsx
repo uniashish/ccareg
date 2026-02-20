@@ -3,7 +3,6 @@ import {
   FiX,
   FiClock,
   FiCalendar,
-  FiDollarSign,
   FiUsers,
   FiMapPin,
   FiUserCheck,
@@ -149,7 +148,7 @@ export default function CCADetailsModal({
 
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
               <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                <FiDollarSign /> Fee
+                Rp Fee
               </div>
               <div className="text-2xl font-black text-brand-primary">
                 {Number(cca.price) > 0

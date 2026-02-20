@@ -357,30 +357,30 @@ export default function CCAGrid({
                 <col className="w-[8%]" />
                 <col className="w-[11%]" />
               </colgroup>
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Activity
                   </th>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Schedule
                   </th>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Time
                   </th>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Venue
                   </th>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Teacher
                   </th>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Capacity
                   </th>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Fee
                   </th>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider text-right">
+                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider text-right bg-slate-50">
                     Actions
                   </th>
                 </tr>
@@ -404,9 +404,6 @@ export default function CCAGrid({
                         >
                           {cca.name}
                         </button>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
-                          {cca.isActive ? "Active" : "Hidden"}
-                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-700">
                         {getScheduleSummary(cca.sessionDates)}
@@ -415,8 +412,10 @@ export default function CCAGrid({
                         {formatTime12hr(cca.startTime)} -{" "}
                         {formatTime12hr(cca.endTime)}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
-                        {cca.venue || "TBD"}
+                      <td className="px-4 py-3 text-xs text-slate-700">
+                        <span className="block leading-tight break-words line-clamp-2">
+                          {cca.venue || "TBD"}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
                         {cca.teacher || "Staff"}
