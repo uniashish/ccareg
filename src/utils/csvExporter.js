@@ -71,3 +71,52 @@ export const downloadSelectionsCSV = (selections, users, classes) => {
   link.click();
   document.body.removeChild(link);
 };
+
+export const downloadVendorsCSV = (vendors = []) => {
+  const headers = [
+    "Vendor Name",
+    "Contact Person",
+    "Contact Number",
+    "Bank Name",
+    "Bank Account Name",
+    "Account Number",
+    "Associated CCAs",
+  ];
+
+  const escapeCSV = (value) => {
+    const safeValue = value == null ? "" : String(value);
+    return `"${safeValue.replace(/"/g, '""')}"`;
+  };
+
+  const rows = vendors.map((vendor) => {
+    const associatedCCAs = Array.isArray(vendor.associatedCCAs)
+      ? vendor.associatedCCAs
+          .map((cca) => cca?.name)
+          .filter(Boolean)
+          .join(", ")
+      : "";
+
+    return [
+      escapeCSV(vendor.name),
+      escapeCSV(vendor.contactPerson),
+      escapeCSV(vendor.contactNumber),
+      escapeCSV(vendor.bankName),
+      escapeCSV(vendor.bankAccountName),
+      escapeCSV(vendor.accountNumber),
+      escapeCSV(associatedCCAs),
+    ].join(",");
+  });
+
+  const csvContent =
+    "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute(
+    "download",
+    `CCA_Vendors_${new Date().toISOString().split("T")[0]}.csv`,
+  );
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};

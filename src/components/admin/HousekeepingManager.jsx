@@ -8,6 +8,7 @@ import {
   FiAlertCircle,
   FiBriefcase,
   FiPower,
+  FiDownload,
 } from "react-icons/fi";
 import { db } from "../../firebase"; // Import db
 import { collection, onSnapshot, doc, setDoc } from "firebase/firestore"; // Import Firestore hooks
@@ -19,6 +20,8 @@ import AdminContactManager from "./AdminContactManager";
 import EmailTemplateManager from "./EmailTemplateManager";
 import MissingStudentsModal from "./MissingStudentsModal";
 import MessageModal from "../common/MessageModal";
+import { downloadVendorsCSV } from "../../utils/csvExporter";
+import { downloadVendorsPDF } from "../../utils/pdfExporter";
 
 // --- IMPORT ---
 import VendorManagerModal from "./VendorManagerModal";
@@ -186,6 +189,14 @@ export default function HousekeepingManager({
     setIsModalOpen(true);
   };
 
+  const handleExportVendorsCSV = () => {
+    downloadVendorsCSV(vendors);
+  };
+
+  const handleExportVendorsPDF = () => {
+    downloadVendorsPDF(vendors);
+  };
+
   return (
     <div className="w-full h-full">
       <div className="h-[75vh] overflow-y-auto pr-2 pb-10">
@@ -328,6 +339,20 @@ export default function HousekeepingManager({
             </div>
 
             <div className="shrink-0 pt-2">
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <button
+                  onClick={handleExportVendorsCSV}
+                  className="w-full py-2 px-3 bg-white border border-slate-200 hover:border-brand-primary hover:text-brand-primary text-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <FiDownload /> Export CSV
+                </button>
+                <button
+                  onClick={handleExportVendorsPDF}
+                  className="w-full py-2 px-3 bg-white border border-slate-200 hover:border-brand-primary hover:text-brand-primary text-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <FiDownload /> Export PDF
+                </button>
+              </div>
               <button
                 onClick={() => setIsVendorModalOpen(true)}
                 className="w-full py-2.5 px-4 bg-white border border-slate-200 hover:border-brand-primary hover:text-brand-primary text-slate-600 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-sm"

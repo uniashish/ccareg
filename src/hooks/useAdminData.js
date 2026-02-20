@@ -191,11 +191,37 @@ export function useAdminData(showMessage = () => {}) {
   };
 
   const handleDeleteCCA = async (id) => {
+    const ccaDoc = ccas.find((cca) => cca.id === id);
+    if (!ccaDoc) return;
+
+    const assignedClasses = classesList.filter((cls) =>
+      Array.isArray(cls.allowedCCAs) ? cls.allowedCCAs.includes(id) : false,
+    );
+
+    if (assignedClasses.length > 0) {
+      const classNames = assignedClasses
+        .map((cls) => cls.name)
+        .filter(Boolean)
+        .join(", ");
+
+      showMessage({
+        type: "error",
+        title: "Cannot Delete CCA",
+        message: `${ccaDoc.name || "This CCA"} cannot be deleted because it is assigned to class${assignedClasses.length > 1 ? "es" : ""}: ${classNames}. Remove the assignment first.`,
+      });
+      return;
+    }
+
     if (window.confirm("Delete this CCA?")) {
       try {
         await deleteDoc(doc(db, "ccas", id));
       } catch (error) {
         console.error("Error deleting CCA:", error);
+        showMessage({
+          type: "error",
+          title: "Delete Failed",
+          message: "Failed to delete activity.",
+        });
       }
     }
   };

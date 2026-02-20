@@ -183,9 +183,7 @@ export default function AdminCCACard({
               size={14}
             />
             <span className="whitespace-nowrap">
-              {cca.maxSeats
-                ? `${cca.enrolledCount || 0}/${cca.maxSeats} Seats`
-                : "Unlimited"}
+              {`${cca.enrolledCount || 0} / ${cca.maxSeats || "Unlimited"}`}
             </span>
           </div>
         </div>
