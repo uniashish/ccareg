@@ -6,9 +6,9 @@ export const downloadSelectionsCSV = (selections, users, classes) => {
     "Student Name",
     "Student Email",
     "Class",
-    "CCA 1",
-    "CCA 2",
-    "CCA 3",
+    "CCA1",
+    "CCA2",
+    "CCA3",
     "Submission Time",
   ];
 

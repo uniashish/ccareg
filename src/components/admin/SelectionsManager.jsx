@@ -478,7 +478,9 @@ export default function SelectionsManager({
       "Student Name",
       "Email",
       "Class",
-      "Selected Activities",
+      "CCA1",
+      "CCA2",
+      "CCA3",
       "Submitted Date",
     ];
 
@@ -499,13 +501,9 @@ export default function SelectionsManager({
         '""',
       );
 
-      // Resolve Activities
-      const activities = sel.selectedCCAs
-        ? sel.selectedCCAs
-            .map((c) => c.name)
-            .join("; ")
-            .replace(/"/g, '""')
-        : "";
+      const cca1 = (sel.selectedCCAs?.[0]?.name || "").replace(/"/g, '""');
+      const cca2 = (sel.selectedCCAs?.[1]?.name || "").replace(/"/g, '""');
+      const cca3 = (sel.selectedCCAs?.[2]?.name || "").replace(/"/g, '""');
 
       // Resolve Date
       let dateStr = "";
@@ -518,7 +516,9 @@ export default function SelectionsManager({
         `"${studentName}"`,
         `"${sel.studentEmail}"`,
         `"${className}"`,
-        `"${activities}"`,
+        `"${cca1}"`,
+        `"${cca2}"`,
+        `"${cca3}"`,
         `"${dateStr}"`,
       ].join(",");
     });

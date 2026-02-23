@@ -11,12 +11,16 @@ export const downloadSelectionsPDF = (selections, classes) => {
   const rowsHtml = selections
     .map((s) => {
       const className = classesMap[s.classId]?.name || "Unknown";
-      const choices = (s.selectedCCAs || []).map((c) => c.name).join(", ");
+      const cca1 = s.selectedCCAs?.[0]?.name || "";
+      const cca2 = s.selectedCCAs?.[1]?.name || "";
+      const cca3 = s.selectedCCAs?.[2]?.name || "";
       return `<tr>
         <td>${(s.studentName || "").replace(/</g, "&lt;")}</td>
         <td>${(s.studentEmail || "").replace(/</g, "&lt;")}</td>
         <td>${(className || "").replace(/</g, "&lt;")}</td>
-        <td>${(choices || "").replace(/</g, "&lt;")}</td>
+        <td>${(cca1 || "").replace(/</g, "&lt;")}</td>
+        <td>${(cca2 || "").replace(/</g, "&lt;")}</td>
+        <td>${(cca3 || "").replace(/</g, "&lt;")}</td>
       </tr>`;
     })
     .join("\n");
@@ -39,7 +43,7 @@ export const downloadSelectionsPDF = (selections, classes) => {
         <h2>CCA Selections</h2>
         <table>
           <thead>
-            <tr><th>Student Name</th><th>Email</th><th>Class</th><th>Choices</th></tr>
+            <tr><th>Student Name</th><th>Email</th><th>Class</th><th>CCA1</th><th>CCA2</th><th>CCA3</th></tr>
           </thead>
           <tbody>
             ${rowsHtml}
