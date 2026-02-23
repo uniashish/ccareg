@@ -18,7 +18,7 @@ export default function LockedView({
   existingSelection,
   canSelectMore,
   onSelectMore,
-  // Removed classes prop since we're not using it anymore
+  classes = [],
 }) {
   const [adminDetails, setAdminDetails] = useState({
     name: "Administrator",
@@ -37,7 +37,23 @@ export default function LockedView({
     message: "",
   });
 
-  // Removed displayClassName logic since we're not displaying it anymore
+  const displayClassName = useMemo(() => {
+    if (existingSelection?.classNameSnapshot?.trim()) {
+      return existingSelection.classNameSnapshot.trim();
+    }
+
+    if (existingSelection?.className?.trim()) {
+      return existingSelection.className.trim();
+    }
+
+    if (!existingSelection?.classId) return "";
+
+    const matchedClass = classes.find(
+      (classItem) => classItem.id === existingSelection.classId,
+    );
+
+    return matchedClass?.name || "";
+  }, [existingSelection, classes]);
 
   // Helper to safely parse fees
   const parseFee = (value) => {
@@ -211,6 +227,7 @@ export default function LockedView({
                 {/* REMOVED: Class name display */}
                 <p className="text-lg font-bold text-slate-800">
                   {existingSelection?.studentName}
+                  {displayClassName ? ` (${displayClassName})` : ""}
                 </p>
               </div>
               <div className="text-center sm:text-right">

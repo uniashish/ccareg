@@ -127,9 +127,11 @@ export default function CCACard({
             {cca.name}
           </h3>
 
-          <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed">
-            {cca.description || "No description provided."}
-          </p>
+          {cca.description?.trim() && (
+            <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed">
+              {cca.description}
+            </p>
+          )}
 
           {/* HYPERLINKS SECTION */}
           {cca.hyperlinks && cca.hyperlinks.length > 0 && (

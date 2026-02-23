@@ -58,6 +58,7 @@ export default function TeacherAttendancePanel({
   const [selectedCCAId, setSelectedCCAId] = useState("");
   const [attendanceByCell, setAttendanceByCell] = useState({});
   const [exportOpen, setExportOpen] = useState(false);
+  const [expandedPastByStudent, setExpandedPastByStudent] = useState({});
 
   const teacherName = normalizeText(user?.displayName);
   const teacherEmail = normalizeText(user?.email);
@@ -127,6 +128,20 @@ export default function TeacherAttendancePanel({
   }, [selections, selectedCCAId, classesById]);
 
   const today = getTodayDateOnly();
+  const todayKey = toDateKey(today);
+
+  const todaySessionDates = useMemo(
+    () => sessionDates.filter((sessionDate) => toDateKey(sessionDate) === todayKey),
+    [sessionDates, todayKey],
+  );
+
+  const pastSessionDates = useMemo(
+    () =>
+      sessionDates
+        .filter((sessionDate) => toDateKey(sessionDate) < todayKey)
+        .reverse(),
+    [sessionDates, todayKey],
+  );
 
   const isSessionActive = (sessionDate) => {
     const sessionDateOnly = new Date(
@@ -137,12 +152,92 @@ export default function TeacherAttendancePanel({
     return sessionDateOnly <= today;
   };
 
+  const isPastSession = (sessionDate) => {
+    const sessionDateOnly = new Date(
+      sessionDate.getFullYear(),
+      sessionDate.getMonth(),
+      sessionDate.getDate(),
+    );
+    return sessionDateOnly < today;
+  };
+
   const onToggleAttendance = (studentId, sessionDate, checked) => {
     if (!selectedCCAId) return;
+
+    if (isPastSession(sessionDate)) {
+      const studentName =
+        studentsForSelectedCCA.find((student) => student.id === studentId)
+          ?.studentName || "this student";
+      const actionLabel = checked ? "present" : "absent";
+      const confirmed = window.confirm(
+        `Confirm update: mark ${studentName} as ${actionLabel} for ${formatDateLabel(sessionDate)}?`,
+      );
+      if (!confirmed) return;
+    }
 
     const dateKey = toDateKey(sessionDate);
     const cellKey = `${selectedCCAId}__${studentId}__${dateKey}`;
     setAttendanceByCell((prev) => ({ ...prev, [cellKey]: checked }));
+  };
+
+  const onMarkAllActivePresent = (studentId) => {
+    if (!selectedCCAId) return;
+
+    const studentName =
+      studentsForSelectedCCA.find((student) => student.id === studentId)
+        ?.studentName || "this student";
+    const activeCount = sessionDates.filter((sessionDate) =>
+      isSessionActive(sessionDate),
+    ).length;
+
+    const confirmed = window.confirm(
+      `Mark ${studentName} as present for all ${activeCount} active session(s)?`,
+    );
+    if (!confirmed) return;
+
+    setAttendanceByCell((prev) => {
+      const next = { ...prev };
+
+      sessionDates.forEach((sessionDate) => {
+        if (!isSessionActive(sessionDate)) return;
+
+        const dateKey = toDateKey(sessionDate);
+        const cellKey = `${selectedCCAId}__${studentId}__${dateKey}`;
+        next[cellKey] = true;
+      });
+
+      return next;
+    });
+  };
+
+  const onClearAllActive = (studentId) => {
+    if (!selectedCCAId) return;
+
+    const studentName =
+      studentsForSelectedCCA.find((student) => student.id === studentId)
+        ?.studentName || "this student";
+    const activeCount = sessionDates.filter((sessionDate) =>
+      isSessionActive(sessionDate),
+    ).length;
+
+    const confirmed = window.confirm(
+      `Clear attendance for ${studentName} across all ${activeCount} active session(s)?`,
+    );
+    if (!confirmed) return;
+
+    setAttendanceByCell((prev) => {
+      const next = { ...prev };
+
+      sessionDates.forEach((sessionDate) => {
+        if (!isSessionActive(sessionDate)) return;
+
+        const dateKey = toDateKey(sessionDate);
+        const cellKey = `${selectedCCAId}__${studentId}__${dateKey}`;
+        next[cellKey] = false;
+      });
+
+      return next;
+    });
   };
 
   const escapeCSV = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -330,6 +425,7 @@ export default function TeacherAttendancePanel({
 
   useEffect(() => {
     setExportOpen(false);
+    setExpandedPastByStudent({});
   }, [selectedCCAId]);
 
   return (
@@ -342,13 +438,7 @@ export default function TeacherAttendancePanel({
             </h2>
           </div>
 
-          <div
-            className="p-4 space-y-2 overflow-y-auto"
-            style={{
-              height: "calc(100vh - 400px)",
-              minHeight: "400px",
-            }}
-          >
+          <div className="p-4 space-y-2 overflow-y-auto max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
             {teacherCCAs.length > 0 ? (
               teacherCCAs.map((cca) => {
                 const isActive = cca.id === selectedCCAId;
@@ -443,71 +533,212 @@ export default function TeacherAttendancePanel({
               No students found for this CCA.
             </div>
           ) : (
-            <div className="overflow-auto">
-              <table className="w-full text-left min-w-[680px]">
-                <thead className="bg-slate-50 border-b border-slate-100">
-                  <tr>
-                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest sticky left-0 bg-slate-50 z-10">
-                      Student
-                    </th>
-                    {sessionDates.map((sessionDate) => {
-                      const sessionKey = toDateKey(sessionDate);
-                      const active = isSessionActive(sessionDate);
-                      return (
-                        <th
-                          key={sessionKey}
-                          className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap"
-                        >
-                          <span>{formatDateLabel(sessionDate)}</span>
-                          <span
-                            className={`block text-[10px] mt-1 ${active ? "text-emerald-500" : "text-slate-300"}`}
+            <>
+              <div className="md:hidden p-4 space-y-3">
+                {studentsForSelectedCCA.map((student) => (
+                  <div
+                    key={student.id}
+                    className="rounded-2xl border border-slate-200 bg-white p-4"
+                  >
+                    <div className="mb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-slate-700">
+                            {student.studentName}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {student.className}
+                          </p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          {pastSessionDates.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedPastByStudent((prev) => ({
+                                  ...prev,
+                                  [student.id]: !prev[student.id],
+                                }))
+                              }
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                            >
+                              {expandedPastByStudent[student.id]
+                                ? "Hide Past ▲"
+                                : "Past Dates +"}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => onMarkAllActivePresent(student.id)}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-colors"
                           >
-                            {active ? "Active" : "Future"}
-                          </span>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {studentsForSelectedCCA.map((student) => (
-                    <tr key={student.id} className="hover:bg-slate-50/70">
-                      <td className="p-4 sticky left-0 bg-white">
-                        <p className="text-sm font-bold text-slate-700">
-                          {student.studentName}
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          {student.className}
-                        </p>
-                      </td>
+                            Mark All Present
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onClearAllActive(student.id)}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-colors"
+                          >
+                            Clear Active
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {todaySessionDates.length > 0 ? (
+                        todaySessionDates.map((sessionDate) => {
+                          const sessionKey = toDateKey(sessionDate);
+                          const cellKey = `${selectedCCAId}__${student.id}__${sessionKey}`;
+                          const active = isSessionActive(sessionDate);
+
+                          return (
+                            <label
+                              key={cellKey}
+                              className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
+                            >
+                              <div>
+                                <p className="text-xs font-bold text-slate-600">
+                                  Today • {formatDateLabel(sessionDate)}
+                                </p>
+                                <p
+                                  className={`text-[10px] ${active ? "text-emerald-500" : "text-slate-300"}`}
+                                >
+                                  {active ? "Active" : "Future"}
+                                </p>
+                              </div>
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 accent-brand-primary cursor-pointer disabled:cursor-not-allowed"
+                                checked={Boolean(attendanceByCell[cellKey])}
+                                disabled={!active}
+                                onChange={(event) =>
+                                  onToggleAttendance(
+                                    student.id,
+                                    sessionDate,
+                                    event.target.checked,
+                                  )
+                                }
+                              />
+                            </label>
+                          );
+                        })
+                      ) : (
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                          <p className="text-xs font-bold text-slate-500">
+                            No session scheduled for today
+                          </p>
+                        </div>
+                      )}
+
+                      {expandedPastByStudent[student.id] &&
+                        pastSessionDates.map((sessionDate) => {
+                          const sessionKey = toDateKey(sessionDate);
+                          const cellKey = `${selectedCCAId}__${student.id}__${sessionKey}`;
+                          const active = isSessionActive(sessionDate);
+
+                          return (
+                            <label
+                              key={cellKey}
+                              className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-3 py-2"
+                            >
+                              <div>
+                                <p className="text-xs font-bold text-slate-600">
+                                  {formatDateLabel(sessionDate)}
+                                </p>
+                                <p
+                                  className={`text-[10px] ${active ? "text-emerald-500" : "text-slate-300"}`}
+                                >
+                                  {active ? "Past" : "Future"}
+                                </p>
+                              </div>
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 accent-brand-primary cursor-pointer disabled:cursor-not-allowed"
+                                checked={Boolean(attendanceByCell[cellKey])}
+                                disabled={!active}
+                                onChange={(event) =>
+                                  onToggleAttendance(
+                                    student.id,
+                                    sessionDate,
+                                    event.target.checked,
+                                  )
+                                }
+                              />
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block overflow-auto">
+                <table className="w-full text-left min-w-[560px] sm:min-w-[680px]">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                      <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest sticky left-0 bg-slate-50 z-10">
+                        Student
+                      </th>
                       {sessionDates.map((sessionDate) => {
                         const sessionKey = toDateKey(sessionDate);
-                        const cellKey = `${selectedCCAId}__${student.id}__${sessionKey}`;
                         const active = isSessionActive(sessionDate);
-
                         return (
-                          <td key={cellKey} className="p-4 text-center">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 accent-brand-primary cursor-pointer disabled:cursor-not-allowed"
-                              checked={Boolean(attendanceByCell[cellKey])}
-                              disabled={!active}
-                              onChange={(event) =>
-                                onToggleAttendance(
-                                  student.id,
-                                  sessionDate,
-                                  event.target.checked,
-                                )
-                              }
-                            />
-                          </td>
+                          <th
+                            key={sessionKey}
+                            className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap"
+                          >
+                            <span>{formatDateLabel(sessionDate)}</span>
+                            <span
+                              className={`block text-[10px] mt-1 ${active ? "text-emerald-500" : "text-slate-300"}`}
+                            >
+                              {active ? "Active" : "Future"}
+                            </span>
+                          </th>
                         );
                       })}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {studentsForSelectedCCA.map((student) => (
+                      <tr key={student.id} className="hover:bg-slate-50/70">
+                        <td className="p-4 sticky left-0 bg-white">
+                          <p className="text-sm font-bold text-slate-700">
+                            {student.studentName}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {student.className}
+                          </p>
+                        </td>
+                        {sessionDates.map((sessionDate) => {
+                          const sessionKey = toDateKey(sessionDate);
+                          const cellKey = `${selectedCCAId}__${student.id}__${sessionKey}`;
+                          const active = isSessionActive(sessionDate);
+
+                          return (
+                            <td key={cellKey} className="p-4 text-center">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 accent-brand-primary cursor-pointer disabled:cursor-not-allowed"
+                                checked={Boolean(attendanceByCell[cellKey])}
+                                disabled={!active}
+                                onChange={(event) =>
+                                  onToggleAttendance(
+                                    student.id,
+                                    sessionDate,
+                                    event.target.checked,
+                                  )
+                                }
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>

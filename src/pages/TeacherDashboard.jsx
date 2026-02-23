@@ -650,13 +650,7 @@ export default function TeacherDashboard() {
                         </h2>
                       </div>
 
-                      <div
-                        className="space-y-3 overflow-y-auto border border-slate-200 bg-slate-50/50 rounded-2xl p-4"
-                        style={{
-                          height: "calc(100vh - 400px)",
-                          minHeight: "400px",
-                        }}
-                      >
+                      <div className="space-y-3 overflow-y-auto border border-slate-200 bg-slate-50/50 rounded-2xl p-4 max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
                         {loading ? (
                           <div className="text-center py-10 text-slate-400">
                             Loading CCAs...
@@ -722,13 +716,7 @@ export default function TeacherDashboard() {
                         </span>
                       </div>
 
-                      <div
-                        className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden"
-                        style={{
-                          height: "calc(100vh - 400px)",
-                          minHeight: "400px",
-                        }}
-                      >
+                      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                         {loading ? (
                           <div className="p-12 flex justify-center text-slate-400">
                             <span className="animate-pulse font-bold">
@@ -736,7 +724,7 @@ export default function TeacherDashboard() {
                             </span>
                           </div>
                         ) : (
-                          <div className="h-full overflow-y-auto">
+                          <div className="overflow-y-auto max-h-[55vh] lg:max-h-[calc(100vh-400px)]">
                             <table className="w-full text-left">
                               <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
                                 <tr>

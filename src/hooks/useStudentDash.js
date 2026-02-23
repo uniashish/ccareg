@@ -133,6 +133,10 @@ export function useStudentDash() {
 
     setIsSubmitting(true);
 
+    const selectedClassName =
+      classes.find((classItem) => classItem.id === selectedClassId)?.name ||
+      "";
+
     try {
       await runTransaction(db, async (transaction) => {
         // --- PHASE 1: READS ---
@@ -199,6 +203,7 @@ export function useStudentDash() {
           studentEmail: activeUser.email,
           studentName: activeUser.displayName || activeUser.email.split("@")[0],
           classId: selectedClassId,
+          classNameSnapshot: selectedClassName,
           selectedCCAs: selectedCCAs.map((c) => ({ id: c.id, name: c.name })),
           timestamp: serverTimestamp(),
           status: "submitted",
@@ -212,6 +217,8 @@ export function useStudentDash() {
         studentUid: activeUser.uid,
         studentEmail: activeUser.email,
         studentName: activeUser.displayName || activeUser.email.split("@")[0],
+        classId: selectedClassId,
+        classNameSnapshot: selectedClassName,
         selectedCCAs: selectedCCAs,
         status: "submitted",
       };
