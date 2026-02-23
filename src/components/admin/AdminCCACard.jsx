@@ -8,6 +8,7 @@ import {
   FiUsers,
   FiInfo,
   FiCalendar,
+  FiCheckSquare,
 } from "react-icons/fi";
 
 export default function AdminCCACard({
@@ -16,6 +17,7 @@ export default function AdminCCACard({
   onDelete,
   onViewDetails,
   onOpenStudentList,
+  onViewAttendance,
 }) {
   // --- HELPERS ---
   const formatTime12hr = (timeStr) => {
@@ -191,13 +193,21 @@ export default function AdminCCACard({
         </div>
       </div>
 
-      {/* FOOTER BUTTON */}
-      <button
-        onClick={() => onViewDetails(cca)}
-        className="w-full py-2.5 bg-slate-50 hover:bg-brand-primary hover:text-white text-brand-primary text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-100 hover:border-brand-primary shadow-sm relative z-10"
-      >
-        <FiInfo size={14} /> View Details & Enrollments
-      </button>
+      {/* FOOTER BUTTONS */}
+      <div className="grid grid-cols-2 gap-2 relative z-10">
+        <button
+          onClick={() => onViewDetails(cca)}
+          className="py-2.5 bg-slate-50 hover:bg-brand-primary hover:text-white text-brand-primary text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-100 hover:border-brand-primary shadow-sm"
+        >
+          <FiInfo size={14} /> Details
+        </button>
+        <button
+          onClick={() => onViewAttendance?.(cca)}
+          className="py-2.5 bg-slate-50 hover:bg-emerald-500 hover:text-white text-emerald-600 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-100 hover:border-emerald-500 shadow-sm"
+        >
+          <FiCheckSquare size={14} /> Attendance
+        </button>
+      </div>
     </div>
   );
 }

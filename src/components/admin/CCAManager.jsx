@@ -4,6 +4,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
 import CCAGrid from "./CCAGrid"; // Import the new grid component
 import CCAStudentsModal from "./CCAStudentsModal";
+import AdminAttendanceModal from "./AdminAttendanceModal";
 
 export default function CCAManager({
   ccas,
@@ -17,6 +18,8 @@ export default function CCAManager({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCCAForStudents, setSelectedCCAForStudents] = useState(null);
+  const [selectedCCAForAttendance, setSelectedCCAForAttendance] =
+    useState(null);
   const [vendorNamesByCcaId, setVendorNamesByCcaId] = useState({});
 
   useEffect(() => {
@@ -113,6 +116,7 @@ export default function CCAManager({
         onEdit={onEditClick}
         onDelete={onDeleteClick}
         onViewDetails={onViewDetails}
+        onViewAttendance={setSelectedCCAForAttendance}
         onOpenStudentList={setSelectedCCAForStudents}
         onClearSearch={() => setSearchQuery("")}
       />
@@ -124,6 +128,14 @@ export default function CCAManager({
         selections={selections}
         users={users}
         classesList={classesList}
+      />
+
+      <AdminAttendanceModal
+        isOpen={!!selectedCCAForAttendance}
+        onClose={() => setSelectedCCAForAttendance(null)}
+        cca={selectedCCAForAttendance}
+        selections={selections}
+        users={users}
       />
     </section>
   );

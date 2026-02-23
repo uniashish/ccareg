@@ -8,6 +8,7 @@ import {
   FiEdit2,
   FiTrash2,
   FiInfo,
+  FiCheckSquare,
 } from "react-icons/fi";
 import AdminCCACard from "./AdminCCACard";
 
@@ -16,6 +17,7 @@ export default function CCAGrid({
   onEdit,
   onDelete,
   onViewDetails,
+  onViewAttendance,
   onOpenStudentList,
   onClearSearch,
 }) {
@@ -348,6 +350,7 @@ export default function CCAGrid({
                 onEdit={() => onEdit(cca)}
                 onDelete={() => onDelete(cca.id)}
                 onViewDetails={() => onViewDetails(cca)}
+                onViewAttendance={() => onViewAttendance?.(cca)}
                 onOpenStudentList={() => onOpenStudentList?.(cca)}
               />
             </div>
@@ -356,16 +359,16 @@ export default function CCAGrid({
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
-            <table className="w-full min-w-[1100px] table-fixed text-left border-collapse text-[12px]">
+            <table className="w-full min-w-[1080px] table-fixed text-left border-collapse text-[12px]">
               <colgroup>
-                <col className="w-[22%]" />
-                <col className="w-[17%]" />
-                <col className="w-[11%]" />
-                <col className="w-[11%]" />
+                <col className="w-[21%]" />
+                <col className="w-[13%]" />
+                <col className="w-[10%]" />
+                <col className="w-[12%]" />
                 <col className="w-[12%]" />
                 <col className="w-[8%]" />
                 <col className="w-[8%]" />
-                <col className="w-[11%]" />
+                <col className="w-[16%]" />
               </colgroup>
               <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                 <tr>
@@ -473,6 +476,13 @@ export default function CCAGrid({
                             title="View Details"
                           >
                             <FiInfo size={14} />
+                          </button>
+                          <button
+                            onClick={() => onViewAttendance?.(cca)}
+                            className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
+                            title="View Attendance"
+                          >
+                            <FiCheckSquare size={14} />
                           </button>
                         </div>
                       </td>
