@@ -25,8 +25,8 @@ export default function Header() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-6 shrink-0">
-        <div className="flex items-center gap-2 sm:gap-3 pr-2 sm:pr-6 border-r border-slate-100">
+      <div className="flex items-center gap-2 sm:gap-6 min-w-0">
+        <div className="hidden sm:flex items-center gap-2 sm:gap-3 pr-2 sm:pr-6 border-r border-slate-100">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-slate-700 leading-none">
               {user?.displayName || "User Profile"}
@@ -57,7 +57,9 @@ export default function Header() {
 
         <button
           onClick={logout}
-          className="flex items-center gap-2 px-2.5 sm:px-5 py-2 sm:py-2.5 bg-white border border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white font-bold rounded-xl transition-all active:scale-95 text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-widest shadow-sm shadow-brand-secondary/10"
+          className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto px-0 sm:px-5 py-0 sm:py-2.5 bg-white border border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white font-bold rounded-xl transition-all active:scale-95 text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-widest shadow-sm shadow-brand-secondary/10 shrink-0"
+          title="Logout"
+          aria-label="Logout"
         >
           <FiLogOut size={14} className="sm:w-4 sm:h-4" />
           <span className="hidden sm:inline">Logout</span>
