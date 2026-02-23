@@ -202,7 +202,7 @@ export function useAdminData(showMessage = () => {}) {
       showMessage({
         type: "error",
         title: "Save Failed",
-        message: "Failed to save activity.",
+        message: "Failed to save CCA.",
       });
     }
   };
@@ -237,7 +237,7 @@ export function useAdminData(showMessage = () => {}) {
         showMessage({
           type: "error",
           title: "Delete Failed",
-          message: "Failed to delete activity.",
+          message: "Failed to delete CCA.",
         });
       }
     }

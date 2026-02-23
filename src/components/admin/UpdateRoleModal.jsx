@@ -1,18 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { FiShield, FiX, FiCheckCircle, FiUser } from "react-icons/fi";
 
 export default function UpdateRoleModal({ isOpen, onClose, user, onUpdate }) {
-  const [selectedRole, setSelectedRole] = useState("");
-
-  useEffect(() => {
-    if (user) {
-      setSelectedRole(user.role || "student");
-    }
-  }, [user]);
+  const [selectedRole, setSelectedRole] = useState(user?.role || "student");
 
   if (!isOpen || !user) return null;
 
-  const roles = ["admin", "teacher", "student"];
+  const roles = ["admin", "teacher", "student", "vendor"];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">

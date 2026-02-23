@@ -25,6 +25,7 @@ export default function AuthGate() {
   if (profile.role === "admin") return <Navigate to="/admin" />;
   if (profile.role === "student") return <Navigate to="/student" />;
   if (profile.role === "teacher") return <Navigate to="/teacher" />;
+  if (profile.role === "vendor") return <Navigate to="/vendor" />;
 
   return <p>Invalid role</p>;
 }

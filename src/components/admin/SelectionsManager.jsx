@@ -321,7 +321,7 @@ export default function SelectionsManager({
       if (attendanceRows.length === 0) {
         showConfirmModal({
           type: "error",
-          title: "Remove Activity?",
+          title: "Remove CCA?",
           message: `Are you sure you want to remove ${cca.name} for this student?`,
           confirmText: "Remove",
           cancelText: "Cancel",
@@ -770,7 +770,7 @@ export default function SelectionsManager({
                                     handleConfirmSingleCCARemoval(sel, cca);
                                   }}
                                   className="ml-1 p-0.5 rounded-full hover:bg-red-200 text-indigo-400 hover:text-red-700 opacity-0 group-hover/tag:opacity-100 transition-all"
-                                  title="Remove this activity only"
+                                  title="Remove this CCA only"
                                 >
                                   <FiX size={12} />
                                 </button>
@@ -800,7 +800,7 @@ export default function SelectionsManager({
                       <td className="p-5 text-right">
                         <button
                           onClick={() => handleConfirmResetStudent(sel.id)}
-                          title="Reset Entire Selection (Wipe Clean)"
+                          title="Delete Entire Selection"
                           className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                         >
                           <FiTrash2 size={18} />

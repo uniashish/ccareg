@@ -112,7 +112,7 @@ export default function CCADetailsModal({
                   : "bg-slate-700 text-slate-400"
               }`}
             >
-              {cca.isActive ? "Active Activity" : "Hidden / Inactive"}
+              {cca.isActive ? "Active CCA" : "Hidden / Inactive"}
             </span>
             <h2 className="text-2xl font-black tracking-tight leading-tight mb-1">
               {cca.name}
@@ -174,7 +174,7 @@ export default function CCADetailsModal({
           {/* Key Details */}
           <div className="space-y-3">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider mb-2">
-              Logistics
+              CCA Details
             </h3>
 
             {/* NEW: VENDOR INFO */}
@@ -184,7 +184,7 @@ export default function CCADetailsModal({
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase">
-                  Provider / Vendor
+                  Vendor
                 </p>
                 <p className="font-bold text-slate-700">{vendorName}</p>
               </div>
@@ -225,7 +225,7 @@ export default function CCADetailsModal({
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase mt-2">
-                    Full Schedule
+                    CCA Schedule
                   </p>
                 </div>
               </div>

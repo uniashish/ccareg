@@ -97,7 +97,7 @@ export function useStudentDash() {
       showModal(
         "error",
         "Activity Full",
-        `Sorry, ${cca.name} is fully booked. Please choose another activity.`,
+        `Sorry, ${cca.name} is fully booked. Please choose another CCA.`,
       );
       return;
     }

@@ -239,7 +239,7 @@ export default function CCAGrid({
         </div>
         <h3 className="text-lg font-bold text-slate-700">No CCAs Found</h3>
         <p className="text-slate-500 text-sm mb-6">
-          Try adjusting your search or add a new activity.
+          Try adjusting your search or add a new CCA.
         </p>
         <button
           onClick={onClearSearch}

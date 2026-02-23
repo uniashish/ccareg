@@ -235,7 +235,7 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-slate-100">
           <h2 className="text-2xl font-black text-slate-800">
-            {initialData ? "Edit Activity" : "New Activity"}
+            {initialData ? "Edit CCA" : "New CCA"}
           </h2>
           <button
             onClick={onClose}
@@ -509,7 +509,7 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
                 onChange={handleChange}
                 rows="3"
                 className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                placeholder="Brief description of the activity..."
+                placeholder="Brief description of the CCA..."
               />
             </div>
 
@@ -573,7 +573,7 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
                   Registration Active
                 </span>
                 <span className="text-xs text-slate-500">
-                  Allow students to sign up for this activity
+                  Allow students to sign up for this CCA
                 </span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -604,7 +604,7 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
             form="ccaForm"
             className="px-6 py-2.5 bg-indigo-600 border border-transparent rounded-xl text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
           >
-            {initialData ? "Save Changes" : "Create Activity"}
+            {initialData ? "Save Changes" : "Create CCA"}
           </button>
         </div>
       </div>

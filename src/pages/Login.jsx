@@ -164,6 +164,7 @@ export default function Login() {
     if (!loading && user && role) {
       if (role === "admin") navigate("/admin");
       else if (role === "teacher") navigate("/teacher");
+      else if (role === "vendor") navigate("/vendor");
       else navigate("/student");
     }
   }, [user, role, loading, navigate]);

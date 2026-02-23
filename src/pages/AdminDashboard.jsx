@@ -139,7 +139,7 @@ export default function AdminDashboard() {
       setMessageModal({
         isOpen: true,
         type: "success",
-        title: "Activity Removed",
+        title: "CCA Removed",
         message: `Successfully removed ${ccaToRemove.name}.`,
       });
       return true;
@@ -149,7 +149,7 @@ export default function AdminDashboard() {
         isOpen: true,
         type: "error",
         title: "Removal Failed",
-        message: "Failed to remove activity. Please try again.",
+        message: "Failed to CCA. Please try again.",
       });
       return false;
     }
@@ -360,6 +360,7 @@ export default function AdminDashboard() {
         classes={classesList}
       />
       <UpdateRoleModal
+        key={selectedUser?.uid || "none"}
         isOpen={isUserModalOpen}
         onClose={() => setIsUserModalOpen(false)}
         user={selectedUser}

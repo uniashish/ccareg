@@ -449,7 +449,7 @@ export default function StudentDetailsModal({
 
           {loading ? (
             <div className="text-center py-12 text-slate-400 font-medium animate-pulse">
-              Loading activity details...
+              Loading CCA details...
             </div>
           ) : (
             <div className="space-y-4">

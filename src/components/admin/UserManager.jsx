@@ -16,7 +16,7 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
   const [exportOpen, setExportOpen] = useState(false);
   const exportMenuRef = useRef(null);
 
-  const roles = ["all", "admin", "teacher", "student"];
+  const roles = ["all", "admin", "teacher", "student", "vendor"];
 
   // Combined Filter Logic: Search + Role
   const filteredUsers = users.filter((u) => {
@@ -260,6 +260,9 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
               {filteredUsers.length > 0 ? (
                 filteredUsers.map((u) => {
                   const isAdmin = u.role === "admin";
+                  const isVendor = u.role === "vendor";
+                  const isTeacher = u.role === "teacher";
+                  const isStudent = u.role === "student";
                   const userName =
                     u.displayName ||
                     u.name ||
@@ -292,7 +295,13 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
                           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter ${
                             isAdmin
                               ? "bg-brand-primary/10 text-brand-primary border border-brand-primary/20"
-                              : "bg-slate-100 text-slate-500 border border-slate-200"
+                              : isVendor
+                                ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                : isTeacher
+                                  ? "bg-sky-100 text-sky-700 border border-sky-200"
+                                  : isStudent
+                                    ? "bg-amber-100 text-amber-700 border border-amber-200"
+                                    : "bg-slate-100 text-slate-500 border border-slate-200"
                           }`}
                         >
                           <FiShield size={12} />

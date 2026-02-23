@@ -28,28 +28,28 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
       .includes(studentFilter.trim().toLowerCase()),
   );
 
-  useEffect(() => {
-    if (isOpen) {
-      setStudentFilter("");
-    }
-  }, [isOpen, classData?.id]);
-
   const handleExportCSV = () => {
     if (classSelections.length === 0) return;
 
+    const escapeCSV = (value) => {
+      const safeValue = value == null ? "" : String(value);
+      return `"${safeValue.replace(/"/g, '""')}"`;
+    };
+
     // Define Headers
-    const headers = ["Student Name", "Email", "Selected Activities", "Status"];
+    const headers = ["Student Name", "Email", "CCA1", "CCA2", "CCA3"];
 
     // Format Rows
     const rows = classSelections.map((s) => {
-      const activities = s.selectedCCAs
-        ? s.selectedCCAs.map((c) => c.name).join("; ")
-        : "";
+      const cca1 = s.selectedCCAs?.[0]?.name || "";
+      const cca2 = s.selectedCCAs?.[1]?.name || "";
+      const cca3 = s.selectedCCAs?.[2]?.name || "";
       return [
-        `"${s.studentName}"`,
-        `"${s.studentEmail}"`,
-        `"${activities}"`,
-        `"${s.status || "Submitted"}"`,
+        escapeCSV(s.studentName),
+        escapeCSV(s.studentEmail),
+        escapeCSV(cca1),
+        escapeCSV(cca2),
+        escapeCSV(cca3),
       ];
     });
 
@@ -84,15 +84,16 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
 
     const rowsHtml = classSelections
       .map((s, idx) => {
-        const activities = s.selectedCCAs?.length
-          ? s.selectedCCAs.map((c) => c.name).join(", ")
-          : "No selections";
+        const cca1 = s.selectedCCAs?.[0]?.name || "";
+        const cca2 = s.selectedCCAs?.[1]?.name || "";
+        const cca3 = s.selectedCCAs?.[2]?.name || "";
         return `<tr>
           <td>${idx + 1}</td>
           <td>${escapeHtml(s.studentName)}</td>
           <td>${escapeHtml(s.studentEmail)}</td>
-          <td>${escapeHtml(activities)}</td>
-          <td>${escapeHtml(s.status || "Submitted")}</td>
+          <td>${escapeHtml(cca1)}</td>
+          <td>${escapeHtml(cca2)}</td>
+          <td>${escapeHtml(cca3)}</td>
         </tr>`;
       })
       .join("\n");
@@ -118,8 +119,9 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
                 <th>#</th>
                 <th>Student Name</th>
                 <th>Email</th>
-                <th>Selected Activities</th>
-                <th>Status</th>
+                <th>CCA1</th>
+                <th>CCA2</th>
+                <th>CCA3</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -494,6 +496,7 @@ export default function ClassManager({
 
       {/* NEW: Selections List Modal (Uses internally fetched selectionsData) */}
       <ClassSelectionsModal
+        key={viewingSelectionsClass?.id || "none"}
         isOpen={!!viewingSelectionsClass}
         onClose={() => setViewingSelectionsClass(null)}
         classData={viewingSelectionsClass}
