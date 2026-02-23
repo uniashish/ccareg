@@ -6,27 +6,27 @@ export default function Header() {
   const { user, role } = useAuth();
 
   return (
-    <div className="w-full flex justify-between items-center px-10 py-5 bg-white border-b border-slate-100 shadow-sm sticky top-0 z-40">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 flex items-center justify-center shrink-0">
+    <div className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-10 py-3 sm:py-5 bg-white border-b border-slate-100 shadow-sm sticky top-0 z-40 gap-3 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+        <div className="w-9 h-9 sm:w-12 sm:h-12 flex items-center justify-center shrink-0">
           <img
             src="/sislogo.png"
             alt="School Logo"
             className="w-full h-full object-contain"
           />
         </div>
-        <div>
-          <h1 className="font-black text-2xl text-slate-800 tracking-tighter leading-none">
+        <div className="min-w-0">
+          <h1 className="font-black text-base sm:text-2xl text-slate-800 tracking-tighter leading-none truncate">
             CCA<span className="text-brand-primary">MANAGER</span>
           </h1>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
+          <p className="hidden sm:block text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
             SIS KGNEJ CCA Portal
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-3 pr-6 border-r border-slate-100">
+      <div className="flex items-center gap-2 sm:gap-6 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 pr-2 sm:pr-6 border-r border-slate-100">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-slate-700 leading-none">
               {user?.displayName || "User Profile"}
@@ -37,7 +37,7 @@ export default function Header() {
           </div>
 
           <div className="relative">
-            <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center text-slate-400 shadow-inner">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center text-slate-400 shadow-inner">
               {user?.photoURL ? (
                 <img
                   src={user.photoURL}
@@ -57,10 +57,10 @@ export default function Header() {
 
         <button
           onClick={logout}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white border border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white font-bold rounded-xl transition-all active:scale-95 text-xs uppercase tracking-widest shadow-sm shadow-brand-secondary/10"
+          className="flex items-center gap-2 px-2.5 sm:px-5 py-2 sm:py-2.5 bg-white border border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white font-bold rounded-xl transition-all active:scale-95 text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-widest shadow-sm shadow-brand-secondary/10"
         >
-          <FiLogOut size={16} />
-          Logout
+          <FiLogOut size={14} className="sm:w-4 sm:h-4" />
+          <span className="hidden sm:inline">Logout</span>
         </button>
       </div>
     </div>
