@@ -4,7 +4,13 @@ import TeacherAttendancePanel from "../components/teacher/TeacherAttendancePanel
 import MessageModal from "../components/common/MessageModal";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase";
-import { collection, getDocs, doc, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  onSnapshot,
+} from "firebase/firestore";
 import {
   FiSearch,
   FiUser,
@@ -21,6 +27,55 @@ import {
 import { downloadSelectionsCSV } from "../utils/csvExporter";
 import { downloadSelectionsPDF } from "../utils/pdfExporter";
 import sisBackground from "../assets/sisbackground.png";
+
+const parseDate = (value) => {
+  if (!value) return null;
+
+  if (typeof value === "object" && typeof value.toDate === "function") {
+    const date = value.toDate();
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    ("seconds" in value || "nanoseconds" in value)
+  ) {
+    const date = new Date((value.seconds || 0) * 1000);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (typeof value === "number") {
+    const date = new Date(value > 1e12 ? value : value * 1000);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const toDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayDateOnly = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+const formatSessionDate = (value) => {
+  const date = parseDate(value);
+  if (!date) return "";
+
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+};
 
 // --- SUB-COMPONENT: CCA DETAILS MODAL (MODIFIED) ---
 function CCADetailsModal({ isOpen, onClose, cca, classes }) {
@@ -248,6 +303,152 @@ function CCADetailsModal({ isOpen, onClose, cca, classes }) {
 
 // --- SUB-COMPONENT: STUDENT DETAILS MODAL (RESTRUCTURED) ---
 function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
+  const [attendanceByCCAId, setAttendanceByCCAId] = useState({});
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchAttendanceSummaries = async () => {
+      if (!isOpen || !selection) {
+        setAttendanceByCCAId({});
+        setAttendanceLoading(false);
+        return;
+      }
+
+      const selectedItems = Array.isArray(selection.selectedCCAs)
+        ? selection.selectedCCAs
+        : [];
+
+      if (selectedItems.length === 0) {
+        setAttendanceByCCAId({});
+        setAttendanceLoading(false);
+        return;
+      }
+
+      setAttendanceLoading(true);
+
+      try {
+        const activeStudentId = selection.studentUid || selection.id;
+        const today = getTodayDateOnly();
+
+        const summaries = await Promise.all(
+          selectedItems.map(async (item) => {
+            const ccaId = item.id;
+            if (!ccaId) return null;
+
+            const fullDetails = allCCAs.find((cca) => cca.id === ccaId) || {};
+            const rawSessionDates = Array.isArray(fullDetails.sessionDates)
+              ? fullDetails.sessionDates
+              : fullDetails.sessionDates
+                ? [fullDetails.sessionDates]
+                : [];
+
+            const parsedSessionDates = rawSessionDates
+              .map((sessionDate) => parseDate(sessionDate))
+              .filter(Boolean)
+              .sort((a, b) => a - b);
+
+            const completedSessionDateKeys = [
+              ...new Set(
+                parsedSessionDates
+                  .filter((date) => {
+                    const dateOnly = new Date(
+                      date.getFullYear(),
+                      date.getMonth(),
+                      date.getDate(),
+                    );
+                    return dateOnly <= today;
+                  })
+                  .map((date) => toDateKey(date)),
+              ),
+            ];
+
+            const attendanceByDateKey = completedSessionDateKeys.reduce(
+              (map, dateKey) => {
+                map[dateKey] = false;
+                return map;
+              },
+              {},
+            );
+
+            if (completedSessionDateKeys.length === 0) {
+              return [
+                ccaId,
+                {
+                  attendanceByDateKey,
+                  presentCompletedCount: 0,
+                  totalCompletedCount: 0,
+                  presentPercent: 0,
+                },
+              ];
+            }
+
+            const attendanceDocs = await Promise.allSettled(
+              completedSessionDateKeys.map((dateKey) =>
+                getDoc(doc(db, "attendanceRecords", `${ccaId}_${dateKey}`)),
+              ),
+            );
+
+            let presentCompletedCount = 0;
+
+            attendanceDocs.forEach((result, index) => {
+              const dateKey = completedSessionDateKeys[index];
+
+              if (result.status !== "fulfilled" || !result.value.exists()) {
+                attendanceByDateKey[dateKey] = false;
+                return;
+              }
+
+              const data = result.value.data() || {};
+              const presentStudentIds = Array.isArray(data.presentStudentIds)
+                ? data.presentStudentIds
+                : [];
+
+              const isPresent = presentStudentIds.includes(activeStudentId);
+              attendanceByDateKey[dateKey] = isPresent;
+
+              if (isPresent) {
+                presentCompletedCount += 1;
+              }
+            });
+
+            const totalCompletedCount = completedSessionDateKeys.length;
+            const presentPercent =
+              totalCompletedCount > 0
+                ? Math.round(
+                    (presentCompletedCount / totalCompletedCount) * 100,
+                  )
+                : 0;
+
+            return [
+              ccaId,
+              {
+                attendanceByDateKey,
+                presentCompletedCount,
+                totalCompletedCount,
+                presentPercent,
+              },
+            ];
+          }),
+        );
+
+        const summaryMap = summaries.filter(Boolean).reduce((map, entry) => {
+          const [ccaId, summary] = entry;
+          map[ccaId] = summary;
+          return map;
+        }, {});
+
+        setAttendanceByCCAId(summaryMap);
+      } catch (error) {
+        console.error("Error loading student attendance summaries:", error);
+        setAttendanceByCCAId({});
+      } finally {
+        setAttendanceLoading(false);
+      }
+    };
+
+    fetchAttendanceSummaries();
+  }, [isOpen, selection, allCCAs]);
+
   if (!isOpen || !selection) return null;
 
   return (
@@ -284,6 +485,21 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
             {selection.selectedCCAs && selection.selectedCCAs.length > 0 ? (
               selection.selectedCCAs.map((item, idx) => {
                 const fullDetails = allCCAs.find((c) => c.id === item.id) || {};
+                const attendanceSummary = attendanceByCCAId[item.id];
+                const sessionDates = (
+                  Array.isArray(fullDetails.sessionDates)
+                    ? fullDetails.sessionDates
+                    : fullDetails.sessionDates
+                      ? [fullDetails.sessionDates]
+                      : []
+                )
+                  .slice()
+                  .sort((a, b) => {
+                    const dateA = parseDate(a);
+                    const dateB = parseDate(b);
+                    if (!dateA || !dateB) return 0;
+                    return dateA - dateB;
+                  });
 
                 const timeDisplay = fullDetails.startTime
                   ? `${fullDetails.startTime}${fullDetails.endTime ? " - " + fullDetails.endTime : ""}`
@@ -325,6 +541,81 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
                           {fullDetails.teacher || "Instructor TBD"}
                         </span>
                       </div>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg border border-slate-100">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                          Attendance
+                        </p>
+                        <span className="text-[11px] font-bold text-slate-600">
+                          {attendanceLoading
+                            ? "Loading..."
+                            : attendanceSummary
+                              ? `${attendanceSummary.presentCompletedCount}/${attendanceSummary.totalCompletedCount} (${attendanceSummary.presentPercent}%)`
+                              : "0/0 (0%)"}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500 transition-all duration-500"
+                          style={{
+                            width: `${attendanceSummary?.presentPercent || 0}%`,
+                          }}
+                        />
+                      </div>
+
+                      {sessionDates.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 border-dashed">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">
+                            Session Status
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {sessionDates.map((sessionDate, sessionIndex) => {
+                              const parsedDate = parseDate(sessionDate);
+
+                              let capsuleClass =
+                                "text-[10px] font-bold px-2 py-1 rounded-full border";
+
+                              if (!parsedDate) {
+                                capsuleClass +=
+                                  " bg-slate-50 border-slate-200 text-slate-500";
+                              } else {
+                                const today = getTodayDateOnly();
+                                const dateOnly = new Date(
+                                  parsedDate.getFullYear(),
+                                  parsedDate.getMonth(),
+                                  parsedDate.getDate(),
+                                );
+
+                                if (dateOnly > today) {
+                                  capsuleClass +=
+                                    " bg-slate-100 border-slate-200 text-slate-500";
+                                } else if (
+                                  attendanceSummary?.attendanceByDateKey?.[
+                                    toDateKey(parsedDate)
+                                  ]
+                                ) {
+                                  capsuleClass +=
+                                    " bg-emerald-50 border-emerald-200 text-emerald-700";
+                                } else {
+                                  capsuleClass +=
+                                    " bg-red-50 border-red-200 text-red-700";
+                                }
+                              }
+
+                              return (
+                                <span
+                                  key={`${item.id || idx}-${sessionIndex}`}
+                                  className={capsuleClass}
+                                >
+                                  {formatSessionDate(sessionDate)}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

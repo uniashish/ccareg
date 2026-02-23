@@ -4,6 +4,7 @@ import { signInWithGoogle, logout } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import { FcGoogle } from "react-icons/fc"; // Google icon
 import loginBackdrop from "../assets/loginbackdrop.png";
+import AuthProgress from "../components/common/AuthProgress";
 
 const ccaPngIcons = Object.values(
   import.meta.glob("../assets/ccaicons/*.png", {
@@ -184,11 +185,7 @@ export default function Login() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center bg-gray-100 px-4">
-        Checking login...
-      </div>
-    );
+    return <AuthProgress fullscreen />;
   }
 
   return (

@@ -21,31 +21,36 @@ export function AuthProvider({ children }) {
 
       setUser(firebaseUser);
 
-      const userRef = doc(db, "users", firebaseUser.uid);
-      const snap = await getDoc(userRef);
+      try {
+        const userRef = doc(db, "users", firebaseUser.uid);
+        const snap = await getDoc(userRef);
 
-      if (!snap.exists()) {
-        // --- ROLE ASSIGNMENT LOGIC ---
-        const email = firebaseUser.email || "";
+        if (!snap.exists()) {
+          // --- ROLE ASSIGNMENT LOGIC ---
+          const email = firebaseUser.email || "";
 
-        // Regex: Check if starts with 2 digits
-        const isStudentEmail = /^\d{2}/.test(email);
+          // Regex: Check if starts with 2 digits
+          const isStudentEmail = /^\d{2}/.test(email);
 
-        const initialRole = isStudentEmail ? "student" : "teacher";
-        // -----------------------------
+          const initialRole = isStudentEmail ? "student" : "teacher";
+          // -----------------------------
 
-        await setDoc(userRef, {
-          email: firebaseUser.email,
-          name: firebaseUser.displayName,
-          role: initialRole,
-          createdAt: new Date(),
-        });
-        setRole(initialRole);
-      } else {
-        setRole(snap.data().role);
+          await setDoc(userRef, {
+            email: firebaseUser.email,
+            name: firebaseUser.displayName,
+            role: initialRole,
+            createdAt: new Date(),
+          });
+          setRole(initialRole);
+        } else {
+          setRole(snap.data().role);
+        }
+      } catch (error) {
+        console.error("Auth bootstrap failed:", error);
+        setRole(null);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return () => unsubscribe();

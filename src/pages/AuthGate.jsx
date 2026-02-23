@@ -1,11 +1,17 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import AuthProgress from "../components/common/AuthProgress";
 
 export default function AuthGate() {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
-    return <p style={{ padding: 40 }}>Checking login...</p>;
+    return (
+      <AuthProgress
+        title="Preparing your workspace"
+        subtitle="Checking login and profile"
+      />
+    );
   }
 
   if (!user) {
