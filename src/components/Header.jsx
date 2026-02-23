@@ -1,6 +1,7 @@
 import { logout } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import { FiLogOut } from "react-icons/fi";
+import logo from "../assets/logo.png";
 
 export default function Header() {
   const { user, role } = useAuth();
@@ -8,9 +9,9 @@ export default function Header() {
   return (
     <div className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-10 py-3 sm:py-5 bg-white border-b border-slate-100 shadow-sm sticky top-0 z-40 gap-3 sm:gap-4">
       <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-        <div className="w-9 h-9 sm:w-12 sm:h-12 flex items-center justify-center shrink-0">
+        <div className="w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center shrink-0">
           <img
-            src="/sislogo.png"
+            src={logo}
             alt="School Logo"
             className="w-full h-full object-contain"
           />
