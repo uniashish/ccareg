@@ -6,6 +6,7 @@ import {
   FiTrash2,
   FiBriefcase,
   FiUser,
+  FiMail,
   FiPhone,
   FiCreditCard,
   FiSave,
@@ -24,7 +25,9 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
+  query,
   serverTimestamp,
+  where,
 } from "firebase/firestore";
 
 // --- IMPORT CUSTOM MODAL ---
@@ -94,6 +97,17 @@ function VendorDetailsModal({ vendor, onClose }) {
                   </p>
                   <p className="font-bold text-slate-700">
                     {vendor.contactNumber || "N/A"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+                <FiMail className="mt-1 text-brand-primary" />
+                <div>
+                  <p className="text-xs text-slate-400 font-bold uppercase">
+                    Email Address
+                  </p>
+                  <p className="font-bold text-slate-700">
+                    {vendor.email || "N/A"}
                   </p>
                 </div>
               </div>
@@ -177,6 +191,7 @@ export default function VendorManagerModal({ isOpen, onClose }) {
   // Data State
   const [vendors, setVendors] = useState([]);
   const [availableCCAs, setAvailableCCAs] = useState([]);
+  const [availableVendorUsers, setAvailableVendorUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Detail Modal State
@@ -186,6 +201,7 @@ export default function VendorManagerModal({ isOpen, onClose }) {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
+    email: "",
     contactPerson: "",
     contactNumber: "",
     bankName: "",
@@ -231,11 +247,39 @@ export default function VendorManagerModal({ isOpen, onClose }) {
       setAvailableCCAs(data);
     });
 
+    // C. Fetch Vendor Users (role === vendor)
+    const vendorUsersQuery = query(
+      collection(db, "users"),
+      where("role", "==", "vendor"),
+    );
+    const unsubVendorUsers = onSnapshot(vendorUsersQuery, (snapshot) => {
+      const data = snapshot.docs
+        .map((document) => ({
+          id: document.id,
+          email: document.data().email || "",
+          displayName:
+            document.data().displayName || document.data().name || "",
+        }))
+        .filter((user) => user.email);
+      data.sort((a, b) => a.email.localeCompare(b.email));
+      setAvailableVendorUsers(data);
+    });
+
     return () => {
       unsubVendors();
       unsubCCAs();
+      unsubVendorUsers();
     };
   }, [isOpen]);
+
+  const vendorEmailOptions = useMemo(() => {
+    const seenEmails = new Set();
+    return availableVendorUsers.filter((user) => {
+      if (seenEmails.has(user.email)) return false;
+      seenEmails.add(user.email);
+      return true;
+    });
+  }, [availableVendorUsers]);
 
   // --- 2. CONFLICT CHECK LOGIC ---
   const conflictingCCAs = useMemo(() => {
@@ -266,6 +310,7 @@ export default function VendorManagerModal({ isOpen, onClose }) {
     setEditingId(null);
     setFormData({
       name: "",
+      email: "",
       contactPerson: "",
       contactNumber: "",
       bankName: "",
@@ -280,6 +325,7 @@ export default function VendorManagerModal({ isOpen, onClose }) {
     setEditingId(vendor.id);
     setFormData({
       name: vendor.name || "",
+      email: vendor.email || "",
       contactPerson: vendor.contactPerson || "",
       contactNumber: vendor.contactNumber || "",
       bankName: vendor.bankName || "",
@@ -393,6 +439,10 @@ export default function VendorManagerModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
+  const selectedEmailMissing =
+    !!formData.email &&
+    !vendorEmailOptions.some((user) => user.email === formData.email);
+
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -474,6 +524,10 @@ export default function VendorManagerModal({ isOpen, onClose }) {
                           </button>
 
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mb-2">
+                            <span className="flex items-center gap-1">
+                              <FiMail className="text-slate-400" />{" "}
+                              {vendor.email || "N/A"}
+                            </span>
                             <span className="flex items-center gap-1">
                               <FiUser className="text-slate-400" />{" "}
                               {vendor.contactPerson || "N/A"}
@@ -572,6 +626,49 @@ export default function VendorManagerModal({ isOpen, onClose }) {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-bold text-slate-700 mb-1">
+                        Email Address
+                      </label>
+                      <div className="relative">
+                        <FiMail className="absolute left-3 top-3 text-slate-400" />
+                        <select
+                          required
+                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none font-medium"
+                          value={formData.email}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              email: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="">Select vendor email</option>
+                          {selectedEmailMissing && (
+                            <option value={formData.email}>
+                              {formData.email}
+                            </option>
+                          )}
+                          {vendorEmailOptions.map((vendorUser) => (
+                            <option
+                              key={vendorUser.id}
+                              value={vendorUser.email}
+                            >
+                              {vendorUser.email}
+                              {vendorUser.displayName
+                                ? ` (${vendorUser.displayName})`
+                                : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {vendorEmailOptions.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1 font-medium">
+                          No vendor users found in User Management.
+                        </p>
+                      )}
+                    </div>
+
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-1">
                         Contact Person

@@ -320,9 +320,14 @@ export default function HousekeepingManager({
                       className="p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-indigo-100 transition-colors"
                     >
                       <div className="flex justify-between items-start">
-                        <span className="font-bold text-slate-700 text-sm">
-                          {vendor.name}
-                        </span>
+                        <div>
+                          <span className="font-bold text-slate-700 text-sm">
+                            {vendor.name}
+                          </span>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {vendor.email || "N/A"}
+                          </p>
+                        </div>
                       </div>
                       <div className="mt-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">

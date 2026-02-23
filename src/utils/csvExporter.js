@@ -75,6 +75,7 @@ export const downloadSelectionsCSV = (selections, users, classes) => {
 export const downloadVendorsCSV = (vendors = []) => {
   const headers = [
     "Vendor Name",
+    "Email Address",
     "Contact Person",
     "Contact Number",
     "Bank Name",
@@ -98,6 +99,7 @@ export const downloadVendorsCSV = (vendors = []) => {
 
     return [
       escapeCSV(vendor.name),
+      escapeCSV(vendor.email),
       escapeCSV(vendor.contactPerson),
       escapeCSV(vendor.contactNumber),
       escapeCSV(vendor.bankName),

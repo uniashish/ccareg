@@ -83,6 +83,7 @@ export const downloadVendorsPDF = (vendors = []) => {
 
       return `<tr>
         <td>${escapeHtml(vendor.name)}</td>
+        <td>${escapeHtml(vendor.email)}</td>
         <td>${escapeHtml(vendor.contactPerson)}</td>
         <td>${escapeHtml(vendor.contactNumber)}</td>
         <td>${escapeHtml(vendor.bankName)}</td>
@@ -112,6 +113,7 @@ export const downloadVendorsPDF = (vendors = []) => {
           <thead>
             <tr>
               <th>Vendor Name</th>
+              <th>Email Address</th>
               <th>Contact Person</th>
               <th>Contact Number</th>
               <th>Bank Name</th>
