@@ -11,6 +11,15 @@ import {
   FiX,
   FiFilter,
 } from "react-icons/fi";
+import { db } from "../../firebase";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  where,
+  writeBatch,
+} from "firebase/firestore";
 import { downloadSelectionsPDF } from "../../utils/pdfExporter";
 import MessageModal from "../common/MessageModal";
 import StudentDetailsModal from "./StudentDetailsModal";
@@ -42,6 +51,7 @@ export default function SelectionsManager({
     confirmText: "Confirm",
     cancelText: "Cancel",
     onConfirm: null,
+    onCancel: null,
   });
 
   const showModal = (type, title, message) => {
@@ -54,6 +64,7 @@ export default function SelectionsManager({
       confirmText: "Confirm",
       cancelText: "Cancel",
       onConfirm: null,
+      onCancel: null,
     });
   };
 
@@ -62,6 +73,7 @@ export default function SelectionsManager({
     title,
     message,
     onConfirm,
+    onCancel,
     confirmText = "Confirm",
     cancelText = "Cancel",
   }) => {
@@ -74,25 +86,295 @@ export default function SelectionsManager({
       confirmText,
       cancelText,
       onConfirm,
+      onCancel: onCancel || null,
     });
   };
 
   const closeModal = () => {
-    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+    setModalConfig((prev) => ({
+      ...prev,
+      isOpen: false,
+      onConfirm: null,
+      onCancel: null,
+    }));
   };
 
-  const handleConfirmSingleCCARemoval = (selectionId, cca) => {
-    showConfirmModal({
-      type: "error",
-      title: "Remove Activity?",
-      message: `Are you sure you want to remove ${cca.name} for this student?`,
-      confirmText: "Remove",
-      cancelText: "Cancel",
-      onConfirm: async () => {
-        closeModal();
-        await onDeleteCCA(selectionId, cca);
-      },
+  const formatAttendanceDate = (dateKey) => {
+    const [year, month, day] = String(dateKey || "")
+      .split("-")
+      .map(Number);
+    const date = new Date(year, (month || 1) - 1, day || 1);
+    if (Number.isNaN(date.getTime())) return dateKey;
+
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     });
+  };
+
+  const escapeCSV = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+  const escapeHtml = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const buildStudentAttendanceRows = ({ attendanceDocs, selection, cca }) => {
+    const studentIds = [selection.id, selection.studentUid].filter(Boolean);
+    const studentIdSet = new Set(studentIds);
+
+    return attendanceDocs
+      .map((record) => {
+        const presentStudentIds = Array.isArray(record.presentStudentIds)
+          ? record.presentStudentIds
+          : [];
+        const wasPresent = presentStudentIds.some((id) => studentIdSet.has(id));
+        if (!wasPresent) return null;
+
+        return {
+          dateKey: record.dateKey || "",
+          dateLabel: formatAttendanceDate(record.dateKey || ""),
+          studentName: selection.studentName || "Unknown Student",
+          studentEmail: selection.studentEmail || "",
+          ccaName: cca.name || "",
+          status: "Present",
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  };
+
+  const downloadStudentAttendanceCSV = ({ rows, selection, cca }) => {
+    const headers = ["Student Name", "Email", "CCA", "Date", "Status"];
+    const csvRows = rows.map((row) =>
+      [
+        row.studentName,
+        row.studentEmail,
+        row.ccaName,
+        row.dateLabel,
+        row.status,
+      ]
+        .map(escapeCSV)
+        .join(","),
+    );
+
+    const csvContent = [headers.join(","), ...csvRows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const safeStudentName = (selection.studentName || "Student")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9_-]/g, "");
+    const safeCCAName = (cca.name || "CCA")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9_-]/g, "");
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `Attendance_${safeStudentName}_${safeCCAName}_${new Date().toISOString().split("T")[0]}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadStudentAttendancePDF = ({ rows, selection, cca }) => {
+    const tableRows = rows
+      .map(
+        (row) => `<tr>
+          <td>${escapeHtml(row.studentName)}</td>
+          <td>${escapeHtml(row.studentEmail)}</td>
+          <td>${escapeHtml(row.ccaName)}</td>
+          <td>${escapeHtml(row.dateLabel)}</td>
+          <td>${escapeHtml(row.status)}</td>
+        </tr>`,
+      )
+      .join("\n");
+
+    const html = `
+      <html>
+        <head>
+          <title>${escapeHtml(selection.studentName || "Student")} - ${escapeHtml(cca.name || "CCA")} Attendance</title>
+          <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
+            h2{font-size:13px;margin-bottom:8px}
+            table{width:100%;border-collapse:collapse}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
+            th{background:#f3f4f6;font-weight:700}
+          </style>
+        </head>
+        <body>
+          <h2>${escapeHtml(selection.studentName || "Student")} - ${escapeHtml(cca.name || "CCA")} Attendance Record</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Student Name</th>
+                <th>Email</th>
+                <th>CCA</th>
+                <th>Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 300);
+  };
+
+  const cleanupAttendanceRecords = async (attendanceDocs, selection) => {
+    const studentIds = [selection.id, selection.studentUid].filter(Boolean);
+    const studentIdSet = new Set(studentIds);
+    const batch = writeBatch(db);
+    let hasUpdates = false;
+
+    attendanceDocs.forEach((record) => {
+      const currentIds = Array.isArray(record.presentStudentIds)
+        ? record.presentStudentIds
+        : [];
+      const updatedIds = currentIds.filter((id) => !studentIdSet.has(id));
+
+      if (updatedIds.length === currentIds.length) return;
+
+      batch.update(doc(db, "attendanceRecords", record.id), {
+        presentStudentIds: updatedIds,
+      });
+      hasUpdates = true;
+    });
+
+    if (hasUpdates) {
+      await batch.commit();
+    }
+  };
+
+  const executeAttendanceAwareRemoval = async ({
+    format,
+    rows,
+    selection,
+    cca,
+    attendanceDocs,
+  }) => {
+    closeModal();
+
+    if (format === "pdf") {
+      downloadStudentAttendancePDF({ rows, selection, cca });
+    } else {
+      downloadStudentAttendanceCSV({ rows, selection, cca });
+    }
+
+    try {
+      await cleanupAttendanceRecords(attendanceDocs, selection);
+      const removed = await onDeleteCCA(selection.id, cca);
+      if (!removed) {
+        showModal(
+          "error",
+          "Removal Failed",
+          "Attendance data was cleaned, but removing the student CCA failed. Please refresh and verify the record.",
+        );
+      }
+    } catch (error) {
+      console.error("Error removing attendance-linked CCA:", error);
+      showModal(
+        "error",
+        "Removal Failed",
+        "Unable to complete attendance cleanup and CCA removal. Please try again.",
+      );
+    }
+  };
+
+  const handleConfirmSingleCCARemoval = async (selection, cca) => {
+    try {
+      const attendanceSnapshot = await getDocs(
+        query(
+          collection(db, "attendanceRecords"),
+          where("ccaId", "==", cca.id),
+        ),
+      );
+
+      const attendanceDocs = attendanceSnapshot.docs.map((document) => ({
+        id: document.id,
+        ...(document.data() || {}),
+      }));
+
+      const attendanceRows = buildStudentAttendanceRows({
+        attendanceDocs,
+        selection,
+        cca,
+      });
+
+      if (attendanceRows.length === 0) {
+        showConfirmModal({
+          type: "error",
+          title: "Remove Activity?",
+          message: `Are you sure you want to remove ${cca.name} for this student?`,
+          confirmText: "Remove",
+          cancelText: "Cancel",
+          onConfirm: async () => {
+            closeModal();
+            await onDeleteCCA(selection.id, cca);
+          },
+        });
+        return;
+      }
+
+      showConfirmModal({
+        type: "error",
+        title: "Attendance Record Found",
+        message: `This student has already attended ${attendanceRows.length} session(s) in ${cca.name}. Continuing will download the attendance record, delete attendance data from the database, and remove this CCA for the student.`,
+        confirmText: "Continue",
+        cancelText: "Cancel",
+        onConfirm: () => {
+          closeModal();
+          showConfirmModal({
+            type: "info",
+            title: "Download Format",
+            message:
+              "Choose the file format. After download, attendance data and this CCA selection will be deleted.",
+            confirmText: "Download PDF",
+            cancelText: "Download CSV",
+            onConfirm: () =>
+              executeAttendanceAwareRemoval({
+                format: "pdf",
+                rows: attendanceRows,
+                selection,
+                cca,
+                attendanceDocs,
+              }),
+            onCancel: () =>
+              executeAttendanceAwareRemoval({
+                format: "csv",
+                rows: attendanceRows,
+                selection,
+                cca,
+                attendanceDocs,
+              }),
+          });
+        },
+      });
+    } catch (error) {
+      console.error("Error checking attendance before CCA removal:", error);
+      showModal(
+        "error",
+        "Unable to Remove",
+        "Failed to validate attendance records. Please try again.",
+      );
+    }
   };
 
   const handleConfirmResetStudent = (selectionId) => {
@@ -485,7 +767,7 @@ export default function SelectionsManager({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleConfirmSingleCCARemoval(sel.id, cca);
+                                    handleConfirmSingleCCARemoval(sel, cca);
                                   }}
                                   className="ml-1 p-0.5 rounded-full hover:bg-red-200 text-indigo-400 hover:text-red-700 opacity-0 group-hover/tag:opacity-100 transition-all"
                                   title="Remove this activity only"
@@ -556,6 +838,7 @@ export default function SelectionsManager({
         title={modalConfig.title}
         message={modalConfig.message}
         onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel}
         confirmText={modalConfig.confirmText}
         cancelText={modalConfig.cancelText}
       />

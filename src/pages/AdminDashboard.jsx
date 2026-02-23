@@ -142,6 +142,7 @@ export default function AdminDashboard() {
         title: "Activity Removed",
         message: `Successfully removed ${ccaToRemove.name}.`,
       });
+      return true;
     } catch (error) {
       console.error("Error removing CCA:", error);
       setMessageModal({
@@ -150,6 +151,7 @@ export default function AdminDashboard() {
         title: "Removal Failed",
         message: "Failed to remove activity. Please try again.",
       });
+      return false;
     }
   };
 

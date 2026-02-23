@@ -56,6 +56,7 @@ export default function AdminCCACard({
 
   // Check if CCA has active enrollments (cannot delete)
   const hasEnrollments = cca.enrolledCount > 0;
+  const hasStudents = (cca.enrolledCount || 0) > 0;
 
   return (
     <div
@@ -80,8 +81,15 @@ export default function AdminCCACard({
           <button
             type="button"
             onClick={() => onOpenStudentList?.(cca)}
-            className="text-left text-lg font-black text-slate-800 leading-tight line-clamp-2 hover:text-brand-primary hover:underline transition-colors"
-            title={cca.name}
+            disabled={!hasStudents}
+            className={`text-left text-lg font-black leading-tight line-clamp-2 transition-colors ${
+              hasStudents
+                ? "text-slate-800 hover:text-brand-primary hover:underline"
+                : "text-slate-400 cursor-not-allowed"
+            }`}
+            title={
+              hasStudents ? cca.name : "No students have selected this CCA"
+            }
           >
             {cca.name}
           </button>
@@ -203,7 +211,17 @@ export default function AdminCCACard({
         </button>
         <button
           onClick={() => onViewAttendance?.(cca)}
-          className="py-2.5 bg-slate-50 hover:bg-emerald-500 hover:text-white text-emerald-600 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-100 hover:border-emerald-500 shadow-sm"
+          disabled={!hasStudents}
+          className={`py-2.5 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 border shadow-sm ${
+            hasStudents
+              ? "bg-slate-50 hover:bg-emerald-500 hover:text-white text-emerald-600 border-slate-100 hover:border-emerald-500"
+              : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+          }`}
+          title={
+            hasStudents
+              ? "View Attendance"
+              : "No students have selected this CCA"
+          }
         >
           <FiCheckSquare size={14} /> Attendance
         </button>

@@ -14,12 +14,25 @@ import ClassDetailsModal from "./ClassDetailsModal";
 // --- SUB-COMPONENT: SELECTIONS MODAL ---
 function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
   const [exportOpen, setExportOpen] = useState(false);
+  const [studentFilter, setStudentFilter] = useState("");
   const exportMenuRef = useRef(null);
 
   // Filter selections for this specific class
   const classSelections = (selections || []).filter(
     (s) => s.classId === classData?.id,
   );
+
+  const filteredSelections = classSelections.filter((selection) =>
+    (selection.studentName || "")
+      .toLowerCase()
+      .includes(studentFilter.trim().toLowerCase()),
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      setStudentFilter("");
+    }
+  }, [isOpen, classData?.id]);
 
   const handleExportCSV = () => {
     if (classSelections.length === 0) return;
@@ -165,13 +178,22 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
       {/* Modal Container */}
       <div className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="bg-slate-900 text-white p-6 shrink-0 flex justify-between items-center">
-          <div>
-            <h3 className="text-2xl font-black tracking-tight">
-              {classData.name}
-            </h3>
+        <div className="bg-slate-900 text-white p-6 shrink-0 flex justify-between items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <h3 className="text-2xl font-black tracking-tight">
+                {classData.name}
+              </h3>
+              <input
+                type="text"
+                value={studentFilter}
+                onChange={(e) => setStudentFilter(e.target.value)}
+                placeholder="Filter by student name"
+                className="w-full sm:w-72 px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
+              />
+            </div>
             <p className="text-slate-400 text-sm">
-              Student Selections ({classSelections.length})
+              Student Selections ({filteredSelections.length})
             </p>
           </div>
           <button
@@ -184,7 +206,7 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
-          {classSelections.length > 0 ? (
+          {filteredSelections.length > 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
@@ -201,7 +223,7 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {classSelections.map((sel, idx) => (
+                  {filteredSelections.map((sel, idx) => (
                     <tr
                       key={idx}
                       className="hover:bg-slate-50 transition-colors"
@@ -245,9 +267,13 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
               <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center text-slate-400 mb-4">
                 <FiUser size={32} />
               </div>
-              <h4 className="text-slate-800 font-bold text-lg">No Data Yet</h4>
+              <h4 className="text-slate-800 font-bold text-lg">
+                {classSelections.length > 0 ? "No Match Found" : "No Data Yet"}
+              </h4>
               <p className="text-slate-500 text-sm">
-                No students from this class have submitted selections yet.
+                {classSelections.length > 0
+                  ? "No students match the current name filter."
+                  : "No students from this class have submitted selections yet."}
               </p>
             </div>
           )}

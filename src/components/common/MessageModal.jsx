@@ -9,6 +9,7 @@ export default function MessageModal({
   message,
   mode = "info",
   onConfirm,
+  onCancel,
   confirmText = "Confirm",
   cancelText = "Cancel",
 }) {
@@ -77,7 +78,7 @@ export default function MessageModal({
           {mode === "confirm" ? (
             <div className="w-full flex gap-3">
               <button
-                onClick={onClose}
+                onClick={onCancel || onClose}
                 className="w-1/2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all active:scale-95"
               >
                 {cancelText}

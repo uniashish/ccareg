@@ -403,6 +403,7 @@ export default function CCAGrid({
                   const isFull =
                     cca.maxSeats && cca.enrolledCount >= cca.maxSeats;
                   const hasEnrollments = cca.enrolledCount > 0;
+                  const hasStudents = (cca.enrolledCount || 0) > 0;
 
                   return (
                     <tr
@@ -413,7 +414,17 @@ export default function CCAGrid({
                         <button
                           type="button"
                           onClick={() => onOpenStudentList?.(cca)}
-                          className="block w-full text-left font-bold text-brand-primary hover:underline leading-snug break-words"
+                          disabled={!hasStudents}
+                          className={`block w-full text-left font-bold leading-snug break-words ${
+                            hasStudents
+                              ? "text-brand-primary hover:underline"
+                              : "text-slate-300 cursor-not-allowed"
+                          }`}
+                          title={
+                            hasStudents
+                              ? cca.name
+                              : "No students have selected this CCA"
+                          }
                         >
                           {cca.name}
                         </button>
@@ -479,8 +490,17 @@ export default function CCAGrid({
                           </button>
                           <button
                             onClick={() => onViewAttendance?.(cca)}
-                            className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
-                            title="View Attendance"
+                            disabled={!hasStudents}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              hasStudents
+                                ? "hover:bg-emerald-50 text-slate-400 hover:text-emerald-600"
+                                : "text-slate-200 cursor-not-allowed"
+                            }`}
+                            title={
+                              hasStudents
+                                ? "View Attendance"
+                                : "No students have selected this CCA"
+                            }
                           >
                             <FiCheckSquare size={14} />
                           </button>
