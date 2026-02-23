@@ -296,6 +296,7 @@ export default function AdminDashboard() {
               <AssignmentManager
                 classesList={classesList}
                 ccas={ccas}
+                selections={selections}
                 selectedClassId={selectedClassId}
                 setSelectedClassId={setSelectedClassId}
                 onToggleCCA={toggleCCAMap}

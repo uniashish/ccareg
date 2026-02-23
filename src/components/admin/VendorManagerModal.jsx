@@ -310,6 +310,24 @@ export default function VendorManagerModal({ isOpen, onClose }) {
   const confirmDelete = async () => {
     if (!pendingDeleteId) return;
 
+    const vendorToDelete = vendors.find(
+      (vendor) => vendor.id === pendingDeleteId,
+    );
+    const hasAssociatedCCAs =
+      Array.isArray(vendorToDelete?.associatedCCAs) &&
+      vendorToDelete.associatedCCAs.length > 0;
+
+    if (hasAssociatedCCAs) {
+      setShowDeleteConfirm(false);
+      setPendingDeleteId(null);
+      showMessage(
+        "error",
+        "Deletion Blocked",
+        `You cannot delete "${vendorToDelete.name}" because it still has ${vendorToDelete.associatedCCAs.length} active CCA(s) allocated. Please remove the activities from this vendor first.`,
+      );
+      return;
+    }
+
     try {
       await deleteDoc(doc(db, "vendors", pendingDeleteId));
       showMessage(
@@ -435,6 +453,7 @@ export default function VendorManagerModal({ isOpen, onClose }) {
                     </div>
                   ) : (
                     vendors.map((vendor) => (
+                      // Vendor with associated CCAs cannot be deleted
                       <div
                         key={vendor.id}
                         className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:shadow-md transition-shadow group gap-4"
@@ -481,22 +500,41 @@ export default function VendorManagerModal({ isOpen, onClose }) {
                         </div>
 
                         <div className="flex items-center gap-2 self-start sm:self-center">
-                          <button
-                            onClick={() => handleEdit(vendor)}
-                            className="p-2 text-slate-400 hover:text-brand-primary hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <FiEdit2 size={16} />
-                          </button>
+                          {(() => {
+                            const hasAssociatedCCAs =
+                              Array.isArray(vendor.associatedCCAs) &&
+                              vendor.associatedCCAs.length > 0;
 
-                          {/* UPDATED: DELETE BUTTON CALLS NEW FUNCTION WITH VENDOR OBJECT */}
-                          <button
-                            onClick={() => handleDeleteRequest(vendor)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <FiTrash2 size={16} />
-                          </button>
+                            return (
+                              <>
+                                <button
+                                  onClick={() => handleEdit(vendor)}
+                                  className="p-2 text-slate-400 hover:text-brand-primary hover:bg-indigo-50 rounded-lg transition-colors"
+                                  title="Edit"
+                                >
+                                  <FiEdit2 size={16} />
+                                </button>
+
+                                {/* UPDATED: DELETE BUTTON CALLS NEW FUNCTION WITH VENDOR OBJECT */}
+                                <button
+                                  onClick={() => handleDeleteRequest(vendor)}
+                                  disabled={hasAssociatedCCAs}
+                                  className={`p-2 rounded-lg transition-colors ${
+                                    hasAssociatedCCAs
+                                      ? "text-slate-200 cursor-not-allowed"
+                                      : "text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                  }`}
+                                  title={
+                                    hasAssociatedCCAs
+                                      ? "Cannot delete vendor with associated CCAs"
+                                      : "Delete"
+                                  }
+                                >
+                                  <FiTrash2 size={16} />
+                                </button>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     ))

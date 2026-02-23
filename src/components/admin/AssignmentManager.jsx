@@ -7,16 +7,24 @@ import {
   FiActivity,
   FiDownload,
 } from "react-icons/fi";
+import MessageModal from "../common/MessageModal";
 
 export default function AssignmentManager({
   classesList,
   ccas,
+  selections,
   selectedClassId,
   setSelectedClassId,
   onToggleCCA,
 }) {
   const [exportOpen, setExportOpen] = useState(false);
   const exportMenuRef = useRef(null);
+  const [modalState, setModalState] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   const selectedClass = classesList.find((c) => c.id === selectedClassId);
   const activeCCAs = ccas.filter((cca) => cca.isActive !== false);
@@ -118,6 +126,44 @@ export default function AssignmentManager({
       w.focus();
       w.print();
     }, 300);
+  };
+
+  const showError = (title, message) => {
+    setModalState({
+      isOpen: true,
+      type: "error",
+      title,
+      message,
+    });
+  };
+
+  const closeModal = () => {
+    setModalState((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const canRemoveCCAFromClass = (classId, ccaId) => {
+    return !(selections || [])
+      .filter((selection) => selection.status !== "cancelled")
+      .filter((selection) => selection.classId === classId)
+      .some((selection) =>
+        (selection.selectedCCAs || []).some(
+          (selectedCCA) => selectedCCA.id === ccaId,
+        ),
+      );
+  };
+
+  const handleToggleCCAAssignment = (classId, ccaId, isAssigned) => {
+    if (!classId) return;
+
+    if (isAssigned && !canRemoveCCAFromClass(classId, ccaId)) {
+      showError(
+        "CCA Cannot Be Removed",
+        "The CCA cannot be removed from this class because students from this class have selected this CCA.",
+      );
+      return;
+    }
+
+    onToggleCCA(classId, ccaId);
   };
 
   useEffect(() => {
@@ -253,7 +299,11 @@ export default function AssignmentManager({
                       type="button" // Ensuring this is treated as a button
                       onClick={(e) => {
                         e.stopPropagation(); // Prevent bubbling issues
-                        onToggleCCA(selectedClassId, cca.id);
+                        handleToggleCCAAssignment(
+                          selectedClassId,
+                          cca.id,
+                          isAssigned,
+                        );
                       }}
                       className={`relative group p-4 rounded-2xl border text-left transition-all duration-300 overflow-hidden shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] ${
                         isAssigned
@@ -316,6 +366,14 @@ export default function AssignmentManager({
           </div>
         )}
       </div>
+
+      <MessageModal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+      />
     </div>
   );
 }
