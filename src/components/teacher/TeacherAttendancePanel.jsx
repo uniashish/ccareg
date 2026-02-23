@@ -965,8 +965,8 @@ export default function TeacherAttendancePanel({
                 </table>
               </div>
 
-              <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
-                <p className="text-xs font-bold text-slate-400">
+              <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-xs font-bold text-slate-400 w-full sm:w-auto">
                   {hasUnsavedChanges
                     ? "You have unsaved attendance changes"
                     : "Attendance is up to date"}
@@ -975,7 +975,7 @@ export default function TeacherAttendancePanel({
                   type="button"
                   onClick={handleSubmitAttendance}
                   disabled={isSaving || !hasUnsavedChanges}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                  className={`w-full sm:w-auto px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
                     isSaving || !hasUnsavedChanges
                       ? "bg-slate-100 text-slate-300 cursor-not-allowed"
                       : "bg-brand-primary text-white hover:bg-brand-primary/90"
