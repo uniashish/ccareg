@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { db } from "../../firebase";
+import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import MessageModal from "../common/MessageModal";
 
 const normalizeText = (value) =>
   String(value || "")
@@ -54,11 +57,24 @@ export default function TeacherAttendancePanel({
   ccas,
   selections,
   classes,
+  onDirtyChange = () => {},
 }) {
   const [selectedCCAId, setSelectedCCAId] = useState("");
   const [attendanceByCell, setAttendanceByCell] = useState({});
+  const [persistedAttendanceByCell, setPersistedAttendanceByCell] = useState(
+    {},
+  );
   const [exportOpen, setExportOpen] = useState(false);
   const [expandedPastByStudent, setExpandedPastByStudent] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingSavedAttendance, setIsLoadingSavedAttendance] =
+    useState(false);
+  const [modalState, setModalState] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   const teacherName = normalizeText(user?.displayName);
   const teacherEmail = normalizeText(user?.email);
@@ -131,7 +147,8 @@ export default function TeacherAttendancePanel({
   const todayKey = toDateKey(today);
 
   const todaySessionDates = useMemo(
-    () => sessionDates.filter((sessionDate) => toDateKey(sessionDate) === todayKey),
+    () =>
+      sessionDates.filter((sessionDate) => toDateKey(sessionDate) === todayKey),
     [sessionDates, todayKey],
   );
 
@@ -151,6 +168,32 @@ export default function TeacherAttendancePanel({
     );
     return sessionDateOnly <= today;
   };
+
+  const getPresentKeySetForCurrentCCA = (attendanceMap) => {
+    if (!selectedCCAId) return new Set();
+
+    const prefix = `${selectedCCAId}__`;
+    return new Set(
+      Object.keys(attendanceMap).filter(
+        (key) => key.startsWith(prefix) && Boolean(attendanceMap[key]),
+      ),
+    );
+  };
+
+  const hasUnsavedChanges = useMemo(() => {
+    const currentSet = getPresentKeySetForCurrentCCA(attendanceByCell);
+    const persistedSet = getPresentKeySetForCurrentCCA(
+      persistedAttendanceByCell,
+    );
+
+    if (currentSet.size !== persistedSet.size) return true;
+
+    for (const key of currentSet) {
+      if (!persistedSet.has(key)) return true;
+    }
+
+    return false;
+  }, [attendanceByCell, persistedAttendanceByCell, selectedCCAId]);
 
   const isPastSession = (sessionDate) => {
     const sessionDateOnly = new Date(
@@ -238,6 +281,120 @@ export default function TeacherAttendancePanel({
 
       return next;
     });
+  };
+
+  const handleSubmitAttendance = async () => {
+    if (!selectedCCAId || !selectedCCA) return;
+
+    const activeSessionDateKeys = sessionDates
+      .filter((sessionDate) => isSessionActive(sessionDate))
+      .map((sessionDate) => toDateKey(sessionDate));
+
+    if (
+      activeSessionDateKeys.length === 0 ||
+      studentsForSelectedCCA.length === 0
+    ) {
+      setModalState({
+        isOpen: true,
+        type: "info",
+        title: "Nothing to Submit",
+        message: "No active attendance sessions available for submission.",
+      });
+      return;
+    }
+
+    const changedDatePayloads = activeSessionDateKeys
+      .map((dateKey) => {
+        const currentPresentStudentIds = studentsForSelectedCCA
+          .filter(
+            (student) =>
+              attendanceByCell[
+                `${selectedCCAId}__${student.id}__${dateKey}`
+              ] === true,
+          )
+          .map((student) => student.id)
+          .sort();
+
+        const persistedPresentStudentIds = studentsForSelectedCCA
+          .filter(
+            (student) =>
+              persistedAttendanceByCell[
+                `${selectedCCAId}__${student.id}__${dateKey}`
+              ] === true,
+          )
+          .map((student) => student.id)
+          .sort();
+
+        const isSameLength =
+          currentPresentStudentIds.length === persistedPresentStudentIds.length;
+        const isSameValues =
+          isSameLength &&
+          currentPresentStudentIds.every(
+            (value, index) => value === persistedPresentStudentIds[index],
+          );
+
+        if (isSameValues) return null;
+
+        return {
+          dateKey,
+          presentStudentIds: currentPresentStudentIds,
+        };
+      })
+      .filter(Boolean);
+
+    if (changedDatePayloads.length === 0) {
+      setModalState({
+        isOpen: true,
+        type: "info",
+        title: "No Changes",
+        message: "Attendance is already up to date.",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const batch = writeBatch(db);
+
+      changedDatePayloads.forEach(({ dateKey, presentStudentIds }) => {
+        const attendanceRef = doc(
+          db,
+          "attendanceRecords",
+          `${selectedCCAId}_${dateKey}`,
+        );
+        batch.set(
+          attendanceRef,
+          {
+            ccaId: selectedCCAId,
+            dateKey,
+            presentStudentIds,
+            updatedAt: serverTimestamp(),
+            updatedByUid: user?.uid || "",
+          },
+          { merge: true },
+        );
+      });
+
+      await batch.commit();
+      setPersistedAttendanceByCell({ ...attendanceByCell });
+
+      setModalState({
+        isOpen: true,
+        type: "success",
+        title: "Attendance Submitted",
+        message: `Saved ${changedDatePayloads.length} attendance record(s).`,
+      });
+    } catch (error) {
+      console.error("Error saving attendance:", error);
+      setModalState({
+        isOpen: true,
+        type: "error",
+        title: "Save Failed",
+        message: "Unable to submit attendance right now. Please try again.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const escapeCSV = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -428,6 +585,71 @@ export default function TeacherAttendancePanel({
     setExpandedPastByStudent({});
   }, [selectedCCAId]);
 
+  useEffect(() => {
+    onDirtyChange(hasUnsavedChanges);
+  }, [hasUnsavedChanges, onDirtyChange]);
+
+  useEffect(() => {
+    const fetchSavedAttendance = async () => {
+      if (!selectedCCAId) {
+        setAttendanceByCell({});
+        setPersistedAttendanceByCell({});
+        return;
+      }
+
+      if (!sessionDates.length) {
+        setAttendanceByCell({});
+        setPersistedAttendanceByCell({});
+        return;
+      }
+
+      setIsLoadingSavedAttendance(true);
+      try {
+        const restoredAttendance = {};
+        const uniqueDateKeys = [
+          ...new Set(sessionDates.map((d) => toDateKey(d))),
+        ];
+
+        const attendanceResults = await Promise.allSettled(
+          uniqueDateKeys.map((dateKey) =>
+            getDoc(doc(db, "attendanceRecords", `${selectedCCAId}_${dateKey}`)),
+          ),
+        );
+
+        attendanceResults.forEach((result) => {
+          if (result.status !== "fulfilled") return;
+
+          const attendanceDoc = result.value;
+          if (!attendanceDoc.exists()) return;
+
+          const data = attendanceDoc.data() || {};
+          const dateKey = data.dateKey;
+          const presentStudentIds = Array.isArray(data.presentStudentIds)
+            ? data.presentStudentIds
+            : [];
+
+          if (!dateKey) return;
+
+          presentStudentIds.forEach((studentId) => {
+            const cellKey = `${selectedCCAId}__${studentId}__${dateKey}`;
+            restoredAttendance[cellKey] = true;
+          });
+        });
+
+        setAttendanceByCell(restoredAttendance);
+        setPersistedAttendanceByCell(restoredAttendance);
+      } catch (error) {
+        console.error("Error loading attendance:", error);
+        setAttendanceByCell({});
+        setPersistedAttendanceByCell({});
+      } finally {
+        setIsLoadingSavedAttendance(false);
+      }
+    };
+
+    fetchSavedAttendance();
+  }, [selectedCCAId, sessionDates]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       <div className="lg:col-span-4">
@@ -531,6 +753,10 @@ export default function TeacherAttendancePanel({
           ) : studentsForSelectedCCA.length === 0 ? (
             <div className="p-6 text-sm text-slate-400">
               No students found for this CCA.
+            </div>
+          ) : isLoadingSavedAttendance ? (
+            <div className="p-6 text-sm text-slate-400">
+              Loading attendance...
             </div>
           ) : (
             <>
@@ -738,10 +964,38 @@ export default function TeacherAttendancePanel({
                   </tbody>
                 </table>
               </div>
+
+              <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
+                <p className="text-xs font-bold text-slate-400">
+                  {hasUnsavedChanges
+                    ? "You have unsaved attendance changes"
+                    : "Attendance is up to date"}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSubmitAttendance}
+                  disabled={isSaving || !hasUnsavedChanges}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                    isSaving || !hasUnsavedChanges
+                      ? "bg-slate-100 text-slate-300 cursor-not-allowed"
+                      : "bg-brand-primary text-white hover:bg-brand-primary/90"
+                  }`}
+                >
+                  {isSaving ? "Submitting..." : "Submit Attendance"}
+                </button>
+              </div>
             </>
           )}
         </div>
       </div>
+
+      <MessageModal
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState((prev) => ({ ...prev, isOpen: false }))}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Header from "../components/Header";
 import TeacherAttendancePanel from "../components/teacher/TeacherAttendancePanel";
+import MessageModal from "../components/common/MessageModal";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase";
 import { collection, getDocs, doc, onSnapshot } from "firebase/firestore";
@@ -361,6 +362,35 @@ export default function TeacherDashboard() {
   const [viewingCCA, setViewingCCA] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [activeView, setActiveView] = useState("dashboard");
+  const [hasUnsavedAttendance, setHasUnsavedAttendance] = useState(false);
+  const [leaveAttendanceConfirm, setLeaveAttendanceConfirm] = useState(false);
+
+  const handleAttendanceViewToggle = () => {
+    if (activeView === "attendance" && hasUnsavedAttendance) {
+      setLeaveAttendanceConfirm(true);
+      return;
+    }
+
+    setActiveView((prev) =>
+      prev === "attendance" ? "dashboard" : "attendance",
+    );
+    setExportOpen(false);
+  };
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!(activeView === "attendance" && hasUnsavedAttendance)) return;
+
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [activeView, hasUnsavedAttendance]);
 
   // --- FETCH DATA ---
   useEffect(() => {
@@ -570,12 +600,7 @@ export default function TeacherDashboard() {
                   )}
                   <button
                     type="button"
-                    onClick={() => {
-                      setActiveView((prev) =>
-                        prev === "attendance" ? "dashboard" : "attendance",
-                      );
-                      setExportOpen(false);
-                    }}
+                    onClick={handleAttendanceViewToggle}
                     className={`flex items-center gap-2 px-3 py-2 rounded-xl font-bold transition-colors ${
                       activeView === "attendance"
                         ? "bg-slate-800 text-white hover:bg-slate-700"
@@ -636,6 +661,7 @@ export default function TeacherDashboard() {
                   ccas={ccas}
                   selections={selections}
                   classes={classes}
+                  onDirtyChange={setHasUnsavedAttendance}
                 />
               ) : (
                 <>
@@ -828,6 +854,23 @@ export default function TeacherDashboard() {
           onClose={() => setViewingCCA(null)}
           cca={viewingCCA}
           classes={classes}
+        />
+
+        <MessageModal
+          isOpen={leaveAttendanceConfirm}
+          onClose={() => setLeaveAttendanceConfirm(false)}
+          type="error"
+          title="Unsaved Attendance"
+          message="New attendance changes are not submitted yet. If you leave now, they will not be saved."
+          mode="confirm"
+          confirmText="Leave"
+          cancelText="Stay"
+          onConfirm={() => {
+            setLeaveAttendanceConfirm(false);
+            setHasUnsavedAttendance(false);
+            setActiveView("dashboard");
+            setExportOpen(false);
+          }}
         />
       </div>
     </div>

@@ -134,8 +134,7 @@ export function useStudentDash() {
     setIsSubmitting(true);
 
     const selectedClassName =
-      classes.find((classItem) => classItem.id === selectedClassId)?.name ||
-      "";
+      classes.find((classItem) => classItem.id === selectedClassId)?.name || "";
 
     try {
       await runTransaction(db, async (transaction) => {
