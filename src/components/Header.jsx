@@ -7,7 +7,7 @@ export default function Header() {
 
   return (
     <div className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-10 py-3 sm:py-5 bg-white border-b border-slate-100 shadow-sm sticky top-0 z-40 gap-3 sm:gap-4">
-      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
         <div className="w-9 h-9 sm:w-12 sm:h-12 flex items-center justify-center shrink-0">
           <img
             src="/sislogo.png"
@@ -15,7 +15,7 @@ export default function Header() {
             className="w-full h-full object-contain"
           />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 hidden sm:block">
           <h1 className="font-black text-base sm:text-2xl text-slate-800 tracking-tighter leading-none truncate">
             CCA<span className="text-brand-primary">MANAGER</span>
           </h1>
@@ -25,7 +25,7 @@ export default function Header() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-6 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-6 shrink-0">
         <div className="hidden sm:flex items-center gap-2 sm:gap-3 pr-2 sm:pr-6 border-r border-slate-100">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-slate-700 leading-none">
