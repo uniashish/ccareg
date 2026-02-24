@@ -333,16 +333,25 @@ export default function HousekeepingManager({
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
                           Providing:
                         </p>
-                        <p className="text-xs text-slate-600 leading-snug">
+                        <div className="text-xs text-slate-600 leading-snug">
                           {vendor.associatedCCAs &&
                           vendor.associatedCCAs.length > 0 ? (
-                            vendor.associatedCCAs.map((c) => c.name).join(", ")
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {vendor.associatedCCAs.map((c, idx) => (
+                                <span
+                                  key={`${vendor.id}_${c.id || c.name || idx}`}
+                                  className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-bold border border-indigo-100"
+                                >
+                                  {c.name || "Unnamed CCA"}
+                                </span>
+                              ))}
+                            </div>
                           ) : (
                             <span className="italic text-slate-400">
                               No CCAs assigned
                             </span>
                           )}
-                        </p>
+                        </div>
                       </div>
                     </div>
                   ))

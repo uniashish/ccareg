@@ -6,6 +6,7 @@ import {
   FiUser,
   FiGrid,
   FiChevronDown,
+  FiSearch,
 } from "react-icons/fi";
 
 export default function MissingStudentsModal({
@@ -14,6 +15,8 @@ export default function MissingStudentsModal({
   missingStudents,
 }) {
   const [exportOpen, setExportOpen] = useState(false);
+  const [filterText, setFilterText] = useState("");
+  const [selectedClass, setSelectedClass] = useState("all");
   const exportMenuRef = useRef(null);
 
   useEffect(() => {
@@ -45,11 +48,41 @@ export default function MissingStudentsModal({
 
   if (!isOpen) return null;
 
+  const classOptions = Array.from(
+    new Set(
+      missingStudents.map((student) => String(student.class ?? "").trim()),
+    ),
+  )
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
+  const normalizedFilter = filterText.trim().toLowerCase();
+  const hasClassFilter = selectedClass !== "all";
+  const hasActiveFilters = Boolean(normalizedFilter) || hasClassFilter;
+
+  const filteredStudents = missingStudents.filter((student) => {
+    const studentClassRaw = String(student.class ?? "").trim();
+    const matchesClass = !hasClassFilter || studentClassRaw === selectedClass;
+    if (!matchesClass) return false;
+
+    if (!normalizedFilter) return true;
+
+    const studentName = String(student.name ?? "").toLowerCase();
+    const studentEmail = String(student.email ?? "").toLowerCase();
+    const studentClass = studentClassRaw.toLowerCase();
+
+    return (
+      studentName.includes(normalizedFilter) ||
+      studentEmail.includes(normalizedFilter) ||
+      studentClass.includes(normalizedFilter)
+    );
+  });
+
   const handleExportCSV = () => {
     const csvContent =
       "data:text/csv;charset=utf-8," +
       "Name,Email,Class\n" +
-      missingStudents.map((s) => `${s.name},${s.email},${s.class}`).join("\n");
+      filteredStudents.map((s) => `${s.name},${s.email},${s.class}`).join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -67,7 +100,7 @@ export default function MissingStudentsModal({
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 
-    const rowsHtml = missingStudents
+    const rowsHtml = filteredStudents
       .map(
         (student) => `<tr>
           <td>${escapeHtml(student.name)}</td>
@@ -125,10 +158,24 @@ export default function MissingStudentsModal({
               Missing Selections
             </h2>
             <p className="text-slate-500 text-sm mt-1">
-              Found{" "}
-              <strong className="text-red-600">{missingStudents.length}</strong>{" "}
-              students who have not submitted yet.
+              {hasActiveFilters && filteredStudents.length === 0 ? (
+                <>No students match the current filter.</>
+              ) : (
+                <>
+                  Found{" "}
+                  <strong className="text-red-600">
+                    {missingStudents.length}
+                  </strong>{" "}
+                  students who have not submitted yet.
+                </>
+              )}
             </p>
+            {hasActiveFilters && (
+              <p className="text-slate-500 text-xs mt-1">
+                Showing <strong>{filteredStudents.length}</strong> of{" "}
+                <strong>{missingStudents.length}</strong> students
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -140,6 +187,52 @@ export default function MissingStudentsModal({
 
         {/* CONTENT (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="relative flex-1">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape" && filterText.trim()) {
+                    e.preventDefault();
+                    setFilterText("");
+                  }
+                }}
+                placeholder="Filter by class, name or email"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              />
+            </div>
+            <div className="relative w-44">
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-3 pr-8 text-sm text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              >
+                <option value="all">All classes</option>
+                {classOptions.map((className) => (
+                  <option key={className} value={className}>
+                    {className}
+                  </option>
+                ))}
+              </select>
+              <FiChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            </div>
+            {(filterText.trim() || hasClassFilter) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterText("");
+                  setSelectedClass("all");
+                }}
+                className="px-3 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+
           {missingStudents.length === 0 ? (
             <div className="text-center py-10 text-slate-400">
               <p>
@@ -147,37 +240,52 @@ export default function MissingStudentsModal({
                 list.
               </p>
             </div>
+          ) : filteredStudents.length === 0 ? (
+            <div className="text-center py-10 text-slate-400">
+              <p>No students match the current filter.</p>
+            </div>
           ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="text-xs uppercase tracking-widest text-slate-400 border-b border-slate-100">
-                  <th className="pb-3 pl-2">Student Name</th>
-                  <th className="pb-3">Email</th>
-                  <th className="pb-3">Class</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm text-slate-600">
-                {missingStudents.map((student, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-b border-slate-50 hover:bg-slate-50/50"
-                  >
-                    <td className="py-3 pl-2 font-bold text-slate-800 flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-xs font-black">
-                        {student.name.charAt(0)}
-                      </div>
-                      {student.name}
-                    </td>
-                    <td className="py-3">{student.email}</td>
-                    <td className="py-3">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 rounded text-xs font-bold text-slate-500">
-                        <FiGrid /> {student.class}
-                      </span>
-                    </td>
+            <div className="h-[52vh] max-h-[52vh] flex flex-col">
+              <table className="w-full text-left border-collapse table-fixed">
+                <thead>
+                  <tr className="text-xs uppercase tracking-widest text-slate-400 border-b border-slate-100">
+                    <th className="pb-3 pl-2 w-[40%]">Student Name</th>
+                    <th className="pb-3 w-[35%]">Email</th>
+                    <th className="pb-3 w-[25%]">Class</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+              </table>
+
+              <div className="flex-1 overflow-y-auto">
+                <table className="w-full text-left border-collapse table-fixed">
+                  <tbody className="text-sm text-slate-600">
+                    {filteredStudents.map((student, idx) => (
+                      <tr
+                        key={idx}
+                        className="border-b border-slate-50 hover:bg-slate-50/50"
+                      >
+                        <td className="py-3 pl-2 font-bold text-slate-800 w-[40%]">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-xs font-black shrink-0">
+                              {student.name.charAt(0)}
+                            </div>
+                            <span className="truncate">{student.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 w-[35%] truncate">
+                          {student.email}
+                        </td>
+                        <td className="py-3 w-[25%]">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 rounded text-xs font-bold text-slate-500">
+                            <FiGrid /> {student.class}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
 
@@ -186,7 +294,7 @@ export default function MissingStudentsModal({
           <div className="relative" ref={exportMenuRef}>
             <button
               onClick={() => setExportOpen((v) => !v)}
-              disabled={missingStudents.length === 0}
+              disabled={filteredStudents.length === 0}
               className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-900/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
             >
               <FiDownload />

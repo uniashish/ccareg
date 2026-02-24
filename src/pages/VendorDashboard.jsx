@@ -6,6 +6,8 @@ import { db } from "../firebase";
 import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import VendorToolbar from "../components/vendor/VendorToolbar";
 import VendorStudentsTable from "../components/vendor/VendorStudentsTable";
+import StudentDetailsModal from "../components/admin/StudentDetailsModal";
+import MessageModal from "../components/common/MessageModal";
 
 const normalizeVerified = (value) => {
   if (value === true) return true;
@@ -24,6 +26,11 @@ const escapeHtml = (value) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
+const normalizeText = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
 export default function VendorDashboard() {
   const { user } = useAuth();
   const [vendors, setVendors] = useState([]);
@@ -32,8 +39,16 @@ export default function VendorDashboard() {
   const [selections, setSelections] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [selectedCcaId, setSelectedCcaId] = useState("all");
+  const [selectedClassName, setSelectedClassName] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [updatingMap, setUpdatingMap] = useState({});
+  const [viewingSelection, setViewingSelection] = useState(null);
+  const [paymentConfirm, setPaymentConfirm] = useState({
+    isOpen: false,
+    row: null,
+    checked: false,
+  });
 
   useEffect(() => {
     const unsubVendors = onSnapshot(collection(db, "vendors"), (snapshot) => {
@@ -96,37 +111,118 @@ export default function VendorDashboard() {
     };
   }, []);
 
-  const currentVendor = useMemo(() => {
+  const matchedVendors = useMemo(() => {
     const userEmail = String(user?.email || "")
       .trim()
       .toLowerCase();
-    if (!userEmail) return null;
+    if (!userEmail) return [];
 
-    return (
-      vendors.find((vendor) => {
-        const vendorEmail = String(vendor.email || "")
-          .trim()
-          .toLowerCase();
-        return vendorEmail === userEmail;
-      }) || null
-    );
+    return vendors.filter((vendor) => {
+      const vendorEmail = String(vendor.email || "")
+        .trim()
+        .toLowerCase();
+      return vendorEmail === userEmail;
+    });
   }, [vendors, user?.email]);
 
-  const vendorCcaIds = useMemo(() => {
-    if (!currentVendor || !Array.isArray(currentVendor.associatedCCAs))
-      return [];
-
-    return currentVendor.associatedCCAs
-      .map((item) => (typeof item === "string" ? item : item?.id))
-      .filter(Boolean);
-  }, [currentVendor]);
-
   const vendorCcas = useMemo(() => {
-    if (!vendorCcaIds.length) return [];
-    return ccas
-      .filter((cca) => vendorCcaIds.includes(cca.id))
-      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  }, [ccas, vendorCcaIds]);
+    if (!matchedVendors.length) {
+      return [];
+    }
+
+    const associationItems = matchedVendors.flatMap((vendor) =>
+      Array.isArray(vendor.associatedCCAs) ? vendor.associatedCCAs : [],
+    );
+
+    if (!associationItems.length) {
+      return [];
+    }
+
+    const associatedIds = new Set();
+    const associatedNames = new Set();
+
+    associationItems.forEach((item) => {
+      if (typeof item === "string") {
+        const rawValue = String(item || "").trim();
+        const normalized = normalizeText(rawValue);
+        if (!normalized) return;
+        associatedIds.add(rawValue);
+        associatedNames.add(normalized);
+        return;
+      }
+
+      const idCandidate =
+        item?.id || item?.ccaId || item?.ccaID || item?.value || "";
+      const nameCandidate = item?.name || item?.ccaName || item?.label || "";
+
+      if (idCandidate) associatedIds.add(String(idCandidate));
+      if (nameCandidate) associatedNames.add(normalizeText(nameCandidate));
+    });
+
+    const resolvedFromCcaCollection = ccas.filter((cca) => {
+      const idMatch = associatedIds.has(String(cca.id));
+      const nameMatch = associatedNames.has(normalizeText(cca.name));
+      return idMatch || nameMatch;
+    });
+
+    const knownIds = new Set(resolvedFromCcaCollection.map((cca) => cca.id));
+
+    const fallbackItems = associationItems
+      .map((item, index) => {
+        if (typeof item === "string") {
+          const rawValue = String(item || "").trim();
+          const normalized = normalizeText(rawValue);
+          if (!normalized) return null;
+          if (knownIds.has(rawValue)) return null;
+
+          const existingByName = resolvedFromCcaCollection.find(
+            (cca) => normalizeText(cca.name) === normalized,
+          );
+          if (existingByName) return null;
+
+          return {
+            id: rawValue,
+            name: rawValue,
+          };
+        }
+
+        const idCandidate =
+          item?.id || item?.ccaId || item?.ccaID || item?.value || "";
+        const nameCandidate = item?.name || item?.ccaName || item?.label || "";
+
+        if (!nameCandidate) return null;
+        if (idCandidate && knownIds.has(idCandidate)) return null;
+
+        const existingByName = resolvedFromCcaCollection.find(
+          (cca) => normalizeText(cca.name) === normalizeText(nameCandidate),
+        );
+        if (existingByName) return null;
+
+        return {
+          id:
+            String(idCandidate || "").trim() ||
+            `assoc_${normalizeText(nameCandidate)}_${index}`,
+          name: String(nameCandidate).trim(),
+        };
+      })
+      .filter(Boolean);
+
+    const merged = [...resolvedFromCcaCollection, ...fallbackItems];
+    return merged.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }, [ccas, matchedVendors]);
+
+  const vendorCcaIds = useMemo(
+    () => vendorCcas.map((cca) => cca.id).filter(Boolean),
+    [vendorCcas],
+  );
+
+  useEffect(() => {
+    if (selectedCcaId === "all") return;
+    const isStillValid = vendorCcas.some((cca) => cca.id === selectedCcaId);
+    if (!isStillValid) {
+      setSelectedCcaId("all");
+    }
+  }, [selectedCcaId, vendorCcas]);
 
   const classMap = useMemo(() => {
     return classesList.reduce((map, classItem) => {
@@ -134,6 +230,20 @@ export default function VendorDashboard() {
       return map;
     }, {});
   }, [classesList]);
+
+  const classMapForModal = useMemo(() => {
+    return classesList.reduce((map, classItem) => {
+      map[classItem.id] = classItem;
+      return map;
+    }, {});
+  }, [classesList]);
+
+  const selectionsById = useMemo(() => {
+    return selections.reduce((map, selection) => {
+      map[selection.id] = selection;
+      return map;
+    }, {});
+  }, [selections]);
 
   const attendanceByCcaStudent = useMemo(() => {
     const map = {};
@@ -174,6 +284,13 @@ export default function VendorDashboard() {
         ? selection.selectedCCAs
         : [];
 
+      const vendorSelectedCcaList = selectedItems
+        .filter((item) => vendorCcaIds.includes(item.id))
+        .map((item) => ccaNameMap[item.id] || item.name || "Unnamed CCA")
+        .filter(Boolean);
+
+      const vendorSelectedCcaNames = vendorSelectedCcaList.join(", ");
+
       return selectedItems
         .filter((item) => vendorCcaIds.includes(item.id))
         .map((item) => {
@@ -202,6 +319,8 @@ export default function VendorDashboard() {
               "Unknown Class",
             ccaId: item.id,
             ccaName: ccaNameMap[item.id] || item.name || "Unnamed CCA",
+            vendorSelectedCcaList,
+            vendorSelectedCcaNames,
             attendanceLabel: `${presentCount}/${totalSessions}`,
             paymentStatus: item.paymentStatus === "Paid" ? "Paid" : "Unpaid",
             verified: normalizeVerified(item.verified),
@@ -210,23 +329,60 @@ export default function VendorDashboard() {
     });
   }, [vendorCcaIds, vendorCcas, selections, classMap, attendanceByCcaStudent]);
 
-  const visibleRows = useMemo(() => {
+  const classFilterOptions = useMemo(() => {
+    return Array.from(
+      new Set(allRows.map((row) => String(row.className || "").trim())),
+    )
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  }, [allRows]);
+
+  useEffect(() => {
+    if (selectedClassName === "all") return;
+    const isStillValid = classFilterOptions.includes(selectedClassName);
+    if (!isStillValid) {
+      setSelectedClassName("all");
+    }
+  }, [selectedClassName, classFilterOptions]);
+
+  const rowsAfterBaseFilters = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     return allRows.filter((row) => {
       const matchesCca = selectedCcaId === "all" || row.ccaId === selectedCcaId;
+      const matchesClass =
+        selectedClassName === "all" || row.className === selectedClassName;
       const matchesQuery =
         !query ||
         row.studentName.toLowerCase().includes(query) ||
         row.className.toLowerCase().includes(query);
 
-      return matchesCca && matchesQuery;
+      return matchesCca && matchesClass && matchesQuery;
     });
-  }, [allRows, selectedCcaId, searchQuery]);
+  }, [allRows, selectedCcaId, selectedClassName, searchQuery]);
 
-  const handleToggleVerification = async (row, checked) => {
-    if (!row?.selectionId || !row?.ccaId || row.paymentStatus !== "Paid")
-      return;
+  const visibleRows = useMemo(() => {
+    if (statusFilter === "all") return rowsAfterBaseFilters;
+
+    return rowsAfterBaseFilters.filter((row) => {
+      if (statusFilter === "unpaid") {
+        return row.paymentStatus !== "Paid";
+      }
+
+      if (statusFilter === "verified") {
+        return row.paymentStatus === "Paid" && row.verified;
+      }
+
+      if (statusFilter === "pending") {
+        return row.paymentStatus === "Paid" && !row.verified;
+      }
+
+      return true;
+    });
+  }, [rowsAfterBaseFilters, statusFilter]);
+
+  const applyVerificationUpdate = async ({ row, checked, markPaid }) => {
+    if (!row?.selectionId || !row?.ccaId) return;
 
     const selection = selections.find((item) => item.id === row.selectionId);
     if (!selection) return;
@@ -237,9 +393,19 @@ export default function VendorDashboard() {
 
     const updatedSelectedCCAs = selectedItems.map((item) => {
       if (item.id !== row.ccaId) return item;
+
+      const nextPaymentStatus = markPaid
+        ? "Paid"
+        : item.paymentStatus === "Paid"
+          ? "Paid"
+          : "Unpaid";
+
       return {
         ...item,
+        paymentStatus: nextPaymentStatus,
         verified: checked ? "Yes" : "No",
+        paymentDone: nextPaymentStatus === "Paid",
+        paymentApproved: nextPaymentStatus === "Paid",
       };
     });
 
@@ -256,6 +422,49 @@ export default function VendorDashboard() {
     } finally {
       setUpdatingMap((prev) => ({ ...prev, [updateKey]: false }));
     }
+  };
+
+  const handleToggleVerification = async (row, checked) => {
+    if (!row?.selectionId || !row?.ccaId) return;
+
+    if (row.paymentStatus !== "Paid") {
+      if (!checked) return;
+
+      setPaymentConfirm({
+        isOpen: true,
+        row,
+        checked,
+      });
+      return;
+    }
+
+    await applyVerificationUpdate({ row, checked, markPaid: false });
+  };
+
+  const closePaymentConfirm = () => {
+    setPaymentConfirm({
+      isOpen: false,
+      row: null,
+      checked: false,
+    });
+  };
+
+  const confirmUnpaidVerification = async () => {
+    const targetRow = paymentConfirm.row;
+    const targetChecked = paymentConfirm.checked;
+    closePaymentConfirm();
+    await applyVerificationUpdate({
+      row: targetRow,
+      checked: targetChecked,
+      markPaid: true,
+    });
+  };
+
+  const handleStudentClick = (row) => {
+    if (!row?.selectionId) return;
+    const selected = selectionsById[row.selectionId];
+    if (!selected) return;
+    setViewingSelection(selected);
   };
 
   const handleExportCSV = () => {
@@ -356,7 +565,7 @@ export default function VendorDashboard() {
   };
 
   const summary = useMemo(() => {
-    return visibleRows.reduce(
+    return rowsAfterBaseFilters.reduce(
       (acc, row) => {
         acc.total += 1;
         if (row.paymentStatus !== "Paid") {
@@ -370,7 +579,20 @@ export default function VendorDashboard() {
       },
       { total: 0, verified: 0, pending: 0, unpaid: 0 },
     );
-  }, [visibleRows]);
+  }, [rowsAfterBaseFilters]);
+
+  const hasActiveFilters =
+    selectedCcaId !== "all" ||
+    selectedClassName !== "all" ||
+    searchQuery.trim() !== "" ||
+    statusFilter !== "all";
+
+  const handleClearFilters = () => {
+    setSelectedCcaId("all");
+    setSelectedClassName("all");
+    setSearchQuery("");
+    setStatusFilter("all");
+  };
 
   return (
     <div
@@ -379,61 +601,119 @@ export default function VendorDashboard() {
     >
       <Header />
 
-      <main className="max-w-6xl mx-auto px-6 py-6 md:px-10">
+      <main className="max-w-6xl mx-auto px-3 py-4 sm:px-6 sm:py-6 md:px-10">
         <div className="space-y-4">
           <VendorToolbar
             ccas={vendorCcas}
             selectedCcaId={selectedCcaId}
             onSelectedCcaIdChange={setSelectedCcaId}
+            classNames={classFilterOptions}
+            selectedClassName={selectedClassName}
+            onSelectedClassNameChange={setSelectedClassName}
             searchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={handleClearFilters}
             onExportCSV={handleExportCSV}
             onExportPDF={handleExportPDF}
             canExport={visibleRows.length > 0}
           />
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white rounded-xl border border-slate-200 p-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
+                statusFilter === "all"
+                  ? "border-slate-400 ring-2 ring-slate-200"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                 Visible Rows
               </p>
-              <p className="text-xl font-black text-slate-800 mt-1">
+              <p className="text-lg sm:text-xl font-black text-slate-800 mt-1">
                 {summary.total}
               </p>
-            </div>
-            <div className="bg-white rounded-xl border border-emerald-200 p-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("verified")}
+              className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
+                statusFilter === "verified"
+                  ? "border-emerald-400 ring-2 ring-emerald-100"
+                  : "border-emerald-200 hover:border-emerald-300"
+              }`}
+            >
               <p className="text-[10px] font-black uppercase tracking-wider text-emerald-500">
                 Verified
               </p>
-              <p className="text-xl font-black text-emerald-700 mt-1">
+              <p className="text-lg sm:text-xl font-black text-emerald-700 mt-1">
                 {summary.verified}
               </p>
-            </div>
-            <div className="bg-white rounded-xl border border-amber-200 p-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("pending")}
+              className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
+                statusFilter === "pending"
+                  ? "border-amber-400 ring-2 ring-amber-100"
+                  : "border-amber-200 hover:border-amber-300"
+              }`}
+            >
               <p className="text-[10px] font-black uppercase tracking-wider text-amber-500">
                 Pending
               </p>
-              <p className="text-xl font-black text-amber-700 mt-1">
+              <p className="text-lg sm:text-xl font-black text-amber-700 mt-1">
                 {summary.pending}
               </p>
-            </div>
-            <div className="bg-white rounded-xl border border-rose-200 p-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("unpaid")}
+              className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
+                statusFilter === "unpaid"
+                  ? "border-rose-400 ring-2 ring-rose-100"
+                  : "border-rose-200 hover:border-rose-300"
+              }`}
+            >
               <p className="text-[10px] font-black uppercase tracking-wider text-rose-500">
                 Unpaid
               </p>
-              <p className="text-xl font-black text-rose-700 mt-1">
+              <p className="text-lg sm:text-xl font-black text-rose-700 mt-1">
                 {summary.unpaid}
               </p>
-            </div>
+            </button>
           </div>
 
           <VendorStudentsTable
             rows={visibleRows}
             updatingMap={updatingMap}
             onToggleVerification={handleToggleVerification}
+            onStudentClick={handleStudentClick}
           />
         </div>
       </main>
+
+      <StudentDetailsModal
+        isOpen={!!viewingSelection}
+        onClose={() => setViewingSelection(null)}
+        selection={viewingSelection}
+        classMap={classMapForModal}
+      />
+
+      <MessageModal
+        isOpen={paymentConfirm.isOpen}
+        onClose={closePaymentConfirm}
+        type="error"
+        mode="confirm"
+        title="Confirm Payment Verification"
+        message="This student has not confirmed the payment from his portal, do you still want to verify the payment?"
+        onConfirm={confirmUnpaidVerification}
+        onCancel={closePaymentConfirm}
+        confirmText="Verify"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

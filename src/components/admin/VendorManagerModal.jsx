@@ -193,6 +193,7 @@ export default function VendorManagerModal({ isOpen, onClose }) {
   const [availableCCAs, setAvailableCCAs] = useState([]);
   const [availableVendorUsers, setAvailableVendorUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [ccaFilterText, setCcaFilterText] = useState("");
 
   // Detail Modal State
   const [selectedVendor, setSelectedVendor] = useState(null);
@@ -280,6 +281,22 @@ export default function VendorManagerModal({ isOpen, onClose }) {
       return true;
     });
   }, [availableVendorUsers]);
+
+  const filteredVendors = useMemo(() => {
+    const queryText = ccaFilterText.trim().toLowerCase();
+    if (!queryText) return vendors;
+
+    return vendors.filter((vendor) => {
+      const associatedCCAs = Array.isArray(vendor.associatedCCAs)
+        ? vendor.associatedCCAs
+        : [];
+
+      return associatedCCAs.some((cca) => {
+        const ccaName = String(cca?.name || "").toLowerCase();
+        return ccaName.includes(queryText);
+      });
+    });
+  }, [vendors, ccaFilterText]);
 
   // --- 2. CONFLICT CHECK LOGIC ---
   const conflictingCCAs = useMemo(() => {
@@ -490,6 +507,19 @@ export default function VendorManagerModal({ isOpen, onClose }) {
                   Create New Vendor
                 </button>
 
+                <div className="space-y-1">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-wider">
+                    Filter by CCA Name
+                  </label>
+                  <input
+                    type="text"
+                    value={ccaFilterText}
+                    onChange={(e) => setCcaFilterText(e.target.value)}
+                    placeholder="Type CCA name to filter vendors..."
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none text-sm font-medium text-slate-700"
+                  />
+                </div>
+
                 <div className="space-y-3">
                   {isLoading ? (
                     <p className="text-center text-slate-400 italic py-8">
@@ -501,8 +531,14 @@ export default function VendorManagerModal({ isOpen, onClose }) {
                         No vendors added yet.
                       </p>
                     </div>
+                  ) : filteredVendors.length === 0 ? (
+                    <div className="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-slate-400 font-medium">
+                        No vendors match the typed CCA name.
+                      </p>
+                    </div>
                   ) : (
-                    vendors.map((vendor) => (
+                    filteredVendors.map((vendor) => (
                       // Vendor with associated CCAs cannot be deleted
                       <div
                         key={vendor.id}
