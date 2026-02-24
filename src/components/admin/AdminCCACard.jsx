@@ -173,7 +173,7 @@ export default function AdminCCACard({
           <div className="flex items-start gap-1.5 text-slate-700 text-xs font-bold">
             <FiUser className="text-brand-neutral shrink-0 mt-0.5" size={14} />
             <span className="leading-snug break-words">
-              {cca.teacher || "Staff"}
+              {cca.teacherDisplay || cca.teacher || "Staff"}
             </span>
           </div>
         </div>

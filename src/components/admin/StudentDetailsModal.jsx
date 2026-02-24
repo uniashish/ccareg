@@ -537,7 +537,7 @@ export default function StudentDetailsModal({
                       <div className="flex items-center gap-2 text-sm text-slate-600">
                         <FiBriefcase className="text-indigo-500" />
                         <span className="font-semibold">Teacher:</span>{" "}
-                        {cca.teacher || "N/A"}
+                        {cca.teacherDisplay || cca.teacher || "N/A"}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-slate-600">
                         <FiMapPin className="text-indigo-500" />

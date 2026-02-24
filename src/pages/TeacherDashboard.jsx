@@ -27,6 +27,7 @@ import {
 import { downloadSelectionsCSV } from "../utils/csvExporter";
 import { downloadSelectionsPDF } from "../utils/pdfExporter";
 import sisBackground from "../assets/sisbackground.png";
+import { enrichCCAsWithTeacherAlias } from "../utils/teacherAlias";
 
 const parseDate = (value) => {
   if (!value) return null;
@@ -208,7 +209,7 @@ function CCADetailsModal({ isOpen, onClose, cca, classes }) {
                   Teacher In-Charge
                 </p>
                 <p className="text-xs font-bold text-slate-700">
-                  {cca.teacher || "To Be Announced"}
+                  {cca.teacherDisplay || cca.teacher || "To Be Announced"}
                 </p>
               </div>
             </div>
@@ -538,7 +539,9 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
                       <div className="flex items-center gap-2 text-slate-500 bg-white p-2 rounded-lg border border-slate-100">
                         <FiUser className="text-amber-500 shrink-0" />
                         <span className="truncate">
-                          {fullDetails.teacher || "Instructor TBD"}
+                          {fullDetails.teacherDisplay ||
+                            fullDetails.teacher ||
+                            "Instructor TBD"}
                         </span>
                       </div>
                     </div>
@@ -698,7 +701,13 @@ export default function TeacherDashboard() {
         const ccasSnap = await getDocs(collection(db, "ccas"));
         const ccasData = ccasSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         ccasData.sort((a, b) => a.name.localeCompare(b.name));
-        setCCAs(ccasData);
+
+        const usersSnap = await getDocs(collection(db, "users"));
+        const usersData = usersSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        setCCAs(enrichCCAsWithTeacherAlias(ccasData, usersData));
 
         const selectionsSnap = await getDocs(collection(db, "selections"));
         const activeSelections = selectionsSnap.docs
@@ -994,7 +1003,7 @@ export default function TeacherDashboard() {
                               <div className="mt-2 text-xs text-slate-500 flex items-center gap-2 relative z-10">
                                 <FiUser size={12} />
                                 <span className="truncate">
-                                  {cca.teacher || "TBA"}
+                                  {cca.teacherDisplay || cca.teacher || "TBA"}
                                 </span>
                               </div>
                               {/* Mini Progress Bar */}

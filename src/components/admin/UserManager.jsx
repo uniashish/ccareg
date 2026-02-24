@@ -273,6 +273,10 @@ export default function UserManager({
                     u.name ||
                     u.email?.split("@")[0] ||
                     "Unknown User";
+                  const displayNameWithAlias =
+                    isTeacher && u.alias
+                      ? `${userName} (${u.alias})`
+                      : userName;
 
                   return (
                     <tr
@@ -285,13 +289,8 @@ export default function UserManager({
                             <FiUser size={16} />
                           </div>
                           <span className="font-bold text-slate-700 capitalize">
-                            {userName}
+                            {displayNameWithAlias}
                           </span>
-                          {isTeacher && u.alias ? (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-violet-100 text-violet-700 border border-violet-200">
-                              Alias: {u.alias}
-                            </span>
-                          ) : null}
                         </div>
                       </td>
                       <td className="px-8 py-5">

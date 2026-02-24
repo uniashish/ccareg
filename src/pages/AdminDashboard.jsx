@@ -388,6 +388,7 @@ export default function AdminDashboard() {
         initialData={editingClass}
       />
       <AddCCAModal
+        key={`${isCCAModalOpen ? "open" : "closed"}-${editingCCA?.id || "new"}`}
         isOpen={isCCAModalOpen}
         onClose={() => setIsCCAModalOpen(false)}
         onSave={handleSaveCCA}

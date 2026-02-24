@@ -134,7 +134,7 @@ export default function CCAGrid({
       getScheduleSummary(cca.sessionDates),
       `${formatTime12hr(cca.startTime)} - ${formatTime12hr(cca.endTime)}`,
       cca.venue || "TBD",
-      cca.teacher || "Staff",
+      cca.teacherDisplay || cca.teacher || "Staff",
       `${cca.enrolledCount || 0} / ${cca.maxSeats || "∞"}`,
       Number(cca.price) === 0
         ? "Free"
@@ -363,12 +363,12 @@ export default function CCAGrid({
               <colgroup>
                 <col className="w-[21%]" />
                 <col className="w-[13%]" />
-                <col className="w-[10%]" />
-                <col className="w-[12%]" />
+                <col className="w-[11%]" />
+                <col className="w-[13%]" />
                 <col className="w-[12%]" />
                 <col className="w-[8%]" />
                 <col className="w-[8%]" />
-                <col className="w-[16%]" />
+                <col className="w-[14%]" />
               </colgroup>
               <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                 <tr>
@@ -378,10 +378,10 @@ export default function CCAGrid({
                   <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Schedule
                   </th>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
+                  <th className="px-4 pr-6 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Time
                   </th>
-                  <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
+                  <th className="px-4 pl-6 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
                     Venue
                   </th>
                   <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-50">
@@ -432,17 +432,19 @@ export default function CCAGrid({
                       <td className="px-4 py-3 text-xs text-slate-700">
                         {getScheduleSummary(cca.sessionDates)}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
+                      <td className="px-4 pr-6 py-3 text-xs text-slate-700 whitespace-nowrap">
                         {formatTime12hr(cca.startTime)} -{" "}
                         {formatTime12hr(cca.endTime)}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-700">
+                      <td className="px-4 pl-6 py-3 text-xs text-slate-700">
                         <span className="block leading-tight break-words line-clamp-2">
                           {cca.venue || "TBD"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
-                        {cca.teacher || "Staff"}
+                      <td className="px-4 py-3 text-xs text-slate-700 align-top">
+                        <span className="block leading-tight break-words line-clamp-2">
+                          {cca.teacherDisplay || cca.teacher || "Staff"}
+                        </span>
                       </td>
                       <td
                         className={`px-4 py-3 text-xs font-bold whitespace-nowrap ${

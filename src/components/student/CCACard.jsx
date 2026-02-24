@@ -166,7 +166,9 @@ export default function CCACard({
             </p>
             <div className="flex items-center gap-1.5 text-slate-700 text-[11px] font-bold truncate">
               <FiUser className="text-indigo-400 shrink-0" size={12} />
-              <span className="truncate">{cca.teacher || "TBA"}</span>
+              <span className="truncate">
+                {cca.teacherDisplay || cca.teacher || "TBA"}
+              </span>
             </div>
           </div>
 

@@ -42,7 +42,7 @@ export default function AssignmentManager({
     return assignedCCAs.map((cca) => [
       selectedClass?.name || "",
       cca.name || "",
-      cca.teacher || "",
+      cca.teacherDisplay || cca.teacher || "",
       cca.venue || "",
       cca.isActive === false ? "Hidden" : "Active",
     ]);

@@ -13,6 +13,7 @@ import {
   increment,
   getDoc,
 } from "firebase/firestore";
+import { enrichCCAsWithTeacherAlias } from "../utils/teacherAlias";
 
 export function useAdminData(showMessage = () => {}) {
   // --- STATE ---
@@ -348,8 +349,13 @@ export function useAdminData(showMessage = () => {}) {
     }, {});
   }, [classesList]);
 
+  const ccasWithTeacherAlias = useMemo(
+    () => enrichCCAsWithTeacherAlias(ccas, users),
+    [ccas, users],
+  );
+
   return {
-    ccas,
+    ccas: ccasWithTeacherAlias,
     classesList,
     loading,
     selections,

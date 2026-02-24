@@ -46,7 +46,7 @@ export default function ClassDetailsModal({
       const status = cca.isActive !== false ? "Active" : "Inactive";
       return [
         escapeCSV(cca.name || ""),
-        escapeCSV(cca.teacher || "Unassigned"),
+        escapeCSV(cca.teacherDisplay || cca.teacher || "Unassigned"),
         escapeCSV(time),
         escapeCSV(cca.venue || "TBD"),
         escapeCSV(status),
@@ -81,7 +81,7 @@ export default function ClassDetailsModal({
         const status = cca.isActive !== false ? "Active" : "Inactive";
         return `<tr>
           <td>${escapeHtml(cca.name)}</td>
-          <td>${escapeHtml(cca.teacher || "Unassigned")}</td>
+          <td>${escapeHtml(cca.teacherDisplay || cca.teacher || "Unassigned")}</td>
           <td>${escapeHtml(time)}</td>
           <td>${escapeHtml(cca.venue || "TBD")}</td>
           <td>${escapeHtml(status)}</td>
@@ -199,7 +199,9 @@ export default function ClassDetailsModal({
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2 text-[11px] text-slate-500">
                         <FiUser className="text-brand-primary" size={12} />
-                        <span>{cca.teacher || "Unassigned"}</span>
+                        <span>
+                          {cca.teacherDisplay || cca.teacher || "Unassigned"}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-slate-500">
                         <FiClock className="text-brand-neutral" size={12} />

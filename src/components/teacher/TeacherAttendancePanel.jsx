@@ -420,7 +420,10 @@ export default function TeacherAttendancePanel({
     }
 
     const teacherInCharge =
-      selectedCCA.teacher || user?.displayName || "Unassigned";
+      selectedCCA.teacherDisplay ||
+      selectedCCA.teacher ||
+      user?.displayName ||
+      "Unassigned";
     const sessionHeaders = exportSessionDates.map((sessionDate) =>
       formatDateLabel(sessionDate),
     );

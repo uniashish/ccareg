@@ -118,7 +118,7 @@ export default function CCADetailsModal({
               {cca.name}
             </h2>
             <div className="flex items-center gap-2 text-slate-400 font-medium text-sm">
-              <FiUserCheck /> {cca.teacher || "TBA"}
+              <FiUserCheck /> {cca.teacherDisplay || cca.teacher || "TBA"}
             </div>
           </div>
         </div>

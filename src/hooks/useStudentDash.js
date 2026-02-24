@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { db, auth } from "../firebase";
 import {
   collection,
@@ -9,13 +9,15 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
+import { enrichCCAsWithTeacherAlias } from "../utils/teacherAlias";
 
 export function useStudentDash() {
   const { currentUser } = useAuth();
 
   // --- DATA STATE ---
   const [classes, setClasses] = useState([]);
-  const [ccas, setCCAs] = useState([]);
+  const [rawCCAs, setRawCCAs] = useState([]);
+  const [users, setUsers] = useState([]);
 
   // --- SELECTION STATE ---
   const [selectedClassId, setSelectedClassId] = useState("");
@@ -55,13 +57,22 @@ export function useStudentDash() {
       setClasses(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
     const unsubCCAs = onSnapshot(collection(db, "ccas"), (snapshot) => {
-      setCCAs(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      setRawCCAs(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+      setUsers(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
     return () => {
       unsubClasses();
       unsubCCAs();
+      unsubUsers();
     };
   }, []);
+
+  const ccas = useMemo(
+    () => enrichCCAsWithTeacherAlias(rawCCAs, users),
+    [rawCCAs, users],
+  );
 
   // 2. CHECK EXISTING SELECTION
   useEffect(() => {

@@ -13,6 +13,10 @@ import {
 import { db } from "../../firebase";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import MessageModal from "../common/MessageModal";
+import {
+  formatTeacherDisplayName,
+  resolveTeacherAlias,
+} from "../../utils/teacherAlias";
 
 export default function LockedView({
   existingSelection,
@@ -86,6 +90,13 @@ export default function LockedView({
         }));
         setVendors(vendorsData);
 
+        const usersRef = collection(db, "users");
+        const usersSnap = await getDocs(usersRef);
+        const usersData = usersSnap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
         // 3. Fetch CCA Details & Calculate Fees
         if (existingSelection?.selectedCCAs) {
           const ccaPromises = existingSelection.selectedCCAs.map(
@@ -108,6 +119,11 @@ export default function LockedView({
                   fee: parseFee(rawFee),
                   vendorName: vendor?.name || "School/Unknown",
                   vendorId: vendor?.id || "unknown",
+                  teacherAlias: resolveTeacherAlias(data.teacher, usersData),
+                  teacherDisplay: formatTeacherDisplayName(
+                    data.teacher,
+                    resolveTeacherAlias(data.teacher, usersData),
+                  ),
                 };
               }
               return { ...item, fee: 0, vendorName: "Unknown" };
@@ -270,7 +286,8 @@ export default function LockedView({
                               {/* CHANGED: REPLACED VENDOR WITH TEACHER NAME */}
                               {cca.teacher && (
                                 <span className="text-indigo-500 font-bold flex items-center gap-1">
-                                  <FiUser size={10} /> {cca.teacher}
+                                  <FiUser size={10} />{" "}
+                                  {cca.teacherDisplay || cca.teacher}
                                 </span>
                               )}
                             </div>

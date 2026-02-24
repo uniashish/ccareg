@@ -7,25 +7,61 @@ import {
   FiZap,
   FiRefreshCw,
   FiLink,
+  FiChevronDown,
 } from "react-icons/fi";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import { formatTeacherDisplayName } from "../utils/teacherAlias";
+
+const EMPTY_CCA_FORM = {
+  name: "",
+  teacher: "",
+  description: "",
+  hyperlinks: [],
+  sessionDates: [],
+  startTime: "",
+  endTime: "",
+  price: 0,
+  currency: "IDR",
+  maxSeats: "",
+  venue: "",
+  isActive: true,
+};
+
+const ccaDraftByLoginSession = new Map();
+
+const cloneCcaForm = (source = EMPTY_CCA_FORM) => ({
+  ...EMPTY_CCA_FORM,
+  ...source,
+  hyperlinks: Array.isArray(source.hyperlinks)
+    ? source.hyperlinks.map((link) => ({ ...link }))
+    : [],
+  sessionDates: Array.isArray(source.sessionDates)
+    ? [...source.sessionDates]
+    : [],
+});
+
+const getLoginSessionKey = () => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return "anonymous";
+
+  const lastSignInTime =
+    currentUser.metadata?.lastSignInTime || "no-login-time";
+  return `${currentUser.uid}::${lastSignInTime}`;
+};
+
+const getInitialCcaForm = (initialData) => {
+  if (initialData) {
+    return cloneCcaForm(initialData);
+  }
+
+  const loginSessionKey = getLoginSessionKey();
+  const previousDraft = ccaDraftByLoginSession.get(loginSessionKey);
+  return cloneCcaForm(previousDraft);
+};
 
 export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
-  const [form, setForm] = useState({
-    name: "",
-    teacher: "",
-    description: "",
-    hyperlinks: [], // Hyperlinks array
-    sessionDates: [],
-    startTime: "",
-    endTime: "",
-    price: 0,
-    currency: "IDR",
-    maxSeats: "",
-    venue: "",
-    isActive: true,
-  });
+  const [form, setForm] = useState(() => getInitialCcaForm(initialData));
 
   const [tempDate, setTempDate] = useState("");
   const [seatsError, setSeatsError] = useState("");
@@ -51,6 +87,24 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
     { id: 0, label: "Sun" },
   ];
 
+  const getTeacherOptionValue = (teacher) => {
+    return (
+      teacher?.name ||
+      teacher?.displayName ||
+      teacher?.email?.split("@")[0] ||
+      ""
+    );
+  };
+
+  const getTeacherOptionLabel = (teacher) => {
+    const teacherValue = getTeacherOptionValue(teacher);
+    const teacherDisplay = formatTeacherDisplayName(
+      teacherValue,
+      teacher?.alias,
+    );
+    return teacherDisplay || teacherValue;
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     const fetchTeachers = async () => {
@@ -71,37 +125,6 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
     };
     fetchTeachers();
   }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen) {
-      if (initialData) {
-        setForm({
-          ...initialData,
-          hyperlinks: initialData.hyperlinks || [],
-        });
-        setSeatsError("");
-      } else {
-        setForm({
-          name: "",
-          teacher: "",
-          description: "",
-          hyperlinks: [],
-          sessionDates: [],
-          startTime: "",
-          endTime: "",
-          price: 0,
-          currency: "IDR",
-          maxSeats: "",
-          venue: "",
-          isActive: true,
-        });
-        setTempDate("");
-        setGenConfig({ startDate: "", endDate: "", selectedWeekdays: [] });
-        setShowGenerator(false);
-        setSeatsError("");
-      }
-    }
-  }, [initialData, isOpen]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -200,7 +223,7 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
     setShowGenerator(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const enrolledCount = Number(initialData?.enrolledCount || 0);
@@ -219,7 +242,12 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
       return;
     }
 
-    onSave(form);
+    await onSave(form);
+
+    if (!initialData) {
+      const loginSessionKey = getLoginSessionKey();
+      ccaDraftByLoginSession.set(loginSessionKey, cloneCcaForm(form));
+    }
   };
 
   if (!isOpen) return null;
@@ -267,23 +295,29 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
 
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">
-                  Teacher / Instructor
+                  Teacher In-charge
                 </label>
                 {availableTeachers.length > 0 ? (
-                  <select
-                    name="teacher"
-                    value={form.teacher}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                  >
-                    <option value="">-- Select Teacher --</option>
-                    {availableTeachers.map((t) => (
-                      <option key={t.id} value={t.name}>
-                        {t.name} ({t.email})
-                      </option>
-                    ))}
-                    <option value="External Vendor">External Vendor</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      name="teacher"
+                      value={form.teacher}
+                      onChange={handleChange}
+                      className="w-full px-4 pr-10 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-bold text-slate-700 appearance-none transition-all"
+                    >
+                      <option value="">-- Select Teacher --</option>
+                      {availableTeachers.map((t) => (
+                        <option key={t.id} value={getTeacherOptionValue(t)}>
+                          {getTeacherOptionLabel(t)}
+                        </option>
+                      ))}
+                      <option value="External Vendor">External Vendor</option>
+                    </select>
+                    <FiChevronDown
+                      size={16}
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                  </div>
                 ) : (
                   <input
                     type="text"
