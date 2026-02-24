@@ -463,6 +463,32 @@ export default function StudentDetailsModal({
                       <h5 className="font-bold text-slate-800 text-lg">
                         {cca.name}
                       </h5>
+                      {/* Payment Status Label */}
+                      {(() => {
+                        const paid =
+                          String(cca.paymentStatus).toLowerCase() === "paid";
+                        const verified =
+                          cca.verified === true ||
+                          String(cca.verified).toLowerCase() === "yes" ||
+                          String(cca.verified).toLowerCase() === "verified";
+                        let label = "Not Paid";
+                        let color = "bg-red-50 text-red-700 border-red-200";
+                        if (paid && verified) {
+                          label = "Paid and Verified";
+                          color =
+                            "bg-emerald-50 text-emerald-700 border-emerald-200";
+                        } else if (paid && !verified) {
+                          label = "Paid, Waiting for Verification";
+                          color = "bg-amber-50 text-amber-700 border-amber-200";
+                        }
+                        return (
+                          <span
+                            className={`mt-1 inline-block text-xs font-bold rounded border px-2 py-0.5 ${color}`}
+                          >
+                            {label}
+                          </span>
+                        );
+                      })()}
                       <div className="relative cca-export-menu">
                         <button
                           type="button"

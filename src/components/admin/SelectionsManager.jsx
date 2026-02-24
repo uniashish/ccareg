@@ -10,6 +10,7 @@ import {
   FiActivity,
   FiX,
   FiFilter,
+  FiDollarSign,
 } from "react-icons/fi";
 import { db } from "../../firebase";
 import {
@@ -122,6 +123,14 @@ export default function SelectionsManager({
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+
+  const isVendorVerified = (value) => {
+    if (value === true) return true;
+    const normalized = String(value ?? "")
+      .trim()
+      .toLowerCase();
+    return normalized === "yes" || normalized === "verified";
+  };
 
   const buildStudentAttendanceRows = ({ attendanceDocs, selection, cca }) => {
     const studentIds = [selection.id, selection.studentUid].filter(Boolean);
@@ -757,25 +766,38 @@ export default function SelectionsManager({
                       <td className="p-5">
                         <div className="flex flex-wrap gap-2">
                           {sel.selectedCCAs && sel.selectedCCAs.length > 0 ? (
-                            sel.selectedCCAs.map((cca, idx) => (
-                              <div
-                                key={idx}
-                                className="group/tag relative inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-100 hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all cursor-pointer"
-                              >
-                                {cca.name}
-                                {/* Delete specific CCA button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleConfirmSingleCCARemoval(sel, cca);
-                                  }}
-                                  className="ml-1 p-0.5 rounded-full hover:bg-red-200 text-indigo-400 hover:text-red-700 opacity-0 group-hover/tag:opacity-100 transition-all"
-                                  title="Remove this CCA only"
+                            sel.selectedCCAs.map((cca, idx) => {
+                              const showPaidIcon = isVendorVerified(
+                                cca?.verified,
+                              );
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className="group/tag relative inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-100 hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all cursor-pointer"
                                 >
-                                  <FiX size={12} />
-                                </button>
-                              </div>
-                            ))
+                                  {cca.name}
+                                  {showPaidIcon && (
+                                    <FiDollarSign
+                                      size={12}
+                                      className="text-emerald-500"
+                                      title="Payment verified by vendor"
+                                    />
+                                  )}
+                                  {/* Delete specific CCA button */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleConfirmSingleCCARemoval(sel, cca);
+                                    }}
+                                    className="ml-1 p-0.5 rounded-full hover:bg-red-200 text-indigo-400 hover:text-red-700 opacity-0 group-hover/tag:opacity-100 transition-all"
+                                    title="Remove this CCA only"
+                                  >
+                                    <FiX size={12} />
+                                  </button>
+                                </div>
+                              );
+                            })
                           ) : (
                             <span className="text-slate-400 text-xs italic">
                               No activities selected

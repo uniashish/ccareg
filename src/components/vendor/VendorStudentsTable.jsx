@@ -134,9 +134,6 @@ export default function VendorStudentsTable({
               <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">
                 CCA Name
               </th>
-              <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">
-                Payment Verification
-              </th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -163,20 +160,6 @@ export default function VendorStudentsTable({
                     <td className="px-4 py-3 text-slate-600 border-y border-slate-200 align-middle">
                       {group.className}
                     </td>
-                    <td className="px-4 py-3 text-slate-600 font-semibold border-y border-slate-200 align-top">
-                      <div className="border border-slate-200 rounded-lg overflow-hidden">
-                        {group.rows.map((ccaRow) => (
-                          <div
-                            key={`${ccaRow.selectionId}_${ccaRow.ccaId}`}
-                            className="px-2 py-1.5 border-b border-slate-200 last:border-b-0"
-                          >
-                            <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                              {ccaRow.ccaName || "Unnamed CCA"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
                     <td className="px-4 py-3 border-y border-r border-slate-200 align-top">
                       <div className="border border-slate-200 rounded-lg overflow-hidden">
                         {group.rows.map((ccaRow) => (
@@ -198,7 +181,7 @@ export default function VendorStudentsTable({
             ) : (
               <tr>
                 <td
-                  colSpan="4"
+                  colSpan="3"
                   className="px-4 py-12 text-center text-slate-400 italic"
                 >
                   No students found for the selected filters.

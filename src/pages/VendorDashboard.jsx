@@ -31,6 +31,15 @@ const normalizeText = (value) =>
     .trim()
     .toLowerCase();
 
+const EXPORT_FIELDS = [
+  { key: "studentName", label: "Student Name" },
+  { key: "className", label: "Class" },
+  { key: "ccaNames", label: "CCA Name" },
+  { key: "attendance", label: "Attendance" },
+  { key: "paymentStatus", label: "Payment Status" },
+  { key: "verified", label: "Verified" },
+];
+
 export default function VendorDashboard() {
   const { user } = useAuth();
   const [vendors, setVendors] = useState([]);
@@ -49,6 +58,13 @@ export default function VendorDashboard() {
     row: null,
     checked: false,
   });
+  const [exportModal, setExportModal] = useState({
+    isOpen: false,
+    format: "csv",
+  });
+  const [selectedExportFields, setSelectedExportFields] = useState(
+    EXPORT_FIELDS.map((field) => field.key),
+  );
 
   useEffect(() => {
     const unsubVendors = onSnapshot(collection(db, "vendors"), (snapshot) => {
@@ -467,29 +483,107 @@ export default function VendorDashboard() {
     setViewingSelection(selected);
   };
 
+  const groupedExportRows = useMemo(() => {
+    if (!visibleRows.length) return [];
+
+    const grouped = visibleRows.reduce((acc, row) => {
+      const key = row.selectionId || row.studentUid || row.studentName;
+
+      if (!acc[key]) {
+        acc[key] = {
+          studentName: row.studentName,
+          className: row.className,
+          items: [],
+        };
+      }
+
+      acc[key].items.push({
+        ccaId: row.ccaId,
+        ccaName: row.ccaName,
+        attendanceLabel: row.attendanceLabel,
+        paymentStatus: row.paymentStatus,
+        verified: row.verified,
+      });
+
+      return acc;
+    }, {});
+
+    return Object.values(grouped).map((group) => {
+      const uniqueItemsByCca = group.items.reduce((acc, item) => {
+        const itemKey = item.ccaId || item.ccaName;
+        if (!acc[itemKey]) {
+          acc[itemKey] = item;
+        }
+        return acc;
+      }, {});
+
+      const items = Object.values(uniqueItemsByCca);
+
+      return {
+        studentName: group.studentName,
+        className: group.className,
+        ccaNames: items.map((item) => item.ccaName).join(" | "),
+        attendance: items
+          .map((item) => `${item.ccaName}: ${item.attendanceLabel}`)
+          .join(" | "),
+        paymentStatus: items
+          .map((item) => `${item.ccaName}: ${item.paymentStatus}`)
+          .join(" | "),
+        verified: items
+          .map((item) => `${item.ccaName}: ${item.verified ? "Yes" : "No"}`)
+          .join(" | "),
+      };
+    });
+  }, [visibleRows]);
+
+  const selectedExportFieldDefs = useMemo(
+    () =>
+      EXPORT_FIELDS.filter((field) => selectedExportFields.includes(field.key)),
+    [selectedExportFields],
+  );
+
+  const openExportModal = (format) => {
+    if (!groupedExportRows.length) return;
+    setExportModal({ isOpen: true, format });
+  };
+
+  const closeExportModal = () => {
+    setExportModal((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const toggleExportField = (fieldKey) => {
+    setSelectedExportFields((prev) => {
+      if (prev.includes(fieldKey)) {
+        return prev.filter((key) => key !== fieldKey);
+      }
+      return [...prev, fieldKey];
+    });
+  };
+
+  const handleSelectAllExportFields = () => {
+    setSelectedExportFields(EXPORT_FIELDS.map((field) => field.key));
+  };
+
+  const handleClearAllExportFields = () => {
+    setSelectedExportFields([]);
+  };
+
+  const buildExportRows = () =>
+    groupedExportRows.map((row) =>
+      selectedExportFieldDefs.map((field) => row[field.key] ?? ""),
+    );
+
   const handleExportCSV = () => {
-    if (!visibleRows.length) return;
+    openExportModal("csv");
+  };
 
-    const headers = [
-      "Student Name",
-      "Class",
-      "CCA Name",
-      "Attendance",
-      "Payment Status",
-      "Verified",
-    ];
+  const exportCSVWithSelectedFields = () => {
+    if (!groupedExportRows.length || !selectedExportFieldDefs.length) return;
 
-    const rows = visibleRows.map((row) =>
-      [
-        row.studentName,
-        row.className,
-        row.ccaName,
-        row.attendanceLabel,
-        row.paymentStatus,
-        row.verified ? "Yes" : "No",
-      ]
-        .map((cell) => escapeCSV(cell))
-        .join(","),
+    const headers = selectedExportFieldDefs.map((field) => field.label);
+
+    const rows = buildExportRows().map((row) =>
+      row.map((cell) => escapeCSV(cell)).join(","),
     );
 
     const csvContent = [headers.join(","), ...rows].join("\n");
@@ -505,20 +599,24 @@ export default function VendorDashboard() {
   };
 
   const handleExportPDF = () => {
-    if (!visibleRows.length) return;
+    openExportModal("pdf");
+  };
 
-    const rowsHtml = visibleRows
+  const exportPDFWithSelectedFields = () => {
+    if (!groupedExportRows.length || !selectedExportFieldDefs.length) return;
+
+    const rowsHtml = buildExportRows()
       .map(
-        (row) => `<tr>
-          <td>${escapeHtml(row.studentName)}</td>
-          <td>${escapeHtml(row.className)}</td>
-          <td>${escapeHtml(row.ccaName)}</td>
-          <td>${escapeHtml(row.attendanceLabel)}</td>
-          <td>${escapeHtml(row.paymentStatus)}</td>
-          <td>${escapeHtml(row.verified ? "Yes" : "No")}</td>
-        </tr>`,
+        (cells) =>
+          `<tr>${cells
+            .map((cell) => `<td>${escapeHtml(cell)}</td>`)
+            .join("")}</tr>`,
       )
       .join("\n");
+
+    const headerHtml = selectedExportFieldDefs
+      .map((field) => `<th>${escapeHtml(field.label)}</th>`)
+      .join("");
 
     const html = `
       <html>
@@ -537,14 +635,7 @@ export default function VendorDashboard() {
           <h2>Vendor Students</h2>
           <table>
             <thead>
-              <tr>
-                <th>Student Name</th>
-                <th>Class</th>
-                <th>CCA Name</th>
-                <th>Attendance</th>
-                <th>Payment Status</th>
-                <th>Verified</th>
-              </tr>
+              <tr>${headerHtml}</tr>
             </thead>
             <tbody>
               ${rowsHtml}
@@ -562,6 +653,18 @@ export default function VendorDashboard() {
       printWindow.focus();
       printWindow.print();
     }, 300);
+  };
+
+  const handleConfirmExport = () => {
+    if (!selectedExportFieldDefs.length) return;
+
+    if (exportModal.format === "pdf") {
+      exportPDFWithSelectedFields();
+    } else {
+      exportCSVWithSelectedFields();
+    }
+
+    closeExportModal();
   };
 
   const summary = useMemo(() => {
@@ -695,12 +798,98 @@ export default function VendorDashboard() {
         </div>
       </main>
 
+      <footer className="px-3 pb-4 text-center text-xs font-semibold tracking-wide text-slate-600 sm:px-6 md:px-10">
+        DEVELOPED AND MAINTAINED BY ASHISH BHATNAGAR SISKGNEJ
+      </footer>
+
       <StudentDetailsModal
         isOpen={!!viewingSelection}
         onClose={() => setViewingSelection(null)}
         selection={viewingSelection}
         classMap={classMapForModal}
       />
+
+      {exportModal.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={closeExportModal}
+          ></div>
+
+          <div className="relative w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-black text-slate-800">
+                Select fields to export
+              </h3>
+              <p className="text-xs font-semibold text-slate-500 mt-1">
+                Choose the columns to include in the exported{" "}
+                {exportModal.format.toUpperCase()} file.
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSelectAllExportFields}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearAllExportFields}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 space-y-2 max-h-72 overflow-y-auto">
+              {EXPORT_FIELDS.map((field) => {
+                const checked = selectedExportFields.includes(field.key);
+
+                return (
+                  <label
+                    key={field.key}
+                    className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 cursor-pointer hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleExportField(field.key)}
+                      className="h-4 w-4 rounded border-slate-300 text-brand-primary focus:ring-brand-primary/40"
+                    />
+                    <span className="text-sm font-semibold text-slate-700">
+                      {field.label}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-200 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeExportModal}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmExport}
+                disabled={!selectedExportFieldDefs.length}
+                className={`px-4 py-2.5 rounded-xl font-bold text-sm ${
+                  selectedExportFieldDefs.length
+                    ? "bg-brand-primary text-white hover:bg-indigo-700"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                }`}
+              >
+                Export {exportModal.format.toUpperCase()}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <MessageModal
         isOpen={paymentConfirm.isOpen}
