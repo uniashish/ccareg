@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { FcGoogle } from "react-icons/fc"; // Google icon
 import loginBackdrop from "../assets/loginbackdrop.png";
 import AuthProgress from "../components/common/AuthProgress";
+import { GOOGLE_AUTH_LOADING_COPY } from "../constants/authCopy";
 
 const ccaPngIcons = Object.values(
   import.meta.glob("../assets/ccaicons/*.png", {
@@ -186,7 +187,13 @@ export default function Login() {
   };
 
   if (loading) {
-    return <AuthProgress fullscreen />;
+    return (
+      <AuthProgress
+        title={GOOGLE_AUTH_LOADING_COPY.title}
+        subtitle={GOOGLE_AUTH_LOADING_COPY.subtitle}
+        fullscreen
+      />
+    );
   }
 
   return (

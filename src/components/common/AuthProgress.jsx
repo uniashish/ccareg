@@ -1,9 +1,10 @@
 import React from "react";
 import { FiShield, FiCheckCircle } from "react-icons/fi";
+import { GOOGLE_AUTH_LOADING_COPY } from "../../constants/authCopy";
 
 export default function AuthProgress({
-  title = "Signing you in",
-  subtitle = "Verifying account and loading your dashboard",
+  title = GOOGLE_AUTH_LOADING_COPY.title,
+  subtitle = GOOGLE_AUTH_LOADING_COPY.subtitle,
   fullscreen = false,
 }) {
   const containerClasses = fullscreen

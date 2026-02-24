@@ -6,6 +6,7 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  deleteField,
   runTransaction, // <--- ADDED THIS IMPORT
 } from "firebase/firestore";
 
@@ -21,6 +22,7 @@ import AddClassModal from "../components/AddClassModal";
 import AddCCAModal from "../components/AddCCAModal";
 import CCADetailsModal from "../components/admin/CCADetailsModal";
 import UpdateRoleModal from "../components/admin/UpdateRoleModal";
+import EditAliasModal from "../components/admin/EditAliasModal";
 import MessageModal from "../components/common/MessageModal";
 import sisBackground from "../assets/sisbackground.png";
 
@@ -59,6 +61,9 @@ export default function AdminDashboard() {
   const [localUsersList, setLocalUsersList] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isAliasModalOpen, setIsAliasModalOpen] = useState(false);
+  const [selectedAliasUser, setSelectedAliasUser] = useState(null);
+  const [isSavingAlias, setIsSavingAlias] = useState(false);
 
   const {
     ccas,
@@ -186,6 +191,40 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleEditUserAlias = (user) => {
+    setSelectedAliasUser(user);
+    setIsAliasModalOpen(true);
+  };
+
+  const handleUpdateAlias = async (uid, aliasValue) => {
+    try {
+      setIsSavingAlias(true);
+      const userRef = doc(db, "users", uid);
+      const trimmedAlias = (aliasValue || "").trim();
+
+      await updateDoc(userRef, {
+        alias: trimmedAlias ? trimmedAlias : deleteField(),
+      });
+
+      setIsAliasModalOpen(false);
+      setSelectedAliasUser(null);
+      showMessage({
+        type: "success",
+        title: "Alias Updated",
+        message: "Teacher alias has been saved.",
+      });
+    } catch (error) {
+      console.error("Error updating alias:", error);
+      showMessage({
+        type: "error",
+        title: "Update Failed",
+        message: "Failed to update teacher alias.",
+      });
+    } finally {
+      setIsSavingAlias(false);
+    }
+  };
+
   const adminTabs = [
     { id: "Classes", icon: <FiGrid /> },
     { id: "CCAs", icon: <FiBook /> },
@@ -309,6 +348,7 @@ export default function AdminDashboard() {
               <UserManager
                 users={localUsersList}
                 onEditRole={handleEditUserRole}
+                onEditAlias={handleEditUserAlias}
                 onDeleteUser={handleDeleteUser}
               />
             )}
@@ -365,6 +405,17 @@ export default function AdminDashboard() {
         onClose={() => setIsUserModalOpen(false)}
         user={selectedUser}
         onUpdate={handleUpdateRole}
+      />
+      <EditAliasModal
+        key={selectedAliasUser?.uid || "none"}
+        isOpen={isAliasModalOpen}
+        onClose={() => {
+          if (isSavingAlias) return;
+          setIsAliasModalOpen(false);
+        }}
+        user={selectedAliasUser}
+        onUpdate={handleUpdateAlias}
+        saving={isSavingAlias}
       />
 
       <MessageModal

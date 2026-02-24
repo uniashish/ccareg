@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthProgress from "../components/common/AuthProgress";
+import { GOOGLE_AUTH_LOADING_COPY } from "../constants/authCopy";
 
 export default function AuthGate() {
   const { user, profile, loading } = useAuth();
@@ -8,8 +9,8 @@ export default function AuthGate() {
   if (loading) {
     return (
       <AuthProgress
-        title="Preparing your workspace"
-        subtitle="Checking login and profile"
+        title={GOOGLE_AUTH_LOADING_COPY.title}
+        subtitle={GOOGLE_AUTH_LOADING_COPY.subtitle}
       />
     );
   }

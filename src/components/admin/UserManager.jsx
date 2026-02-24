@@ -10,7 +10,12 @@ import {
   FiDownload,
 } from "react-icons/fi";
 
-export default function UserManager({ users, onEditRole, onDeleteUser }) {
+export default function UserManager({
+  users,
+  onEditRole,
+  onEditAlias,
+  onDeleteUser,
+}) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [exportOpen, setExportOpen] = useState(false);
@@ -282,6 +287,11 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
                           <span className="font-bold text-slate-700 capitalize">
                             {userName}
                           </span>
+                          {isTeacher && u.alias ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-violet-100 text-violet-700 border border-violet-200">
+                              Alias: {u.alias}
+                            </span>
+                          ) : null}
                         </div>
                       </td>
                       <td className="px-8 py-5">
@@ -310,6 +320,14 @@ export default function UserManager({ users, onEditRole, onDeleteUser }) {
                       </td>
                       <td className="px-8 py-5">
                         <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                          {isTeacher && (
+                            <button
+                              onClick={() => onEditAlias(u)}
+                              className="flex items-center gap-2 px-4 py-2 text-violet-700 hover:bg-violet-100 rounded-xl font-bold text-xs transition-all active:scale-95"
+                            >
+                              <FiEdit2 size={14} /> Alias
+                            </button>
+                          )}
                           <button
                             onClick={() => onEditRole(u)}
                             className="flex items-center gap-2 px-4 py-2 text-brand-primary hover:bg-brand-primary/10 rounded-xl font-bold text-xs transition-all active:scale-95"
