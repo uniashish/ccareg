@@ -11,7 +11,13 @@ import {
   FiUser, // Used for Teacher Icon
 } from "react-icons/fi";
 import { db } from "../../firebase";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  updateDoc,
+} from "firebase/firestore";
 import MessageModal from "../common/MessageModal";
 import {
   formatTeacherDisplayName,
@@ -33,6 +39,7 @@ export default function LockedView({
   const [enrichedCCAs, setEnrichedCCAs] = useState([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [updatingPaymentByCca, setUpdatingPaymentByCca] = useState({});
 
   const [modalState, setModalState] = useState({
     isOpen: false,
@@ -64,6 +71,14 @@ export default function LockedView({
     if (!value) return 0;
     const cleanString = String(value).replace(/[^0-9]/g, "");
     return Number(cleanString) || 0;
+  };
+
+  const isVendorVerified = (value) => {
+    if (value === true) return true;
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
+    return normalized === "yes" || normalized === "verified";
   };
 
   useEffect(() => {
@@ -116,6 +131,9 @@ export default function LockedView({
                 return {
                   ...item,
                   ...data,
+                  paymentStatus:
+                    item.paymentStatus === "Paid" ? "Paid" : "Unpaid",
+                  verified: isVendorVerified(item.verified),
                   fee: parseFee(rawFee),
                   vendorName: vendor?.name || "School/Unknown",
                   vendorId: vendor?.id || "unknown",
@@ -126,7 +144,14 @@ export default function LockedView({
                   ),
                 };
               }
-              return { ...item, fee: 0, vendorName: "Unknown" };
+              return {
+                ...item,
+                paymentStatus:
+                  item.paymentStatus === "Paid" ? "Paid" : "Unpaid",
+                verified: isVendorVerified(item.verified),
+                fee: 0,
+                vendorName: "Unknown",
+              };
             },
           );
 
@@ -211,6 +236,61 @@ export default function LockedView({
   // Logic to determine if "Add More" button should show
   const currentCount = existingSelection?.selectedCCAs?.length || 0;
   const showAddMoreButton = canSelectMore && currentCount < 3;
+
+  const handleTogglePaymentStatus = async (ccaId) => {
+    if (!ccaId || !existingSelection?.studentUid) return;
+
+    const targetCCA = enrichedCCAs.find((item) => item.id === ccaId);
+    if (!targetCCA) return;
+    if (targetCCA.verified) return;
+
+    const nextStatus = targetCCA.paymentStatus === "Paid" ? "Unpaid" : "Paid";
+
+    const updatedCCAs = enrichedCCAs.map((item) => {
+      if (item.id !== ccaId) {
+        return item;
+      }
+
+      return {
+        ...item,
+        paymentStatus: nextStatus,
+        verified: false,
+      };
+    });
+
+    const selectionPayload = updatedCCAs.map((item) => ({
+      id: item.id,
+      name: item.name,
+      paymentStatus: item.paymentStatus === "Paid" ? "Paid" : "Unpaid",
+      verified: item.verified === true,
+    }));
+
+    try {
+      setUpdatingPaymentByCca((prev) => ({ ...prev, [ccaId]: true }));
+
+      await updateDoc(doc(db, "selections", existingSelection.studentUid), {
+        selectedCCAs: selectionPayload,
+      });
+
+      setEnrichedCCAs(updatedCCAs);
+      setModalState({
+        isOpen: true,
+        type: "success",
+        title: "Payment Status Updated",
+        message: `${targetCCA.name} marked as ${nextStatus}.`,
+      });
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      setModalState({
+        isOpen: true,
+        type: "error",
+        title: "Update Failed",
+        message: "Could not update payment status. Please try again.",
+      });
+    } finally {
+      setUpdatingPaymentByCca((prev) => ({ ...prev, [ccaId]: false }));
+    }
+  };
 
   return (
     <>
@@ -319,6 +399,52 @@ export default function LockedView({
                           </div>
                         </div>
                       )}
+
+                      <div className="mt-3 pl-[3.5rem] pt-3 border-t border-slate-100 border-dashed flex flex-wrap items-center gap-2">
+                        {cca.paymentStatus !== "Paid" ? (
+                          <p className="w-full inline-flex items-center gap-1.5 text-[10px] font-black text-red-600 uppercase tracking-wide animate-bounce [animation-duration:550ms]">
+                            <FiAlertCircle
+                              size={12}
+                              className="animate-pulse [animation-duration:450ms]"
+                            />
+                            Click on this button after making payment
+                          </p>
+                        ) : (
+                          <p
+                            className={`w-full inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide ${
+                              cca.verified
+                                ? "text-emerald-600"
+                                : "text-amber-600"
+                            }`}
+                          >
+                            <FiAlertCircle size={12} />
+                            {cca.verified
+                              ? "Paid and Approved by the Vendor"
+                              : "Payment Marked Paid - Awaiting Vendor Verification"}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePaymentStatus(cca.id)}
+                          disabled={
+                            updatingPaymentByCca[cca.id] || cca.verified
+                          }
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
+                            cca.paymentStatus === "Paid"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                              : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                          } ${updatingPaymentByCca[cca.id] || cca.verified ? "opacity-60 cursor-not-allowed" : ""}`}
+                          title={
+                            cca.verified
+                              ? "Payment approved by vendor. Status is locked."
+                              : "Toggle payment status"
+                          }
+                        >
+                          {updatingPaymentByCca[cca.id]
+                            ? "Updating..."
+                            : `Payment: ${cca.paymentStatus === "Paid" ? "Paid" : "Unpaid"}`}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

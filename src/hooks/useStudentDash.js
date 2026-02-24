@@ -161,6 +161,13 @@ export function useStudentDash() {
           previousCCAs = data.selectedCCAs || [];
         }
 
+        const previousCCAsById = previousCCAs.reduce((map, item) => {
+          if (item?.id) {
+            map[item.id] = item;
+          }
+          return map;
+        }, {});
+
         // 2. Identify NEW items
         const ccasToIncrement = selectedCCAs.filter(
           (current) => !previousCCAs.some((prev) => prev.id === current.id),
@@ -214,7 +221,16 @@ export function useStudentDash() {
           studentName: activeUser.displayName || activeUser.email.split("@")[0],
           classId: selectedClassId,
           classNameSnapshot: selectedClassName,
-          selectedCCAs: selectedCCAs.map((c) => ({ id: c.id, name: c.name })),
+          selectedCCAs: selectedCCAs.map((c) => {
+            const previous = previousCCAsById[c.id] || {};
+            return {
+              id: c.id,
+              name: c.name,
+              paymentStatus:
+                previous.paymentStatus === "Paid" ? "Paid" : "Unpaid",
+              verified: previous.verified === true,
+            };
+          }),
           timestamp: serverTimestamp(),
           status: "submitted",
         };
@@ -229,7 +245,11 @@ export function useStudentDash() {
         studentName: activeUser.displayName || activeUser.email.split("@")[0],
         classId: selectedClassId,
         classNameSnapshot: selectedClassName,
-        selectedCCAs: selectedCCAs,
+        selectedCCAs: selectedCCAs.map((c) => ({
+          ...c,
+          paymentStatus: c.paymentStatus === "Paid" ? "Paid" : "Unpaid",
+          verified: c.verified === true,
+        })),
         status: "submitted",
       };
 
