@@ -779,23 +779,11 @@ export default function SelectionsManager({
                                 if (cca.verified) {
                                   capsuleColor =
                                     "bg-green-100 text-green-700 border border-green-200";
-                                  icon = (
-                                    <FiDollarSign
-                                      size={12}
-                                      className="text-green-500"
-                                      title="Payment verified by vendor"
-                                    />
-                                  );
+                                  icon = null;
                                 } else {
                                   capsuleColor =
                                     "bg-yellow-100 text-yellow-700 border border-yellow-200";
-                                  icon = (
-                                    <FiDollarSign
-                                      size={12}
-                                      className="text-yellow-500"
-                                      title="Pending vendor verification"
-                                    />
-                                  );
+                                  icon = null;
                                 }
                               }
                               return (

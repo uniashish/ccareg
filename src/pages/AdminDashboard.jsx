@@ -347,6 +347,7 @@ export default function AdminDashboard() {
             {activeTab === "Users" && (
               <UserManager
                 users={localUsersList}
+                ccas={ccas}
                 onEditRole={handleEditUserRole}
                 onEditAlias={handleEditUserAlias}
                 onDeleteUser={handleDeleteUser}

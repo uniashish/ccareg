@@ -12,6 +12,7 @@ import {
 
 export default function UserManager({
   users,
+  ccas = [],
   onEditRole,
   onEditAlias,
   onDeleteUser,
@@ -254,7 +255,10 @@ export default function UserManager({
                   Email Address
                 </th>
                 <th className="px-8 py-5 font-black text-slate-400 uppercase text-[10px] tracking-widest">
-                  Access Level
+                  User Role
+                </th>
+                <th className="px-8 py-5 font-black text-slate-400 uppercase text-[10px] tracking-widest">
+                  In-Charge
                 </th>
                 <th className="px-8 py-5 font-black text-slate-400 uppercase text-[10px] tracking-widest text-right">
                   Actions
@@ -277,6 +281,24 @@ export default function UserManager({
                     isTeacher && u.alias
                       ? `${userName} (${u.alias})`
                       : userName;
+
+                  // Find CCAs where this teacher is in charge
+                  let teacherCCAs = [];
+                  if (isTeacher && ccas.length > 0) {
+                    const teacherKey = (
+                      u.displayName ||
+                      u.name ||
+                      u.email ||
+                      ""
+                    )
+                      .trim()
+                      .toLowerCase();
+                    teacherCCAs = ccas.filter(
+                      (cca) =>
+                        cca.teacher &&
+                        cca.teacher.trim().toLowerCase() === teacherKey,
+                    );
+                  }
 
                   return (
                     <tr
@@ -316,6 +338,25 @@ export default function UserManager({
                           <FiShield size={12} />
                           {u.role}
                         </span>
+                      </td>
+                      <td className="px-8 py-5">
+                        <div className="flex flex-wrap gap-1">
+                          {isTeacher && teacherCCAs.length > 0 ? (
+                            teacherCCAs.map((cca) => (
+                              <span
+                                key={cca.id}
+                                className="inline-block px-3 py-1 rounded-full text-[10px] font-black bg-sky-100 text-sky-700 border border-sky-200"
+                                title={cca.name}
+                              >
+                                {cca.name}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-slate-400 text-xs italic">
+                              None
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-8 py-5">
                         <div className="flex justify-end gap-2">
