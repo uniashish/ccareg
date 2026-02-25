@@ -979,7 +979,7 @@ export default function TeacherDashboard() {
                           {filteredStudents.length}
                         </span>
                       </div>
-                      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                      <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
                         {loading ? (
                           <div className="p-12 flex justify-center text-slate-400">
                             <span className="animate-pulse font-bold">
@@ -1034,7 +1034,7 @@ export default function TeacherDashboard() {
                           CCA List
                         </h2>
                       </div>
-                      <div className="space-y-3 overflow-y-auto border border-slate-200 bg-slate-50/50 rounded-2xl p-4 max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
+                      <div className="space-y-3 overflow-y-auto bg-slate-50/50 rounded-2xl p-4 max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
                         {loading ? (
                           <div className="text-center py-10 text-slate-400">Loading CCAs...</div>
                         ) : ccas.length > 0 ? (
@@ -1088,7 +1088,7 @@ export default function TeacherDashboard() {
                           {filteredStudents.length}
                         </span>
                       </div>
-                      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                      <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
                         {loading ? (
                           <div className="p-12 flex justify-center text-slate-400">
                             <span className="animate-pulse font-bold">Loading records...</span>
