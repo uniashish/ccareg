@@ -311,7 +311,6 @@ export default function AddCCAModal({ isOpen, onClose, onSave, initialData }) {
                           {getTeacherOptionLabel(t)}
                         </option>
                       ))}
-                      <option value="External Vendor">External Vendor</option>
                     </select>
                     <FiChevronDown
                       size={16}

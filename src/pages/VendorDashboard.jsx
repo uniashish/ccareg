@@ -31,10 +31,14 @@ const normalizeText = (value) =>
     .trim()
     .toLowerCase();
 
+const MAX_CCAS = 3;
 const EXPORT_FIELDS = [
   { key: "studentName", label: "Student Name" },
   { key: "className", label: "Class" },
-  { key: "ccaNames", label: "CCA Name" },
+  ...Array.from({ length: MAX_CCAS }, (_, i) => ({
+    key: `cca${i + 1}`,
+    label: `CCA${i + 1}`,
+  })),
   { key: "attendance", label: "Attendance" },
   { key: "paymentStatus", label: "Payment Status" },
   { key: "verified", label: "Verified" },
@@ -519,10 +523,18 @@ export default function VendorDashboard() {
 
       const items = Object.values(uniqueItemsByCca);
 
+      // Prepare CCA columns (CCA1, CCA2, CCA3)
+      const ccaColumns = Array.from(
+        { length: MAX_CCAS },
+        (_, i) => items[i]?.ccaName || "",
+      );
+
       return {
         studentName: group.studentName,
         className: group.className,
-        ccaNames: items.map((item) => item.ccaName).join(" | "),
+        ...Object.fromEntries(
+          ccaColumns.map((val, idx) => [`cca${idx + 1}`, val]),
+        ),
         attendance: items
           .map((item) => `${item.ccaName}: ${item.attendanceLabel}`)
           .join(" | "),

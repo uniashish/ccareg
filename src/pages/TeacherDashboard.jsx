@@ -1,3 +1,4 @@
+import StudentCCARecordCard from "../components/teacher/StudentCCARecordCard";
 import React, { useState, useEffect, useMemo } from "react";
 import Header from "../components/Header";
 import TeacherAttendancePanel from "../components/teacher/TeacherAttendancePanel";
@@ -1051,78 +1052,106 @@ export default function TeacherDashboard() {
                           </div>
                         ) : (
                           <div className="overflow-y-auto max-h-[55vh] lg:max-h-[calc(100vh-400px)]">
-                            <table className="w-full text-left">
-                              <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
-                                <tr>
-                                  <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                    Student
-                                  </th>
-                                  <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                    Class
-                                  </th>
-                                  <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                    Choices
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-50">
-                                {filteredStudents.length > 0 ? (
-                                  filteredStudents.map((student) => (
-                                    <tr
-                                      key={student.id}
-                                      onClick={() =>
-                                        setViewingSelection(student)
-                                      }
-                                      className="group hover:bg-brand-primary/5 cursor-pointer transition-colors"
-                                    >
-                                      <td className="p-4">
-                                        <div className="font-bold text-slate-700 group-hover:text-brand-primary text-sm">
-                                          {student.studentName}
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 font-mono">
-                                          {student.studentEmail}
-                                        </div>
-                                      </td>
-                                      <td className="p-4">
-                                        <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md whitespace-nowrap">
-                                          {student.className}
-                                        </span>
-                                      </td>
-                                      <td className="p-4">
-                                        <div className="flex flex-wrap gap-1">
-                                          {student.selectedCCAs
-                                            ?.slice(0, 2)
-                                            .map((c) => (
-                                              <span
-                                                key={c.id}
-                                                className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded border border-indigo-100 whitespace-nowrap"
-                                              >
-                                                {c.name}
+                            {/* Mobile: Card format, Desktop: Table */}
+                            <div className="block md:hidden">
+                              {filteredStudents.length > 0 ? (
+                                filteredStudents.map((student) => (
+                                  <div key={student.id} className="mb-4">
+                                    <div className="font-bold text-slate-700 text-base mb-1">
+                                      {student.studentName}
+                                    </div>
+                                    <div className="text-xs text-slate-400 mb-2">
+                                      {student.className} &bull; {student.studentEmail}
+                                    </div>
+                                    {student.selectedCCAs && student.selectedCCAs.length > 0 ? (
+                                      student.selectedCCAs.map((cca, idx) => (
+                                        <StudentCCARecordCard
+                                          key={cca.id || idx}
+                                          cca={cca}
+                                          onClick={() => setViewingCCA(ccas.find((c) => c.id === cca.id))}
+                                        />
+                                      ))
+                                    ) : (
+                                      <div className="text-slate-400 text-xs italic mb-2">No CCAs selected.</div>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="p-8 text-center text-slate-400 text-sm italic">No matches found.</div>
+                              )}
+                            </div>
+                            <div className="hidden md:block">
+                              <table className="w-full text-left">
+                                <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
+                                  <tr>
+                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                      Student
+                                    </th>
+                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                      Class
+                                    </th>
+                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                      Choices
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                  {filteredStudents.length > 0 ? (
+                                    filteredStudents.map((student) => (
+                                      <tr
+                                        key={student.id}
+                                        onClick={() => setViewingSelection(student)}
+                                        className="group hover:bg-brand-primary/5 cursor-pointer transition-colors"
+                                      >
+                                        <td className="p-4">
+                                          <div className="font-bold text-slate-700 group-hover:text-brand-primary text-sm">
+                                            {student.studentName}
+                                          </div>
+                                          <div className="text-[10px] text-slate-400 font-mono">
+                                            {student.studentEmail}
+                                          </div>
+                                        </td>
+                                        <td className="p-4">
+                                          <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md whitespace-nowrap">
+                                            {student.className}
+                                          </span>
+                                        </td>
+                                        <td className="p-4">
+                                          <div className="flex flex-wrap gap-1">
+                                            {student.selectedCCAs
+                                              ?.slice(0, 2)
+                                              .map((c) => (
+                                                <span
+                                                  key={c.id}
+                                                  className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded border border-indigo-100 whitespace-nowrap"
+                                                >
+                                                  {c.name}
+                                                </span>
+                                              ))}
+                                            {student.selectedCCAs?.length > 2 && (
+                                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded">
+                                                +{student.selectedCCAs.length - 2}
                                               </span>
-                                            ))}
-                                          {student.selectedCCAs?.length > 2 && (
-                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded">
-                                              +{student.selectedCCAs.length - 2}
-                                            </span>
-                                          )}
-                                        </div>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    <tr>
+                                      <td
+                                        colSpan="3"
+                                        className="p-12 text-center text-slate-400"
+                                      >
+                                        <p className="text-sm">
+                                          No matches found.
+                                        </p>
                                       </td>
                                     </tr>
-                                  ))
-                                ) : (
-                                  <tr>
-                                    <td
-                                      colSpan="3"
-                                      className="p-12 text-center text-slate-400"
-                                    >
-                                      <p className="text-sm">
-                                        No matches found.
-                                      </p>
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         )}
                       </div>
