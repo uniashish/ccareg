@@ -1057,27 +1057,27 @@ export default function TeacherDashboard() {
                               {filteredStudents.length > 0 ? (
                                 filteredStudents.map((student) => (
                                   <div key={student.id} className="mb-6">
-                                    <div className="font-bold text-slate-700 text-base mb-1">
-                                      {student.studentName}
-                                    </div>
-                                    <div className="text-xs text-slate-400 mb-2">
-                                      {student.className} &bull; {student.studentEmail}
-                                    </div>
-                                    <div className="space-y-3">
-                                      {student.selectedCCAs && student.selectedCCAs.length > 0 ? (
-                                        student.selectedCCAs.map((cca, idx) => (
-                                          <StudentCCARecordCard
-                                            key={cca.id || idx}
-                                            cca={cca}
-                                            studentName={student.studentName}
-                                            studentClass={student.className}
-                                            studentEmail={student.studentEmail}
-                                            onClick={() => setViewingCCA(ccas.find((c) => c.id === cca.id))}
-                                          />
-                                        ))
-                                      ) : (
-                                        <div className="text-slate-400 text-xs italic mb-2">No CCAs selected.</div>
-                                      )}
+                                    <div className="relative overflow-hidden bg-white p-4 rounded-2xl border border-slate-300 shadow-lg">
+                                      <div className="font-bold text-slate-700 text-base mb-1">
+                                        {student.studentName}
+                                      </div>
+                                      <div className="text-xs text-slate-400 mb-4">
+                                        {student.className} &bull; {student.studentEmail}
+                                      </div>
+                                      <div className="space-y-4">
+                                        {student.selectedCCAs && student.selectedCCAs.length > 0 ? (
+                                          student.selectedCCAs.map((cca, idx) => (
+                                            <div key={cca.id || idx} className="border border-slate-200 rounded-xl bg-slate-50">
+                                              <StudentCCARecordCard
+                                                cca={cca}
+                                                onClick={() => setViewingCCA(ccas.find((c) => c.id === cca.id))}
+                                              />
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <div className="text-slate-400 text-xs italic mb-2">No CCAs selected.</div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 ))
