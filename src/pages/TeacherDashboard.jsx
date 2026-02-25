@@ -1062,27 +1062,44 @@ export default function TeacherDashboard() {
                                         {student.studentName}
                                       </div>
                                       <div className="text-xs text-slate-400 mb-4">
-                                        {student.className} &bull; {student.studentEmail}
+                                        {student.className} &bull;{" "}
+                                        {student.studentEmail}
                                       </div>
                                       <div className="space-y-4">
-                                        {student.selectedCCAs && student.selectedCCAs.length > 0 ? (
-                                          student.selectedCCAs.map((cca, idx) => (
-                                            <div key={cca.id || idx} className="border border-slate-200 rounded-xl bg-slate-50">
-                                              <StudentCCARecordCard
-                                                cca={cca}
-                                                onClick={() => setViewingCCA(ccas.find((c) => c.id === cca.id))}
-                                              />
-                                            </div>
-                                          ))
+                                        {student.selectedCCAs &&
+                                        student.selectedCCAs.length > 0 ? (
+                                          student.selectedCCAs.map(
+                                            (cca, idx) => (
+                                              <div
+                                                key={cca.id || idx}
+                                                className="rounded-xl bg-slate-50"
+                                              >
+                                                <StudentCCARecordCard
+                                                  cca={cca}
+                                                  onClick={() =>
+                                                    setViewingCCA(
+                                                      ccas.find(
+                                                        (c) => c.id === cca.id,
+                                                      ),
+                                                    )
+                                                  }
+                                                />
+                                              </div>
+                                            ),
+                                          )
                                         ) : (
-                                          <div className="text-slate-400 text-xs italic mb-2">No CCAs selected.</div>
+                                          <div className="text-slate-400 text-xs italic mb-2">
+                                            No CCAs selected.
+                                          </div>
                                         )}
                                       </div>
                                     </div>
                                   </div>
                                 ))
                               ) : (
-                                <div className="p-8 text-center text-slate-400 text-sm italic">No matches found.</div>
+                                <div className="p-8 text-center text-slate-400 text-sm italic">
+                                  No matches found.
+                                </div>
                               )}
                             </div>
                             <div className="hidden md:block">
@@ -1105,7 +1122,9 @@ export default function TeacherDashboard() {
                                     filteredStudents.map((student) => (
                                       <tr
                                         key={student.id}
-                                        onClick={() => setViewingSelection(student)}
+                                        onClick={() =>
+                                          setViewingSelection(student)
+                                        }
                                         className="group hover:bg-brand-primary/5 cursor-pointer transition-colors"
                                       >
                                         <td className="p-4">
@@ -1133,9 +1152,12 @@ export default function TeacherDashboard() {
                                                   {c.name}
                                                 </span>
                                               ))}
-                                            {student.selectedCCAs?.length > 2 && (
+                                            {student.selectedCCAs?.length >
+                                              2 && (
                                               <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded">
-                                                +{student.selectedCCAs.length - 2}
+                                                +
+                                                {student.selectedCCAs.length -
+                                                  2}
                                               </span>
                                             )}
                                           </div>

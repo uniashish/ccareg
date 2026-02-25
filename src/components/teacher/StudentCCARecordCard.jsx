@@ -18,17 +18,29 @@ export default function StudentCCARecordCard({ cca, onClick }) {
         )}
       </div>
       <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 relative z-10">
-        <span className="truncate"><strong>Teacher:</strong> {cca.teacherDisplay || cca.teacher || "TBA"}</span>
-        {cca.venue && <span className="hidden xs:inline">| <strong>Venue:</strong> {cca.venue}</span>}
+        <span className="truncate">
+          <strong>Teacher:</strong> {cca.teacherDisplay || cca.teacher || "TBA"}
+        </span>
+        {cca.venue && (
+          <span className="hidden xs:inline">
+            | <strong>Venue:</strong> {cca.venue}
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 relative z-10">
-        <span><strong>Sessions:</strong> {cca.sessionDates?.length || 0}</span>
+        <span>
+          <strong>Sessions:</strong> {cca.sessionDates?.length || 0}
+        </span>
         {cca.maxSeats && (
-          <span>| <strong>Seats:</strong> {cca.enrolledCount || 0}/{cca.maxSeats}</span>
+          <span>
+            | <strong>Seats:</strong> {cca.enrolledCount || 0}/{cca.maxSeats}
+          </span>
         )}
       </div>
       {cca.description && (
-        <div className="text-xs text-slate-400 mt-2 line-clamp-2 relative z-10">{cca.description}</div>
+        <div className="text-xs text-slate-400 mt-2 line-clamp-2 relative z-10">
+          {cca.description}
+        </div>
       )}
     </div>
   );
