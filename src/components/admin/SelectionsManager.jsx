@@ -767,23 +767,44 @@ export default function SelectionsManager({
                         <div className="flex flex-wrap gap-2">
                           {sel.selectedCCAs && sel.selectedCCAs.length > 0 ? (
                             sel.selectedCCAs.map((cca, idx) => {
-                              const showPaidIcon = isVendorVerified(
-                                cca?.verified,
-                              );
-
+                              // Payment logic:
+                              // Paid + Verified: green, dollar icon
+                              // Paid + not Verified: yellow, pending
+                              // Unpaid: red, no icon
+                              let capsuleColor =
+                                "bg-red-100 text-red-700 border border-red-200";
+                              let icon = null;
+                              let iconTitle = "";
+                              if (cca.paymentStatus === "Paid") {
+                                if (cca.verified) {
+                                  capsuleColor =
+                                    "bg-green-100 text-green-700 border border-green-200";
+                                  icon = (
+                                    <FiDollarSign
+                                      size={12}
+                                      className="text-green-500"
+                                      title="Payment verified by vendor"
+                                    />
+                                  );
+                                } else {
+                                  capsuleColor =
+                                    "bg-yellow-100 text-yellow-700 border border-yellow-200";
+                                  icon = (
+                                    <FiDollarSign
+                                      size={12}
+                                      className="text-yellow-500"
+                                      title="Pending vendor verification"
+                                    />
+                                  );
+                                }
+                              }
                               return (
                                 <div
                                   key={idx}
-                                  className="group/tag relative inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-100 hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all cursor-pointer"
+                                  className={`group/tag relative inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${capsuleColor}`}
                                 >
                                   {cca.name}
-                                  {showPaidIcon && (
-                                    <FiDollarSign
-                                      size={12}
-                                      className="text-emerald-500"
-                                      title="Payment verified by vendor"
-                                    />
-                                  )}
+                                  {icon}
                                   {/* Delete specific CCA button */}
                                   <button
                                     onClick={(e) => {

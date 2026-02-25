@@ -271,7 +271,7 @@ export default function UserManager({
                   const userName =
                     u.displayName ||
                     u.name ||
-                    u.email?.split("@")[0] ||
+                    (u.email ? u.email.split("@")[0] : null) ||
                     "Unknown User";
                   const displayNameWithAlias =
                     isTeacher && u.alias
@@ -318,26 +318,29 @@ export default function UserManager({
                         </span>
                       </td>
                       <td className="px-8 py-5">
-                        <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <div className="flex justify-end gap-2">
                           {isTeacher && (
                             <button
                               onClick={() => onEditAlias(u)}
                               className="flex items-center gap-2 px-4 py-2 text-violet-700 hover:bg-violet-100 rounded-xl font-bold text-xs transition-all active:scale-95"
+                              title="Edit Alias"
                             >
-                              <FiEdit2 size={14} /> Alias
+                              <FiUser size={14} />
                             </button>
                           )}
                           <button
                             onClick={() => onEditRole(u)}
                             className="flex items-center gap-2 px-4 py-2 text-brand-primary hover:bg-brand-primary/10 rounded-xl font-bold text-xs transition-all active:scale-95"
+                            title="Update Role"
                           >
-                            <FiEdit2 size={14} /> Update
+                            <FiEdit2 size={14} />
                           </button>
                           <button
                             onClick={() => onDeleteUser(u.uid)}
                             className="flex items-center gap-2 px-4 py-2 text-brand-secondary hover:bg-brand-secondary/10 rounded-xl font-bold text-xs transition-all active:scale-95"
+                            title="Remove User"
                           >
-                            <FiTrash2 size={14} /> Remove
+                            <FiTrash2 size={14} />
                           </button>
                         </div>
                       </td>
