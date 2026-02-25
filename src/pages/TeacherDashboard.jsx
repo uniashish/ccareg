@@ -1069,6 +1069,9 @@ export default function TeacherDashboard() {
                                           <StudentCCARecordCard
                                             key={cca.id || idx}
                                             cca={cca}
+                                            studentName={student.studentName}
+                                            studentClass={student.className}
+                                            studentEmail={student.studentEmail}
                                             onClick={() => setViewingCCA(ccas.find((c) => c.id === cca.id))}
                                           />
                                         ))
