@@ -1056,24 +1056,26 @@ export default function TeacherDashboard() {
                             <div className="block md:hidden">
                               {filteredStudents.length > 0 ? (
                                 filteredStudents.map((student) => (
-                                  <div key={student.id} className="mb-4">
+                                  <div key={student.id} className="mb-6">
                                     <div className="font-bold text-slate-700 text-base mb-1">
                                       {student.studentName}
                                     </div>
                                     <div className="text-xs text-slate-400 mb-2">
                                       {student.className} &bull; {student.studentEmail}
                                     </div>
-                                    {student.selectedCCAs && student.selectedCCAs.length > 0 ? (
-                                      student.selectedCCAs.map((cca, idx) => (
-                                        <StudentCCARecordCard
-                                          key={cca.id || idx}
-                                          cca={cca}
-                                          onClick={() => setViewingCCA(ccas.find((c) => c.id === cca.id))}
-                                        />
-                                      ))
-                                    ) : (
-                                      <div className="text-slate-400 text-xs italic mb-2">No CCAs selected.</div>
-                                    )}
+                                    <div className="space-y-3">
+                                      {student.selectedCCAs && student.selectedCCAs.length > 0 ? (
+                                        student.selectedCCAs.map((cca, idx) => (
+                                          <StudentCCARecordCard
+                                            key={cca.id || idx}
+                                            cca={cca}
+                                            onClick={() => setViewingCCA(ccas.find((c) => c.id === cca.id))}
+                                          />
+                                        ))
+                                      ) : (
+                                        <div className="text-slate-400 text-xs italic mb-2">No CCAs selected.</div>
+                                      )}
+                                    </div>
                                   </div>
                                 ))
                               ) : (
