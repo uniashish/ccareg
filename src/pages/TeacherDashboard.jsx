@@ -968,20 +968,75 @@ export default function TeacherDashboard() {
                 <>
                   {/* --- 2-COLUMN LAYOUT WITH EXPLICIT HEIGHTS --- */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    {/* LEFT COLUMN: CCA LIST (Span 4) - Fixed Height with Scrollbar */}
-                    <div className="lg:col-span-4 space-y-4">
+                    {/* MOBILE: Student Selections Panel First */}
+                    <div className="block lg:hidden lg:col-span-8 order-1">
+                      <div className="flex items-center gap-2 mb-6 px-1">
+                        <FiUsers className="text-brand-primary" />
+                        <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                          Student Selections
+                        </h2>
+                        <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                          {filteredStudents.length}
+                        </span>
+                      </div>
+                      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                        {loading ? (
+                          <div className="p-12 flex justify-center text-slate-400">
+                            <span className="animate-pulse font-bold">
+                              Loading records...
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="overflow-y-auto max-h-[55vh] lg:max-h-[calc(100vh-400px)]">
+                            {/* Mobile: Card format, Desktop: Table */}
+                            <div>
+                              {filteredStudents.length > 0 ? (
+                                filteredStudents.map((student) => (
+                                  <div key={student.id} className="mb-6">
+                                    <div className="relative overflow-hidden bg-white p-4 rounded-2xl border border-slate-300 shadow-lg">
+                                      <div className="font-bold text-slate-700 text-base mb-1">
+                                        {student.studentName}
+                                      </div>
+                                      <div className="text-xs text-slate-400 mb-4">
+                                        {student.className} &bull; {student.studentEmail}
+                                      </div>
+                                      <div className="space-y-4">
+                                        {student.selectedCCAs && student.selectedCCAs.length > 0 ? (
+                                          student.selectedCCAs.map((cca, idx) => (
+                                            <div key={cca.id || idx} className="rounded-xl bg-slate-50">
+                                              <StudentCCARecordCard
+                                                cca={cca}
+                                                onClick={() => setViewingCCA(ccas.find((c) => c.id === cca.id))}
+                                              />
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <div className="text-slate-400 text-xs italic mb-2">No CCAs selected.</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="p-8 text-center text-slate-400 text-sm italic">No matches found.</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* CCA LIST PANEL (MOBILE BELOW, DESKTOP LEFT) */}
+                    <div className="lg:col-span-4 space-y-4 order-2 lg:order-1">
                       <div className="flex items-center gap-2 mb-2 px-1">
                         <FiLayers className="text-brand-primary" />
                         <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
                           CCA List
                         </h2>
                       </div>
-
                       <div className="space-y-3 overflow-y-auto border border-slate-200 bg-slate-50/50 rounded-2xl p-4 max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
                         {loading ? (
-                          <div className="text-center py-10 text-slate-400">
-                            Loading CCAs...
-                          </div>
+                          <div className="text-center py-10 text-slate-400">Loading CCAs...</div>
                         ) : ccas.length > 0 ? (
                           ccas.map((cca) => (
                             <div
@@ -990,7 +1045,6 @@ export default function TeacherDashboard() {
                               className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] p-4 rounded-xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] cursor-pointer transition-all duration-300 group"
                             >
                               <div className="pointer-events-none absolute inset-0 rounded-xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
-
                               <div className="flex justify-between items-start relative z-10">
                                 <h3 className="font-bold text-slate-800 text-sm group-hover:text-brand-primary transition-colors">
                                   {cca.name}
@@ -1003,36 +1057,28 @@ export default function TeacherDashboard() {
                               </div>
                               <div className="mt-2 text-xs text-slate-500 flex items-center gap-2 relative z-10">
                                 <FiUser size={12} />
-                                <span className="truncate">
-                                  {cca.teacherDisplay || cca.teacher || "TBA"}
-                                </span>
+                                <span className="truncate">{cca.teacherDisplay || cca.teacher || "TBA"}</span>
                               </div>
                               {/* Mini Progress Bar */}
                               <div className="mt-3 flex items-center gap-2 relative z-10">
                                 <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                                   <div
                                     className="h-full bg-slate-300 group-hover:bg-brand-primary"
-                                    style={{
-                                      width: `${Math.min(((cca.enrolledCount || 0) / (cca.maxSeats || 1)) * 100, 100)}%`,
-                                    }}
+                                    style={{ width: `${Math.min(((cca.enrolledCount || 0) / (cca.maxSeats || 1)) * 100, 100)}%` }}
                                   ></div>
                                 </div>
-                                <span className="text-[9px] font-bold text-slate-400">
-                                  {cca.enrolledCount || 0}/{cca.maxSeats || "∞"}
-                                </span>
+                                <span className="text-[9px] font-bold text-slate-400">{cca.enrolledCount || 0}/{cca.maxSeats || "∞"}</span>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div className="text-slate-400 text-sm italic">
-                            No CCAs found.
-                          </div>
+                          <div className="text-slate-400 text-sm italic">No CCAs found.</div>
                         )}
                       </div>
                     </div>
 
-                    {/* RIGHT COLUMN: STUDENT LIST (Span 8) - Fixed Height with Scrollbar */}
-                    <div className="lg:col-span-8">
+                    {/* DESKTOP: Student Selections Panel Right */}
+                    <div className="hidden lg:block lg:col-span-8 order-3">
                       <div className="flex items-center gap-2 mb-6 px-1">
                         <FiUsers className="text-brand-primary" />
                         <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
@@ -1042,79 +1088,20 @@ export default function TeacherDashboard() {
                           {filteredStudents.length}
                         </span>
                       </div>
-
                       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                         {loading ? (
                           <div className="p-12 flex justify-center text-slate-400">
-                            <span className="animate-pulse font-bold">
-                              Loading records...
-                            </span>
+                            <span className="animate-pulse font-bold">Loading records...</span>
                           </div>
                         ) : (
                           <div className="overflow-y-auto max-h-[55vh] lg:max-h-[calc(100vh-400px)]">
-                            {/* Mobile: Card format, Desktop: Table */}
-                            <div className="block md:hidden">
-                              {filteredStudents.length > 0 ? (
-                                filteredStudents.map((student) => (
-                                  <div key={student.id} className="mb-6">
-                                    <div className="relative overflow-hidden bg-white p-4 rounded-2xl border border-slate-300 shadow-lg">
-                                      <div className="font-bold text-slate-700 text-base mb-1">
-                                        {student.studentName}
-                                      </div>
-                                      <div className="text-xs text-slate-400 mb-4">
-                                        {student.className} &bull;{" "}
-                                        {student.studentEmail}
-                                      </div>
-                                      <div className="space-y-4">
-                                        {student.selectedCCAs &&
-                                        student.selectedCCAs.length > 0 ? (
-                                          student.selectedCCAs.map(
-                                            (cca, idx) => (
-                                              <div
-                                                key={cca.id || idx}
-                                                className="rounded-xl bg-slate-50"
-                                              >
-                                                <StudentCCARecordCard
-                                                  cca={cca}
-                                                  onClick={() =>
-                                                    setViewingCCA(
-                                                      ccas.find(
-                                                        (c) => c.id === cca.id,
-                                                      ),
-                                                    )
-                                                  }
-                                                />
-                                              </div>
-                                            ),
-                                          )
-                                        ) : (
-                                          <div className="text-slate-400 text-xs italic mb-2">
-                                            No CCAs selected.
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="p-8 text-center text-slate-400 text-sm italic">
-                                  No matches found.
-                                </div>
-                              )}
-                            </div>
                             <div className="hidden md:block">
                               <table className="w-full text-left">
                                 <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
                                   <tr>
-                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                      Student
-                                    </th>
-                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                      Class
-                                    </th>
-                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                      Choices
-                                    </th>
+                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">Student</th>
+                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">Class</th>
+                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">Choices</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
