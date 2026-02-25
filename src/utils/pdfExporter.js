@@ -1,28 +1,41 @@
 // src/utils/pdfExporter.js
 
-export const downloadSelectionsPDF = (selections, classes) => {
-  // Convert classes array to map for lookup
-  const classesMap = classes.reduce((map, c) => {
-    map[c.id] = c;
-    return map;
-  }, {});
+export const downloadSelectionsPDF = (
+  selections,
+  classes,
+  fields,
+  fontSize = 12,
+) => {
+  // fields: array of keys to include, in order
+  // fontSize: number (default 12)
+  const fieldLabels = {
+    studentName: "Student Name",
+    studentEmail: "Email",
+    className: "Class",
+    cca1: "CCA1",
+    cca2: "CCA2",
+    cca3: "CCA3",
+    submittedDate: "Submitted Date",
+  };
+
+  // Generate table header
+  const headerHtml =
+    "<tr>" +
+    fields.map((key) => `<th>${fieldLabels[key] || key}</th>`).join("") +
+    "</tr>";
 
   // Generate table rows
   const rowsHtml = selections
-    .map((s) => {
-      const className = classesMap[s.classId]?.name || "Unknown";
-      const cca1 = s.selectedCCAs?.[0]?.name || "";
-      const cca2 = s.selectedCCAs?.[1]?.name || "";
-      const cca3 = s.selectedCCAs?.[2]?.name || "";
-      return `<tr>
-        <td>${(s.studentName || "").replace(/</g, "&lt;")}</td>
-        <td>${(s.studentEmail || "").replace(/</g, "&lt;")}</td>
-        <td>${(className || "").replace(/</g, "&lt;")}</td>
-        <td>${(cca1 || "").replace(/</g, "&lt;")}</td>
-        <td>${(cca2 || "").replace(/</g, "&lt;")}</td>
-        <td>${(cca3 || "").replace(/</g, "&lt;")}</td>
-      </tr>`;
-    })
+    .map(
+      (row) =>
+        `<tr>` +
+        fields
+          .map(
+            (key) => `<td>${String(row[key] ?? "").replace(/</g, "&lt;")}</td>`,
+          )
+          .join("") +
+        `</tr>`,
+    )
     .join("\n");
 
   // Generate complete HTML document
@@ -32,10 +45,10 @@ export const downloadSelectionsPDF = (selections, classes) => {
         <title>CCA Selections</title>
         <style>
           @page { size: A4 portrait; margin: 12mm; }
-          body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
-          h2{font-size:13px;margin-bottom:6px}
+          body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+          h2{font-size:${fontSize + 1}px;margin-bottom:6px}
           table{width:100%;border-collapse:collapse}
-          th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px}
+          th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px}
           th{background:#f3f4f6;font-weight:700}
         </style>
       </head>
@@ -43,7 +56,7 @@ export const downloadSelectionsPDF = (selections, classes) => {
         <h2>CCA Selections</h2>
         <table>
           <thead>
-            <tr><th>Student Name</th><th>Email</th><th>Class</th><th>CCA1</th><th>CCA2</th><th>CCA3</th></tr>
+            ${headerHtml}
           </thead>
           <tbody>
             ${rowsHtml}

@@ -22,6 +22,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { downloadSelectionsPDF } from "../../utils/pdfExporter";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 import MessageModal from "../common/MessageModal";
 import StudentDetailsModal from "./StudentDetailsModal";
 
@@ -54,6 +55,28 @@ export default function SelectionsManager({
     onConfirm: null,
     onCancel: null,
   });
+
+  // Export Modal State (move out of modalConfig)
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [exportFields, setExportFields] = useState([
+    { key: "studentName", label: "Student Name" },
+    { key: "studentEmail", label: "Email" },
+    { key: "className", label: "Class" },
+    { key: "cca1", label: "CCA1" },
+    { key: "cca2", label: "CCA2" },
+    { key: "cca3", label: "CCA3" },
+    { key: "submittedDate", label: "Submitted Date" },
+  ]);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "studentName",
+    "studentEmail",
+    "className",
+    "cca1",
+    "cca2",
+    "cca3",
+    "submittedDate",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(12);
 
   const showModal = (type, title, message) => {
     setModalConfig({
@@ -578,16 +601,33 @@ export default function SelectionsManager({
       showModal("info", "No Data", "No data to export.");
       return;
     }
+    setExportFieldsOpen(true);
+  };
 
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+    // Prepare export data with only selected fields
     const exportData = filteredSelections.map((sel) => {
       const user = users ? users[sel.studentUid] : null;
-      return {
-        ...sel,
+      const row = {
         studentName: user?.displayName || sel.studentName || "Unknown",
+        studentEmail: sel.studentEmail,
+        className: classMap[sel.classId]?.name || "Unassigned",
+        cca1: sel.selectedCCAs?.[0]?.name || "",
+        cca2: sel.selectedCCAs?.[1]?.name || "",
+        cca3: sel.selectedCCAs?.[2]?.name || "",
+        submittedDate:
+          sel.timestamp && typeof sel.timestamp.toDate === "function"
+            ? sel.timestamp.toDate().toLocaleDateString()
+            : "",
       };
+      // Only include selected fields
+      return Object.fromEntries(
+        Object.entries(row).filter(([k]) => fields.includes(k)),
+      );
     });
-
-    downloadSelectionsPDF(exportData, classesList);
+    downloadSelectionsPDF(exportData, classesList, fields, fontSize);
   };
 
   return (
@@ -689,6 +729,17 @@ export default function SelectionsManager({
                 </button>
               </div>
             )}
+            {/* Export Fields Modal */}
+            <ExportFieldsModal
+              isOpen={exportFieldsOpen}
+              onClose={() => setExportFieldsOpen(false)}
+              fields={exportFields}
+              selectedFields={selectedExportFields}
+              onChangeFields={setSelectedExportFields}
+              fontSize={pdfFontSize}
+              onFontSizeChange={setPdfFontSize}
+              onExport={handleExportFieldsConfirm}
+            />
           </div>
         </div>
       </div>

@@ -998,27 +998,44 @@ export default function TeacherDashboard() {
                                         {student.studentName}
                                       </div>
                                       <div className="text-xs text-slate-400 mb-4">
-                                        {student.className} &bull; {student.studentEmail}
+                                        {student.className} &bull;{" "}
+                                        {student.studentEmail}
                                       </div>
                                       <div className="space-y-4">
-                                        {student.selectedCCAs && student.selectedCCAs.length > 0 ? (
-                                          student.selectedCCAs.map((cca, idx) => (
-                                            <div key={cca.id || idx} className="rounded-xl bg-slate-50">
-                                              <StudentCCARecordCard
-                                                cca={cca}
-                                                onClick={() => setViewingCCA(ccas.find((c) => c.id === cca.id))}
-                                              />
-                                            </div>
-                                          ))
+                                        {student.selectedCCAs &&
+                                        student.selectedCCAs.length > 0 ? (
+                                          student.selectedCCAs.map(
+                                            (cca, idx) => (
+                                              <div
+                                                key={cca.id || idx}
+                                                className="rounded-xl bg-slate-50"
+                                              >
+                                                <StudentCCARecordCard
+                                                  cca={cca}
+                                                  onClick={() =>
+                                                    setViewingCCA(
+                                                      ccas.find(
+                                                        (c) => c.id === cca.id,
+                                                      ),
+                                                    )
+                                                  }
+                                                />
+                                              </div>
+                                            ),
+                                          )
                                         ) : (
-                                          <div className="text-slate-400 text-xs italic mb-2">No CCAs selected.</div>
+                                          <div className="text-slate-400 text-xs italic mb-2">
+                                            No CCAs selected.
+                                          </div>
                                         )}
                                       </div>
                                     </div>
                                   </div>
                                 ))
                               ) : (
-                                <div className="p-8 text-center text-slate-400 text-sm italic">No matches found.</div>
+                                <div className="p-8 text-center text-slate-400 text-sm italic">
+                                  No matches found.
+                                </div>
                               )}
                             </div>
                           </div>
@@ -1036,7 +1053,9 @@ export default function TeacherDashboard() {
                       </div>
                       <div className="space-y-3 overflow-y-auto bg-slate-50/50 rounded-2xl p-4 max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
                         {loading ? (
-                          <div className="text-center py-10 text-slate-400">Loading CCAs...</div>
+                          <div className="text-center py-10 text-slate-400">
+                            Loading CCAs...
+                          </div>
                         ) : ccas.length > 0 ? (
                           ccas.map((cca) => (
                             <div
@@ -1057,22 +1076,30 @@ export default function TeacherDashboard() {
                               </div>
                               <div className="mt-2 text-xs text-slate-500 flex items-center gap-2 relative z-10">
                                 <FiUser size={12} />
-                                <span className="truncate">{cca.teacherDisplay || cca.teacher || "TBA"}</span>
+                                <span className="truncate">
+                                  {cca.teacherDisplay || cca.teacher || "TBA"}
+                                </span>
                               </div>
                               {/* Mini Progress Bar */}
                               <div className="mt-3 flex items-center gap-2 relative z-10">
                                 <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                                   <div
                                     className="h-full bg-slate-300 group-hover:bg-brand-primary"
-                                    style={{ width: `${Math.min(((cca.enrolledCount || 0) / (cca.maxSeats || 1)) * 100, 100)}%` }}
+                                    style={{
+                                      width: `${Math.min(((cca.enrolledCount || 0) / (cca.maxSeats || 1)) * 100, 100)}%`,
+                                    }}
                                   ></div>
                                 </div>
-                                <span className="text-[9px] font-bold text-slate-400">{cca.enrolledCount || 0}/{cca.maxSeats || "∞"}</span>
+                                <span className="text-[9px] font-bold text-slate-400">
+                                  {cca.enrolledCount || 0}/{cca.maxSeats || "∞"}
+                                </span>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div className="text-slate-400 text-sm italic">No CCAs found.</div>
+                          <div className="text-slate-400 text-sm italic">
+                            No CCAs found.
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1091,7 +1118,9 @@ export default function TeacherDashboard() {
                       <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
                         {loading ? (
                           <div className="p-12 flex justify-center text-slate-400">
-                            <span className="animate-pulse font-bold">Loading records...</span>
+                            <span className="animate-pulse font-bold">
+                              Loading records...
+                            </span>
                           </div>
                         ) : (
                           <div className="overflow-y-auto max-h-[55vh] lg:max-h-[calc(100vh-400px)]">
@@ -1099,9 +1128,15 @@ export default function TeacherDashboard() {
                               <table className="w-full text-left">
                                 <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
                                   <tr>
-                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">Student</th>
-                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">Class</th>
-                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">Choices</th>
+                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                      Student
+                                    </th>
+                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                      Class
+                                    </th>
+                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                      Choices
+                                    </th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">

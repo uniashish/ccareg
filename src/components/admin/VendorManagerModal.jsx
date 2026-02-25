@@ -118,17 +118,25 @@ function VendorDetailsModal({ vendor, onClose }) {
           <div className="space-y-3">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">
               Associated CCAs
+              {vendor.associatedCCAs && (
+                <span className="ml-2 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                  {vendor.associatedCCAs.length} CCA
+                  {vendor.associatedCCAs.length !== 1 ? "s" : ""}
+                </span>
+              )}
             </h3>
             {vendor.associatedCCAs && vendor.associatedCCAs.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {vendor.associatedCCAs.map((cca, idx) => (
-                  <span
-                    key={idx}
-                    className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm font-bold rounded-lg border border-indigo-100 flex items-center gap-2"
-                  >
-                    <FiActivity size={14} /> {cca.name}
-                  </span>
-                ))}
+                {[...vendor.associatedCCAs]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((cca, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm font-bold rounded-lg border border-indigo-100 flex items-center gap-2"
+                    >
+                      <FiActivity size={14} /> {cca.name}
+                    </span>
+                  ))}
               </div>
             ) : (
               <p className="text-slate-400 italic text-sm">No CCAs assigned.</p>
@@ -550,8 +558,18 @@ export default function VendorManagerModal({ isOpen, onClose }) {
                             onClick={() => setSelectedVendor(vendor)}
                             className="flex items-center gap-2 mb-1 group-hover:translate-x-1 transition-transform"
                           >
-                            <h3 className="font-bold text-slate-800 truncate text-lg group-hover:text-brand-primary group-hover:underline decoration-2 underline-offset-2">
+                            <h3 className="font-bold text-slate-800 truncate text-lg group-hover:text-brand-primary group-hover:underline decoration-2 underline-offset-2 flex items-center gap-2">
                               {vendor.name}
+                              <span className="ml-2 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                                {Array.isArray(vendor.associatedCCAs)
+                                  ? vendor.associatedCCAs.length
+                                  : 0}{" "}
+                                CCA
+                                {Array.isArray(vendor.associatedCCAs) &&
+                                vendor.associatedCCAs.length !== 1
+                                  ? "s"
+                                  : ""}
+                              </span>
                             </h3>
                             <FiInfo
                               size={14}
@@ -577,14 +595,55 @@ export default function VendorManagerModal({ isOpen, onClose }) {
                           {vendor.associatedCCAs &&
                             vendor.associatedCCAs.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {vendor.associatedCCAs.map((c, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-bold border border-indigo-100"
-                                  >
-                                    {c.name}
-                                  </span>
-                                ))}
+                                {(() => {
+                                  const filterText = ccaFilterText
+                                    .trim()
+                                    .toLowerCase();
+                                  const ccas = [...vendor.associatedCCAs];
+                                  const matches = ccas
+                                    .filter(
+                                      (c) =>
+                                        filterText &&
+                                        c.name
+                                          .toLowerCase()
+                                          .includes(filterText),
+                                    )
+                                    .sort((a, b) =>
+                                      a.name.localeCompare(b.name),
+                                    );
+                                  const nonMatches = ccas
+                                    .filter(
+                                      (c) =>
+                                        !filterText ||
+                                        !c.name
+                                          .toLowerCase()
+                                          .includes(filterText),
+                                    )
+                                    .sort((a, b) =>
+                                      a.name.localeCompare(b.name),
+                                    );
+                                  return [...matches, ...nonMatches].map(
+                                    (c, idx) => {
+                                      const isMatch =
+                                        filterText &&
+                                        c.name
+                                          .toLowerCase()
+                                          .includes(filterText);
+                                      return (
+                                        <span
+                                          key={idx}
+                                          className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                                            isMatch
+                                              ? "bg-black text-white border-black"
+                                              : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                                          }`}
+                                        >
+                                          {c.name}
+                                        </span>
+                                      );
+                                    },
+                                  );
+                                })()}
                               </div>
                             )}
                         </div>
