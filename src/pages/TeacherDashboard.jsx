@@ -1,8 +1,9 @@
 import StudentCCARecordCard from "../components/teacher/StudentCCARecordCard";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Header from "../components/Header";
 import TeacherAttendancePanel from "../components/teacher/TeacherAttendancePanel";
 import MessageModal from "../components/common/MessageModal";
+import ExportFieldsModal from "../components/common/ExportFieldsModal";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase";
 import {
@@ -656,6 +657,27 @@ export default function TeacherDashboard() {
   const [viewingSelection, setViewingSelection] = useState(null);
   const [viewingCCA, setViewingCCA] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const exportMenuRef = useRef(null);
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [exportFields] = useState([
+    { key: "studentName", label: "Student Name" },
+    { key: "studentEmail", label: "Email" },
+    { key: "className", label: "Class" },
+    { key: "cca1", label: "CCA1" },
+    { key: "cca2", label: "CCA2" },
+    { key: "cca3", label: "CCA3" },
+    { key: "submittedDate", label: "Submitted Date" },
+  ]);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "studentName",
+    "studentEmail",
+    "className",
+    "cca1",
+    "cca2",
+    "cca3",
+    "submittedDate",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(12);
   const [activeView, setActiveView] = useState("dashboard");
   const [hasUnsavedAttendance, setHasUnsavedAttendance] = useState(false);
   const [leaveAttendanceConfirm, setLeaveAttendanceConfirm] = useState(false);
@@ -686,6 +708,25 @@ export default function TeacherDashboard() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [activeView, hasUnsavedAttendance]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(event.target)
+      ) {
+        setExportOpen(false);
+      }
+    };
+
+    if (exportOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [exportOpen]);
 
   // --- FETCH DATA ---
   useEffect(() => {
@@ -779,7 +820,35 @@ export default function TeacherDashboard() {
 
   const handleExportPDF = () => {
     if (!filteredStudents || filteredStudents.length === 0) return;
-    downloadSelectionsPDF(filteredStudents, classes);
+    setExportFieldsOpen(true);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+
+    const classesMap = classes.reduce((map, c) => {
+      map[c.id] = c;
+      return map;
+    }, {});
+
+    const exportData = filteredStudents.map((sel) => {
+      const className = classesMap[sel.classId]?.name || "Unknown";
+      return {
+        studentName: sel.studentName || "Unknown",
+        studentEmail: sel.studentEmail || "",
+        className,
+        cca1: sel.selectedCCAs?.[0]?.name || "",
+        cca2: sel.selectedCCAs?.[1]?.name || "",
+        cca3: sel.selectedCCAs?.[2]?.name || "",
+        submittedDate:
+          sel.timestamp && typeof sel.timestamp.toDate === "function"
+            ? sel.timestamp.toDate().toLocaleDateString()
+            : "",
+      };
+    });
+
+    downloadSelectionsPDF(exportData, classes, fields, fontSize);
   };
 
   return (
@@ -828,7 +897,7 @@ export default function TeacherDashboard() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       disabled={activeView === "attendance"}
-                      className={`w-full pl-10 pr-4 py-3 bg-slate-50 border-transparent rounded-xl text-sm font-bold text-slate-700 transition-all outline-none ${
+                      className={`w-full pl-10 pr-4 py-3 bg-slate-50 border border-black rounded-xl text-sm font-bold text-slate-700 transition-all outline-none ${
                         activeView === "attendance"
                           ? "cursor-not-allowed opacity-60"
                           : "focus:bg-white focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10"
@@ -844,7 +913,7 @@ export default function TeacherDashboard() {
                       value={filterClass}
                       onChange={(e) => setFilterClass(e.target.value)}
                       disabled={activeView === "attendance"}
-                      className={`w-full pl-9 pr-4 py-3 bg-slate-50 border-transparent rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none ${
+                      className={`w-full pl-9 pr-4 py-3 bg-slate-50 border border-black rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none ${
                         activeView === "attendance"
                           ? "cursor-not-allowed opacity-60"
                           : "cursor-pointer focus:bg-white focus:border-brand-primary"
@@ -867,7 +936,7 @@ export default function TeacherDashboard() {
                       value={filterCCA}
                       onChange={(e) => setFilterCCA(e.target.value)}
                       disabled={activeView === "attendance"}
-                      className={`w-full pl-9 pr-4 py-3 bg-slate-50 border-transparent rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none truncate ${
+                      className={`w-full pl-9 pr-4 py-3 bg-slate-50 border border-black rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none truncate ${
                         activeView === "attendance"
                           ? "cursor-not-allowed opacity-60"
                           : "cursor-pointer focus:bg-white focus:border-brand-primary"
@@ -889,7 +958,7 @@ export default function TeacherDashboard() {
                         setFilterCCA("");
                       }}
                       disabled={activeView === "attendance"}
-                      className={`p-3 rounded-xl transition-colors ${
+                      className={`p-3 rounded-xl border border-black transition-colors ${
                         activeView === "attendance"
                           ? "text-slate-300 bg-slate-100 cursor-not-allowed"
                           : "text-red-500 bg-red-50 hover:bg-red-100"
@@ -902,7 +971,7 @@ export default function TeacherDashboard() {
                   <button
                     type="button"
                     onClick={handleAttendanceViewToggle}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl font-bold transition-colors ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border border-black font-bold transition-colors ${
                       activeView === "attendance"
                         ? "bg-slate-800 text-white hover:bg-slate-700"
                         : "bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20"
@@ -917,10 +986,10 @@ export default function TeacherDashboard() {
                       ? "Back to Dashboard"
                       : "Take Attendance"}
                   </button>
-                  <div className="relative">
+                  <div className="relative" ref={exportMenuRef}>
                     <button
                       onClick={() => setExportOpen((v) => !v)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-xl font-bold transition-colors ${filteredStudents && filteredStudents.length > 0 ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-slate-50 text-slate-300 cursor-not-allowed"}`}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl border border-black font-bold transition-colors ${filteredStudents && filteredStudents.length > 0 ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-slate-50 text-slate-300 cursor-not-allowed"}`}
                       title="Export options"
                       disabled={
                         !filteredStudents || filteredStudents.length === 0
@@ -1232,6 +1301,17 @@ export default function TeacherDashboard() {
           onClose={() => setViewingCCA(null)}
           cca={viewingCCA}
           classes={classes}
+        />
+
+        <ExportFieldsModal
+          isOpen={exportFieldsOpen}
+          onClose={() => setExportFieldsOpen(false)}
+          fields={exportFields}
+          selectedFields={selectedExportFields}
+          onChangeFields={setSelectedExportFields}
+          fontSize={pdfFontSize}
+          onFontSizeChange={setPdfFontSize}
+          onExport={handleExportFieldsConfirm}
         />
 
         <MessageModal

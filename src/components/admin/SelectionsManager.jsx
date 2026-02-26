@@ -9,8 +9,6 @@ import {
   FiTrash2,
   FiActivity,
   FiX,
-  FiFilter,
-  FiDollarSign,
 } from "react-icons/fi";
 import { db } from "../../firebase";
 import {
@@ -25,6 +23,7 @@ import { downloadSelectionsPDF } from "../../utils/pdfExporter";
 import ExportFieldsModal from "../common/ExportFieldsModal";
 import MessageModal from "../common/MessageModal";
 import StudentDetailsModal from "./StudentDetailsModal";
+import PaymentStatusFilters from "./PaymentStatusFilters";
 
 // --- MAIN COMPONENT ---
 export default function SelectionsManager({
@@ -39,6 +38,7 @@ export default function SelectionsManager({
   // --- FILTER STATES ---
   const [filterClass, setFilterClass] = useState("");
   const [filterCCA, setFilterCCA] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
 
   // --- MODAL STATE ---
   const [viewingSelection, setViewingSelection] = useState(null);
@@ -478,6 +478,23 @@ export default function SelectionsManager({
     return Array.from(names).sort();
   }, [selections]);
 
+  const getPaymentFilteredCCAs = (selectedCCAs = []) => {
+    if (paymentStatusFilter === "all") return selectedCCAs;
+
+    return selectedCCAs.filter((cca) => {
+      const paid = String(cca.paymentStatus).toLowerCase() === "paid";
+      const verified = isVendorVerified(cca.verified);
+      const pending = paid && !verified;
+      const unpaid = !paid;
+
+      if (paymentStatusFilter === "pending") return pending;
+      if (paymentStatusFilter === "verified") return paid && verified;
+      if (paymentStatusFilter === "unpaid") return unpaid;
+
+      return false;
+    });
+  };
+
   const filteredSelections = (selections || []).filter((s) => {
     const user = users ? users[s.studentUid] : null;
     const name = user?.displayName?.toLowerCase() || "";
@@ -495,7 +512,11 @@ export default function SelectionsManager({
       !filterCCA ||
       (s.selectedCCAs && s.selectedCCAs.some((c) => c.name === filterCCA));
 
-    return matchesSearch && matchesClass && matchesCCA;
+    const paymentFilteredCCAs = getPaymentFilteredCCAs(s.selectedCCAs || []);
+    const matchesPayment =
+      paymentStatusFilter === "all" ? true : paymentFilteredCCAs.length > 0;
+
+    return matchesSearch && matchesClass && matchesCCA && matchesPayment;
   });
 
   // --- INTERNAL CSV EXPORT FUNCTION ---
@@ -630,116 +651,144 @@ export default function SelectionsManager({
     downloadSelectionsPDF(exportData, classesList, fields, fontSize);
   };
 
+  const handlePaymentStatusChange = (nextValue) => {
+    setPaymentStatusFilter(nextValue);
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setFilterClass("");
+    setFilterCCA("");
+    setPaymentStatusFilter("all");
+  };
+
+  const hasActiveFilters =
+    searchTerm || filterClass || filterCCA || paymentStatusFilter !== "all";
+
   return (
     <div className="animate-in fade-in duration-500">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-black text-slate-800">Master List</h1>
           <p className="text-slate-500 text-sm mt-1">
-            View and manage all student submissions ({filteredSelections.length}{" "}
-            records)
+            {filteredSelections.length} students
           </p>
         </div>
 
         {/* ACTIONS & FILTERS TOOLBAR */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          {/* CLASS FILTER */}
-          <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-              <FiGrid />
-            </div>
-            <select
-              value={filterClass}
-              onChange={(e) => setFilterClass(e.target.value)}
-              className="w-full sm:w-40 pl-10 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
-            >
-              <option value="">All Classes</option>
-              {classesList.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* ACTIVITY FILTER */}
-          <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-              <FiActivity />
-            </div>
-            <select
-              value={filterCCA}
-              onChange={(e) => setFilterCCA(e.target.value)}
-              className="w-full sm:w-48 pl-10 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
-            >
-              <option value="">All Activities</option>
-              {uniqueCCANames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* SEARCH BAR */}
-          <div className="relative flex-1 sm:flex-none">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search student..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-64 pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
-            />
-          </div>
-
-          {/* EXPORT DROPDOWN */}
-          <div className="relative" ref={exportMenuRef}>
-            <button
-              onClick={() => setExportOpen((v) => !v)}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 border rounded-xl font-bold transition-all active:scale-95 shadow-sm ${filteredSelections.length > 0 ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300" : "bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed"}`}
-              title="Export options"
-              disabled={filteredSelections.length === 0}
-            >
-              <FiDownload />
-              <span className="hidden sm:inline">Export</span>
-              <FiChevronDown />
-            </button>
-
-            {exportOpen && (
-              <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
-                <button
-                  onClick={() => {
-                    handleExportCSV();
-                    setExportOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  Export CSV
-                </button>
-                <button
-                  onClick={() => {
-                    handleExportPDF();
-                    setExportOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  Export PDF
-                </button>
-              </div>
+        <div className="flex flex-col gap-3 w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            {/* CLEAR FILTERS BUTTON */}
+            {hasActiveFilters && (
+              <button
+                onClick={handleClearFilters}
+                className="flex items-center justify-center px-3 py-2.5 bg-white border border-black rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                title="Clear all filters"
+              >
+                <FiX className="text-lg" />
+              </button>
             )}
-            {/* Export Fields Modal */}
-            <ExportFieldsModal
-              isOpen={exportFieldsOpen}
-              onClose={() => setExportFieldsOpen(false)}
-              fields={exportFields}
-              selectedFields={selectedExportFields}
-              onChangeFields={setSelectedExportFields}
-              fontSize={pdfFontSize}
-              onFontSizeChange={setPdfFontSize}
-              onExport={handleExportFieldsConfirm}
+            <PaymentStatusFilters
+              value={paymentStatusFilter}
+              onChange={handlePaymentStatusChange}
             />
+            {/* CLASS FILTER */}
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                <FiGrid />
+              </div>
+              <select
+                value={filterClass}
+                onChange={(e) => setFilterClass(e.target.value)}
+                className="w-full sm:w-40 pl-10 pr-8 py-2.5 bg-white border border-black rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
+              >
+                <option value="">All Classes</option>
+                {classesList.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* ACTIVITY FILTER */}
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                <FiActivity />
+              </div>
+              <select
+                value={filterCCA}
+                onChange={(e) => setFilterCCA(e.target.value)}
+                className="w-full sm:w-48 pl-10 pr-8 py-2.5 bg-white border border-black rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
+              >
+                <option value="">All Activities</option>
+                {uniqueCCANames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* SEARCH BAR */}
+            <div className="relative flex-1 sm:flex-none">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search student..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:w-64 pl-10 pr-4 py-2.5 bg-white border border-black rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
+              />
+            </div>
+
+            {/* EXPORT DROPDOWN */}
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                onClick={() => setExportOpen((v) => !v)}
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-bold transition-all active:scale-95 shadow-sm ${filteredSelections.length > 0 ? "bg-white border-black text-slate-700 hover:bg-slate-50 hover:border-black" : "bg-slate-50 border-black text-slate-300 cursor-not-allowed"}`}
+                title="Export options"
+                disabled={filteredSelections.length === 0}
+              >
+                <FiDownload />
+                <span className="hidden sm:inline">Export</span>
+                <FiChevronDown />
+              </button>
+
+              {exportOpen && (
+                <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+                  <button
+                    onClick={() => {
+                      handleExportCSV();
+                      setExportOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleExportPDF();
+                      setExportOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Export PDF
+                  </button>
+                </div>
+              )}
+              {/* Export Fields Modal */}
+              <ExportFieldsModal
+                isOpen={exportFieldsOpen}
+                onClose={() => setExportFieldsOpen(false)}
+                fields={exportFields}
+                selectedFields={selectedExportFields}
+                onChangeFields={setSelectedExportFields}
+                fontSize={pdfFontSize}
+                onFontSizeChange={setPdfFontSize}
+                onExport={handleExportFieldsConfirm}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -776,6 +825,9 @@ export default function SelectionsManager({
                     sel.studentName ||
                     "Unknown Student";
                   const classInfo = classMap[sel.classId];
+                  const visibleCCAs = getPaymentFilteredCCAs(
+                    sel.selectedCCAs || [],
+                  );
 
                   return (
                     <tr
@@ -816,8 +868,8 @@ export default function SelectionsManager({
 
                       <td className="p-5">
                         <div className="flex flex-wrap gap-2">
-                          {sel.selectedCCAs && sel.selectedCCAs.length > 0 ? (
-                            sel.selectedCCAs.map((cca, idx) => {
+                          {visibleCCAs.length > 0 ? (
+                            visibleCCAs.map((cca, idx) => {
                               // Payment logic:
                               // Paid + Verified: green, dollar icon
                               // Paid + not Verified: yellow, pending

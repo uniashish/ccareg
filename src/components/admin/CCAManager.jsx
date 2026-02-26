@@ -2,9 +2,11 @@ import React, { useEffect, useState } from "react";
 import { FiPlus, FiSearch } from "react-icons/fi";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
+import { downloadCCAsPDF } from "../../utils/pdfExporter";
 import CCAGrid from "./CCAGrid"; // Import the new grid component
 import CCAStudentsModal from "./CCAStudentsModal";
 import AdminAttendanceModal from "./AdminAttendanceModal";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 export default function CCAManager({
   ccas,
@@ -21,6 +23,30 @@ export default function CCAManager({
   const [selectedCCAForAttendance, setSelectedCCAForAttendance] =
     useState(null);
   const [vendorNamesByCcaId, setVendorNamesByCcaId] = useState({});
+
+  // Export Modal State
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [exportFields] = useState([
+    { key: "activity", label: "Activity" },
+    { key: "status", label: "Status" },
+    { key: "schedule", label: "Schedule" },
+    { key: "time", label: "Time" },
+    { key: "venue", label: "Venue" },
+    { key: "teacher", label: "Teacher" },
+    { key: "capacity", label: "Capacity" },
+    { key: "fee", label: "Fee" },
+  ]);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "activity",
+    "status",
+    "schedule",
+    "time",
+    "venue",
+    "teacher",
+    "capacity",
+    "fee",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(10);
 
   useEffect(() => {
     const fetchVendorMappings = async () => {
@@ -74,6 +100,65 @@ export default function CCAManager({
     );
   });
 
+  const formatTime12hr = (timeStr) => {
+    if (!timeStr) return "TBD";
+    const [hours, minutes] = timeStr.split(":");
+    let h = parseInt(hours);
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return `${h}:${minutes} ${ampm}`;
+  };
+
+  const getScheduleSummary = (dates) => {
+    if (!dates || !Array.isArray(dates) || dates.length === 0) return "TBD";
+
+    const days = [
+      ...new Set(
+        dates.map((d) =>
+          new Date(d).toLocaleDateString("en-US", { weekday: "short" }),
+        ),
+      ),
+    ];
+
+    if (days.length === 1) return `${days[0]} (${dates.length} Sessions)`;
+    if (days.length <= 2)
+      return `${days.join(" & ")} (${dates.length} Sessions)`;
+    return `${dates.length} Scheduled Sessions`;
+  };
+
+  const handleExportPDFClick = () => {
+    if (filteredCCAs.length === 0) return;
+    setExportFieldsOpen(true);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+
+    // Prepare export data with only selected fields
+    const exportData = filteredCCAs.map((cca) => {
+      const row = {
+        activity: cca.name || "",
+        status: cca.isActive ? "Active" : "Hidden",
+        schedule: getScheduleSummary(cca.sessionDates),
+        time: `${formatTime12hr(cca.startTime)} - ${formatTime12hr(cca.endTime)}`,
+        venue: cca.venue || "TBD",
+        teacher: cca.teacherDisplay || cca.teacher || "Staff",
+        capacity: `${cca.enrolledCount || 0} / ${cca.maxSeats || "∞"}`,
+        fee:
+          Number(cca.price) === 0
+            ? "Free"
+            : `Rp ${Number(cca.price).toLocaleString()}`,
+      };
+      // Only include selected fields
+      return Object.fromEntries(
+        Object.entries(row).filter(([k]) => fields.includes(k)),
+      );
+    });
+
+    downloadCCAsPDF(exportData, fields, fontSize);
+  };
+
   return (
     <section className="space-y-8">
       {/* HEADER SECTION */}
@@ -119,6 +204,7 @@ export default function CCAManager({
         onViewAttendance={setSelectedCCAForAttendance}
         onOpenStudentList={setSelectedCCAForStudents}
         onClearSearch={() => setSearchQuery("")}
+        onExportPDF={handleExportPDFClick}
       />
 
       <CCAStudentsModal
@@ -136,6 +222,17 @@ export default function CCAManager({
         cca={selectedCCAForAttendance}
         selections={selections}
         users={users}
+      />
+
+      <ExportFieldsModal
+        isOpen={exportFieldsOpen}
+        onClose={() => setExportFieldsOpen(false)}
+        fields={exportFields}
+        selectedFields={selectedExportFields}
+        onChangeFields={setSelectedExportFields}
+        fontSize={pdfFontSize}
+        onFontSizeChange={setPdfFontSize}
+        onExport={handleExportFieldsConfirm}
       />
     </section>
   );

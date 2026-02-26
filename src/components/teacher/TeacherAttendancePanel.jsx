@@ -72,8 +72,13 @@ export default function TeacherAttendancePanel({
   const [modalState, setModalState] = useState({
     isOpen: false,
     type: "info",
+    mode: "info",
     title: "",
     message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
   });
 
   const teacherName = normalizeText(user?.displayName);
@@ -212,10 +217,23 @@ export default function TeacherAttendancePanel({
         studentsForSelectedCCA.find((student) => student.id === studentId)
           ?.studentName || "this student";
       const actionLabel = checked ? "present" : "absent";
-      const confirmed = window.confirm(
-        `Confirm update: mark ${studentName} as ${actionLabel} for ${formatDateLabel(sessionDate)}?`,
-      );
-      if (!confirmed) return;
+      setModalState({
+        isOpen: true,
+        type: "info",
+        mode: "confirm",
+        title: "Confirm Update",
+        message: `Confirm update: mark ${studentName} as ${actionLabel} for ${formatDateLabel(sessionDate)}?`,
+        confirmText: "Update",
+        cancelText: "Cancel",
+        onConfirm: () => {
+          const dateKey = toDateKey(sessionDate);
+          const cellKey = `${selectedCCAId}__${studentId}__${dateKey}`;
+          setAttendanceByCell((prev) => ({ ...prev, [cellKey]: checked }));
+          setModalState((prev) => ({ ...prev, isOpen: false }));
+        },
+        onCancel: () => setModalState((prev) => ({ ...prev, isOpen: false })),
+      });
+      return;
     }
 
     const dateKey = toDateKey(sessionDate);
@@ -233,24 +251,33 @@ export default function TeacherAttendancePanel({
       isSessionActive(sessionDate),
     ).length;
 
-    const confirmed = window.confirm(
-      `Mark ${studentName} as present for all ${activeCount} active session(s)?`,
-    );
-    if (!confirmed) return;
+    setModalState({
+      isOpen: true,
+      type: "info",
+      mode: "confirm",
+      title: "Mark All Present",
+      message: `Mark ${studentName} as present for all ${activeCount} active session(s)?`,
+      confirmText: "Mark All",
+      cancelText: "Cancel",
+      onConfirm: () => {
+        setAttendanceByCell((prev) => {
+          const next = { ...prev };
 
-    setAttendanceByCell((prev) => {
-      const next = { ...prev };
+          sessionDates.forEach((sessionDate) => {
+            if (!isSessionActive(sessionDate)) return;
 
-      sessionDates.forEach((sessionDate) => {
-        if (!isSessionActive(sessionDate)) return;
+            const dateKey = toDateKey(sessionDate);
+            const cellKey = `${selectedCCAId}__${studentId}__${dateKey}`;
+            next[cellKey] = true;
+          });
 
-        const dateKey = toDateKey(sessionDate);
-        const cellKey = `${selectedCCAId}__${studentId}__${dateKey}`;
-        next[cellKey] = true;
-      });
-
-      return next;
+          return next;
+        });
+        setModalState((prev) => ({ ...prev, isOpen: false }));
+      },
+      onCancel: () => setModalState((prev) => ({ ...prev, isOpen: false })),
     });
+    return;
   };
 
   const onClearAllActive = (studentId) => {
@@ -263,24 +290,33 @@ export default function TeacherAttendancePanel({
       isSessionActive(sessionDate),
     ).length;
 
-    const confirmed = window.confirm(
-      `Clear attendance for ${studentName} across all ${activeCount} active session(s)?`,
-    );
-    if (!confirmed) return;
+    setModalState({
+      isOpen: true,
+      type: "info",
+      mode: "confirm",
+      title: "Clear Active Attendance",
+      message: `Clear attendance for ${studentName} across all ${activeCount} active session(s)?`,
+      confirmText: "Clear",
+      cancelText: "Cancel",
+      onConfirm: () => {
+        setAttendanceByCell((prev) => {
+          const next = { ...prev };
 
-    setAttendanceByCell((prev) => {
-      const next = { ...prev };
+          sessionDates.forEach((sessionDate) => {
+            if (!isSessionActive(sessionDate)) return;
 
-      sessionDates.forEach((sessionDate) => {
-        if (!isSessionActive(sessionDate)) return;
+            const dateKey = toDateKey(sessionDate);
+            const cellKey = `${selectedCCAId}__${studentId}__${dateKey}`;
+            next[cellKey] = false;
+          });
 
-        const dateKey = toDateKey(sessionDate);
-        const cellKey = `${selectedCCAId}__${studentId}__${dateKey}`;
-        next[cellKey] = false;
-      });
-
-      return next;
+          return next;
+        });
+        setModalState((prev) => ({ ...prev, isOpen: false }));
+      },
+      onCancel: () => setModalState((prev) => ({ ...prev, isOpen: false })),
     });
+    return;
   };
 
   const handleSubmitAttendance = async () => {
@@ -998,6 +1034,11 @@ export default function TeacherAttendancePanel({
         type={modalState.type}
         title={modalState.title}
         message={modalState.message}
+        mode={modalState.mode}
+        onConfirm={modalState.onConfirm}
+        onCancel={modalState.onCancel}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
       />
     </div>
   );

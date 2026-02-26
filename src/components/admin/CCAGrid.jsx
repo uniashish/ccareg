@@ -20,6 +20,7 @@ export default function CCAGrid({
   onViewAttendance,
   onOpenStudentList,
   onClearSearch,
+  onExportPDF,
 }) {
   const VIEW_MODE_STORAGE_KEY = "ccaManager.viewMode";
   const scrollRef = useRef(null);
@@ -324,7 +325,11 @@ export default function CCAGrid({
               </button>
               <button
                 onClick={() => {
-                  handleExportPDF();
+                  if (onExportPDF) {
+                    onExportPDF();
+                  } else {
+                    handleExportPDF();
+                  }
                   setExportOpen(false);
                 }}
                 className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"

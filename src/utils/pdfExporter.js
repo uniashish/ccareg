@@ -152,3 +152,78 @@ export const downloadVendorsPDF = (vendors = []) => {
     w.print();
   }, 300);
 };
+
+export const downloadCCAsPDF = (ccas, fields, fontSize = 12) => {
+  // fields: array of keys to include, in order
+  // fontSize: number (default 12)
+  const fieldLabels = {
+    activity: "Activity",
+    status: "Status",
+    schedule: "Schedule",
+    time: "Time",
+    venue: "Venue",
+    teacher: "Teacher",
+    capacity: "Capacity",
+    fee: "Fee",
+  };
+
+  const escapeHtml = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  // Generate table header
+  const headerHtml =
+    "<tr>" +
+    fields.map((key) => `<th>${fieldLabels[key] || key}</th>`).join("") +
+    "</tr>";
+
+  // Generate table rows
+  const rowsHtml = ccas
+    .map(
+      (row) =>
+        `<tr>` +
+        fields.map((key) => `<td>${escapeHtml(row[key] ?? "")}</td>`).join("") +
+        `</tr>`,
+    )
+    .join("\n");
+
+  // Generate complete HTML document
+  const html = `
+    <html>
+      <head>
+        <title>CCA Details</title>
+        <style>
+          @page { size: A4 landscape; margin: 12mm; }
+          body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+          h2{font-size:${fontSize + 1}px;margin-bottom:6px}
+          table{width:100%;border-collapse:collapse}
+          th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px;vertical-align:top}
+          th{background:#f3f4f6;font-weight:700}
+        </style>
+      </head>
+      <body>
+        <h2>CCA Details</h2>
+        <table>
+          <thead>
+            ${headerHtml}
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  // Open in new window and trigger print dialog
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => {
+    w.focus();
+    w.print();
+  }, 300);
+};
