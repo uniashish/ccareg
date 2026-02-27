@@ -2,6 +2,7 @@ import StudentCCARecordCard from "../components/teacher/StudentCCARecordCard";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Header from "../components/Header";
 import TeacherAttendancePanel from "../components/teacher/TeacherAttendancePanel";
+import CustomStudentList from "../components/teacher/CustomStudentList";
 import MessageModal from "../components/common/MessageModal";
 import ExportFieldsModal from "../components/common/ExportFieldsModal";
 import { useAuth } from "../context/AuthContext";
@@ -681,6 +682,7 @@ export default function TeacherDashboard() {
   const [activeView, setActiveView] = useState("dashboard");
   const [hasUnsavedAttendance, setHasUnsavedAttendance] = useState(false);
   const [leaveAttendanceConfirm, setLeaveAttendanceConfirm] = useState(false);
+  const [isCustomListOpen, setIsCustomListOpen] = useState(false);
 
   const handleAttendanceViewToggle = () => {
     if (activeView === "attendance" && hasUnsavedAttendance) {
@@ -968,6 +970,14 @@ export default function TeacherDashboard() {
                       <FiX />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomListOpen(true)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-black font-bold transition-colors bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                    title="My List"
+                  >
+                    My List
+                  </button>
                   <button
                     type="button"
                     onClick={handleAttendanceViewToggle}
@@ -1329,6 +1339,15 @@ export default function TeacherDashboard() {
             setActiveView("dashboard");
             setExportOpen(false);
           }}
+        />
+
+        <CustomStudentList
+          isOpen={isCustomListOpen}
+          onClose={() => setIsCustomListOpen(false)}
+          selections={selections}
+          classes={classes}
+          ccas={ccas}
+          user={user}
         />
       </div>
     </div>

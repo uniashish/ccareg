@@ -69,6 +69,9 @@ export default function VendorDashboard() {
   const [selectedExportFields, setSelectedExportFields] = useState(
     EXPORT_FIELDS.map((field) => field.key),
   );
+  const [isVendorPortalActive, setIsVendorPortalActive] = useState(true);
+  const [adminName, setAdminName] = useState("");
+  const [adminContact, setAdminContact] = useState("");
 
   useEffect(() => {
     const unsubVendors = onSnapshot(collection(db, "vendors"), (snapshot) => {
@@ -129,6 +132,20 @@ export default function VendorDashboard() {
       unsubSelections();
       unsubAttendance();
     };
+  }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setIsVendorPortalActive(data.vendorPortalActive !== false);
+        if (data.adminName) setAdminName(data.adminName);
+        if (data.adminContact) setAdminContact(data.adminContact);
+      } else {
+        setIsVendorPortalActive(true);
+      }
+    });
+    return () => unsub();
   }, []);
 
   const matchedVendors = useMemo(() => {
@@ -716,99 +733,122 @@ export default function VendorDashboard() {
     >
       <Header />
 
-      <main className="max-w-6xl mx-auto px-3 py-4 sm:px-6 sm:py-6 md:px-10">
-        <div className="space-y-4">
-          <VendorToolbar
-            ccas={vendorCcas}
-            selectedCcaId={selectedCcaId}
-            onSelectedCcaIdChange={setSelectedCcaId}
-            classNames={classFilterOptions}
-            selectedClassName={selectedClassName}
-            onSelectedClassNameChange={setSelectedClassName}
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
-            hasActiveFilters={hasActiveFilters}
-            onClearFilters={handleClearFilters}
-            onExportCSV={handleExportCSV}
-            onExportPDF={handleExportPDF}
-            canExport={visibleRows.length > 0}
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-            <button
-              type="button"
-              onClick={() => setStatusFilter("all")}
-              className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
-                statusFilter === "all"
-                  ? "border-slate-400 ring-2 ring-slate-200"
-                  : "border-slate-200 hover:border-slate-300"
-              }`}
-            >
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                Visible Rows
-              </p>
-              <p className="text-lg sm:text-xl font-black text-slate-800 mt-1">
-                {summary.total}
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter("verified")}
-              className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
-                statusFilter === "verified"
-                  ? "border-emerald-400 ring-2 ring-emerald-100"
-                  : "border-emerald-200 hover:border-emerald-300"
-              }`}
-            >
-              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-500">
-                Verified
-              </p>
-              <p className="text-lg sm:text-xl font-black text-emerald-700 mt-1">
-                {summary.verified}
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter("pending")}
-              className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
-                statusFilter === "pending"
-                  ? "border-amber-400 ring-2 ring-amber-100"
-                  : "border-amber-200 hover:border-amber-300"
-              }`}
-            >
-              <p className="text-[10px] font-black uppercase tracking-wider text-amber-500">
-                Pending
-              </p>
-              <p className="text-lg sm:text-xl font-black text-amber-700 mt-1">
-                {summary.pending}
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter("unpaid")}
-              className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
-                statusFilter === "unpaid"
-                  ? "border-rose-400 ring-2 ring-rose-100"
-                  : "border-rose-200 hover:border-rose-300"
-              }`}
-            >
-              <p className="text-[10px] font-black uppercase tracking-wider text-rose-500">
-                Unpaid
-              </p>
-              <p className="text-lg sm:text-xl font-black text-rose-700 mt-1">
-                {summary.unpaid}
-              </p>
-            </button>
+      {!isVendorPortalActive ? (
+        <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
+          <div className="max-w-3xl mx-auto mt-8 bg-white border border-slate-200 rounded-3xl p-8 shadow-sm text-center">
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight mb-3">
+              Vendor Portal Not Active
+            </h1>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              The vendor portal is currently not active. Please contact the
+              administrator.
+            </p>
+            <p className="text-slate-700 text-sm font-bold mt-4">
+              {adminName && adminContact
+                ? `${adminName} - ${adminContact}`
+                : adminContact
+                  ? adminContact
+                  : adminName
+                    ? adminName
+                    : "School administration"}
+            </p>
           </div>
+        </main>
+      ) : (
+        <main className="max-w-6xl mx-auto px-3 py-4 sm:px-6 sm:py-6 md:px-10">
+          <div className="space-y-4">
+            <VendorToolbar
+              ccas={vendorCcas}
+              selectedCcaId={selectedCcaId}
+              onSelectedCcaIdChange={setSelectedCcaId}
+              classNames={classFilterOptions}
+              selectedClassName={selectedClassName}
+              onSelectedClassNameChange={setSelectedClassName}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={handleClearFilters}
+              onExportCSV={handleExportCSV}
+              onExportPDF={handleExportPDF}
+              canExport={visibleRows.length > 0}
+            />
 
-          <VendorStudentsTable
-            rows={visibleRows}
-            updatingMap={updatingMap}
-            onToggleVerification={handleToggleVerification}
-            onStudentClick={handleStudentClick}
-          />
-        </div>
-      </main>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <button
+                type="button"
+                onClick={() => setStatusFilter("all")}
+                className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
+                  statusFilter === "all"
+                    ? "border-slate-400 ring-2 ring-slate-200"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Visible Rows
+                </p>
+                <p className="text-lg sm:text-xl font-black text-slate-800 mt-1">
+                  {summary.total}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("verified")}
+                className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
+                  statusFilter === "verified"
+                    ? "border-emerald-400 ring-2 ring-emerald-100"
+                    : "border-emerald-200 hover:border-emerald-300"
+                }`}
+              >
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-500">
+                  Verified
+                </p>
+                <p className="text-lg sm:text-xl font-black text-emerald-700 mt-1">
+                  {summary.verified}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("pending")}
+                className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
+                  statusFilter === "pending"
+                    ? "border-amber-400 ring-2 ring-amber-100"
+                    : "border-amber-200 hover:border-amber-300"
+                }`}
+              >
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-500">
+                  Pending
+                </p>
+                <p className="text-lg sm:text-xl font-black text-amber-700 mt-1">
+                  {summary.pending}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("unpaid")}
+                className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
+                  statusFilter === "unpaid"
+                    ? "border-rose-400 ring-2 ring-rose-100"
+                    : "border-rose-200 hover:border-rose-300"
+                }`}
+              >
+                <p className="text-[10px] font-black uppercase tracking-wider text-rose-500">
+                  Unpaid
+                </p>
+                <p className="text-lg sm:text-xl font-black text-rose-700 mt-1">
+                  {summary.unpaid}
+                </p>
+              </button>
+            </div>
+
+            <VendorStudentsTable
+              rows={visibleRows}
+              updatingMap={updatingMap}
+              onToggleVerification={handleToggleVerification}
+              onStudentClick={handleStudentClick}
+            />
+          </div>
+        </main>
+      )}
 
       <footer className="px-3 pb-4 text-center text-xs font-semibold tracking-wide text-slate-600 sm:px-6 md:px-10">
         DEVELOPED AND MAINTAINED BY ASHISH BHATNAGAR SISKGNEJ
