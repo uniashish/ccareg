@@ -3,6 +3,8 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../../firebase";
 import CustomListAddStudentModal from "./CustomListAddStudentModal";
 import CustomListModalCard from "./CustomListModalCard";
+import CustomListExportModal from "./CustomListExportModal";
+import { downloadSelectionsPDF } from "../../../utils/pdfExporter";
 
 const parseDate = (value) => {
   if (!value) return null;
@@ -72,6 +74,8 @@ export default function CustomStudentList({
   const [completedDateKeysByCCA, setCompletedDateKeysByCCA] = useState({});
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState("csv");
 
   const teacherId = user?.uid;
   const customListDocId = `${teacherId}_customList`;
@@ -315,6 +319,172 @@ export default function CustomStudentList({
     setSelectedCheckboxes({});
   };
 
+  const prepareExportData = (selectedFields) => {
+    return customList.map((student) => {
+      const data = {};
+
+      if (selectedFields.studentName) {
+        data.studentName = student.studentName || "Unknown";
+      }
+
+      if (selectedFields.studentEmail) {
+        data.studentEmail = student.studentEmail || "";
+      }
+
+      if (selectedFields.className) {
+        data.className = student.className || "Unknown";
+      }
+
+      if (selectedFields.ccaName) {
+        const ccaNames = Array.isArray(student.selectedCCAs)
+          ? student.selectedCCAs.map((cca) => cca?.name || "").filter(Boolean)
+          : [];
+        data.ccaName = ccaNames.join(", ");
+      }
+
+      if (selectedFields.attendanceSummary) {
+        const ccaIds = Array.isArray(student.selectedCCAs)
+          ? student.selectedCCAs.map((cca) => cca?.id).filter(Boolean)
+          : [];
+
+        let presentCount = 0;
+        let totalCount = 0;
+
+        ccaIds.forEach((ccaId) => {
+          const attendanceMap = getAttendanceMap(student, ccaId);
+          totalCount += Object.keys(attendanceMap).length;
+          presentCount += Object.values(attendanceMap).filter(Boolean).length;
+        });
+
+        data.attendanceSummary =
+          totalCount > 0 ? `${presentCount}/${totalCount}` : "0/0";
+      }
+
+      if (selectedFields.perSessionAttendance) {
+        const sessionDataByCCA = [];
+        const ccaIds = Array.isArray(student.selectedCCAs)
+          ? student.selectedCCAs.map((cca) => cca?.id).filter(Boolean)
+          : [];
+
+        ccaIds.forEach((ccaId) => {
+          const ccaDetail = ccasById[ccaId];
+          const ccaName = ccaDetail?.name || "Unknown";
+          const attendanceMap = getAttendanceMap(student, ccaId);
+
+          const sessions = Object.entries(attendanceMap)
+            .map(
+              ([dateKey, isPresent]) =>
+                `${formatDateLabel(dateKey)} (${isPresent ? "P" : "A"})`,
+            )
+            .join(", ");
+
+          if (sessions) {
+            sessionDataByCCA.push(`${ccaName}: ${sessions}`);
+          }
+        });
+
+        data.perSessionAttendance = sessionDataByCCA.join("\n");
+      }
+
+      return data;
+    });
+  };
+
+  const handleExportCSV = (selectedFields) => {
+    const exportData = prepareExportData(selectedFields);
+
+    // Define field labels for headers
+    const fieldLabels = {
+      studentName: "Student Name",
+      studentEmail: "Student Email",
+      className: "Class",
+      ccaName: "CCA",
+      attendanceSummary: "Attendance Summary",
+      perSessionAttendance: "Per-Session Attendance",
+    };
+
+    // Get selected field keys in order
+    const selectedFieldKeys = Object.keys(selectedFields).filter(
+      (key) => selectedFields[key],
+    );
+
+    // Build headers
+    const headers = selectedFieldKeys.map((key) => fieldLabels[key]);
+
+    // Escape CSV special characters
+    const escapeCSV = (value) => {
+      const safeValue = value == null ? "" : String(value);
+      if (
+        safeValue.includes(",") ||
+        safeValue.includes('"') ||
+        safeValue.includes("\n")
+      ) {
+        return `"${safeValue.replace(/"/g, '""')}"`;
+      }
+      return safeValue;
+    };
+
+    // Build rows
+    const rows = exportData.map((row) =>
+      selectedFieldKeys.map((key) => escapeCSV(row[key])).join(","),
+    );
+
+    // Create CSV content
+    const csvContent =
+      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+
+    // Download
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `CCA_My_List_${new Date().toISOString().split("T")[0]}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = (selectedFields, fontSize) => {
+    const exportData = prepareExportData(selectedFields);
+
+    // Map field names to PDF field keys
+    const fieldKeyMap = {
+      studentName: "studentName",
+      studentEmail: "studentEmail",
+      className: "className",
+      ccaName: "ccaName",
+      attendanceSummary: "attendanceSummary",
+      perSessionAttendance: "perSessionAttendance",
+    };
+
+    const fields = Object.keys(selectedFields)
+      .filter((key) => selectedFields[key])
+      .map((key) => fieldKeyMap[key])
+      .filter(Boolean);
+
+    downloadSelectionsPDF(exportData, {}, fields, fontSize);
+  };
+
+  const handleOpenExportCSV = () => {
+    setExportFormat("csv");
+    setIsExportModalOpen(true);
+  };
+
+  const handleOpenExportPDF = () => {
+    setExportFormat("pdf");
+    setIsExportModalOpen(true);
+  };
+
+  const handleExport = (selectedFields, fontSize) => {
+    if (exportFormat === "csv") {
+      handleExportCSV(selectedFields);
+    } else if (exportFormat === "pdf") {
+      handleExportPDF(selectedFields, fontSize);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -334,6 +504,15 @@ export default function CustomStudentList({
         getAttendanceMap={getAttendanceMap}
         completedDateKeysByCCA={completedDateKeysByCCA}
         formatDateLabel={formatDateLabel}
+        onExportCSV={handleOpenExportCSV}
+        onExportPDF={handleOpenExportPDF}
+      />
+
+      <CustomListExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={handleExport}
+        exportFormat={exportFormat}
       />
 
       <CustomListAddStudentModal
