@@ -2,7 +2,7 @@ import StudentCCARecordCard from "../components/teacher/StudentCCARecordCard";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Header from "../components/Header";
 import TeacherAttendancePanel from "../components/teacher/TeacherAttendancePanel";
-import CustomStudentList from "../components/teacher/CustomStudentList";
+import CustomStudentList from "../components/teacher/customlist/CustomStudentList";
 import MessageModal from "../components/common/MessageModal";
 import ExportFieldsModal from "../components/common/ExportFieldsModal";
 import { useAuth } from "../context/AuthContext";

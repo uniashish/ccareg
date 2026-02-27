@@ -1,0 +1,139 @@
+import React from "react";
+import { FiX, FiUserPlus } from "react-icons/fi";
+
+export default function CustomListModalCard({
+  onClose,
+  onAddStudent,
+  isLoading,
+  customList,
+  onRemoveStudent,
+  getAttendanceMap,
+  completedDateKeysByCCA,
+  formatDateLabel,
+}) {
+  return (
+    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden transform transition-all animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col">
+      {/* Header with Close Button */}
+      <div className="flex items-center justify-between p-6 border-b border-slate-200">
+        <h2 className="text-2xl font-black text-slate-800">My List</h2>
+        <button
+          onClick={onClose}
+          className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-full hover:bg-slate-100"
+        >
+          <FiX size={24} />
+        </button>
+      </div>
+
+      {/* Toolbar */}
+      <div className="p-4 bg-slate-50 border-b border-slate-200">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onAddStudent}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-black font-bold transition-colors bg-green-50 text-green-600 hover:bg-green-100"
+          >
+            <FiUserPlus size={18} />
+            Add Student
+          </button>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {isLoading ? (
+          <div className="text-center py-12">
+            <p className="text-slate-400 text-sm">Loading your list...</p>
+          </div>
+        ) : customList.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-slate-400 text-sm">
+              No students in your custom list yet.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {customList.map((student, index) => (
+              <div
+                key={student.id}
+                className="p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-700 text-sm">
+                      {student.studentName}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {student.className} • {student.studentEmail}
+                    </div>
+                    {student.selectedCCAs &&
+                      student.selectedCCAs.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {student.selectedCCAs.map((cca, idx) => (
+                            <span
+                              key={cca.id || idx}
+                              className="flex items-center gap-1 flex-wrap px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[10px] font-bold border border-indigo-100"
+                            >
+                              {(() => {
+                                const attendanceMap = getAttendanceMap(
+                                  student,
+                                  cca?.id,
+                                );
+                                const dateKeys =
+                                  completedDateKeysByCCA[cca?.id] || [];
+
+                                if (dateKeys.length === 0) {
+                                  return (
+                                    <span className="text-[9px] font-bold text-slate-400">
+                                      No sessions
+                                    </span>
+                                  );
+                                }
+
+                                const presentCount = dateKeys.filter(
+                                  (dateKey) => attendanceMap[dateKey],
+                                ).length;
+
+                                return (
+                                  <>
+                                    {dateKeys.map((dateKey) => {
+                                      const isPresent = attendanceMap[dateKey];
+                                      return (
+                                        <span
+                                          key={dateKey}
+                                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                            isPresent
+                                              ? "bg-emerald-100 text-emerald-700"
+                                              : "bg-rose-100 text-rose-700"
+                                          }`}
+                                        >
+                                          {formatDateLabel(dateKey)}
+                                        </span>
+                                      );
+                                    })}
+                                    <span className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold">
+                                      {presentCount}/{dateKeys.length}
+                                    </span>
+                                  </>
+                                );
+                              })()}
+                              <span className="ml-1">{cca.name}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                  </div>
+                  <button
+                    onClick={() => onRemoveStudent(index)}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Remove student"
+                  >
+                    <FiX size={18} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
