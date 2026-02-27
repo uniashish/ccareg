@@ -12,6 +12,8 @@ import {
   writeBatch,
   increment,
   getDoc,
+  getDocs,
+  where,
 } from "firebase/firestore";
 import { enrichCCAsWithTeacherAlias } from "../utils/teacherAlias";
 
@@ -315,12 +317,51 @@ export function useAdminData(showMessage = () => {}) {
       }
 
       const data = selSnap.data();
-      const batch = writeBatch(db);
 
-      // 1. Delete Selection
+      // Prepare student IDs for attendance cleanup
+      const studentIds = [studentUid, data.studentUid].filter(Boolean);
+      const studentIdSet = new Set(studentIds);
+
+      // 1. Clean up attendance records for all CCAs
+      if (data.selectedCCAs && Array.isArray(data.selectedCCAs)) {
+        for (const cca of data.selectedCCAs) {
+          const attendanceQuery = query(
+            collection(db, "attendanceRecords"),
+            where("ccaId", "==", cca.id),
+          );
+          const attendanceSnapshot = await getDocs(attendanceQuery);
+
+          const attendanceBatch = writeBatch(db);
+          let hasAttendanceUpdates = false;
+
+          attendanceSnapshot.docs.forEach((attendanceDoc) => {
+            const attendanceData = attendanceDoc.data();
+            const currentIds = Array.isArray(attendanceData.presentStudentIds)
+              ? attendanceData.presentStudentIds
+              : [];
+            const updatedIds = currentIds.filter((id) => !studentIdSet.has(id));
+
+            if (updatedIds.length !== currentIds.length) {
+              attendanceBatch.update(
+                doc(db, "attendanceRecords", attendanceDoc.id),
+                {
+                  presentStudentIds: updatedIds,
+                },
+              );
+              hasAttendanceUpdates = true;
+            }
+          });
+
+          if (hasAttendanceUpdates) {
+            await attendanceBatch.commit();
+          }
+        }
+      }
+
+      // 2. Delete Selection and Return Seats
+      const batch = writeBatch(db);
       batch.delete(selRef);
 
-      // 2. Return Seats
       if (data.selectedCCAs && Array.isArray(data.selectedCCAs)) {
         data.selectedCCAs.forEach((cca) => {
           const ccaRef = doc(db, "ccas", cca.id);

@@ -414,7 +414,7 @@ export default function SelectionsManager({
       type: "error",
       title: "Delete Student Record?",
       message:
-        "This will remove all selections for this student and free all occupied seats.",
+        "This will remove all selections for this student, delete all their attendance records, and free all occupied seats.",
       confirmText: "Delete",
       cancelText: "Cancel",
       onConfirm: async () => {
@@ -424,7 +424,7 @@ export default function SelectionsManager({
           showModal(
             "success",
             "Record Deleted",
-            "The student selection record has been deleted successfully.",
+            "The student selection record and attendance data have been deleted successfully.",
           );
         }
       },

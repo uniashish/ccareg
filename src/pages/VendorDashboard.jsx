@@ -8,41 +8,11 @@ import VendorToolbar from "../components/vendor/VendorToolbar";
 import VendorStudentsTable from "../components/vendor/VendorStudentsTable";
 import StudentDetailsModal from "../components/admin/StudentDetailsModal";
 import MessageModal from "../components/common/MessageModal";
-
-const normalizeVerified = (value) => {
-  if (value === true) return true;
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  return normalized === "yes" || normalized === "verified";
-};
-
-const escapeCSV = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
-
-const escapeHtml = (value) =>
-  String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-
-const normalizeText = (value) =>
-  String(value ?? "")
-    .trim()
-    .toLowerCase();
-
-const MAX_CCAS = 3;
-const EXPORT_FIELDS = [
-  { key: "studentName", label: "Student Name" },
-  { key: "className", label: "Class" },
-  ...Array.from({ length: MAX_CCAS }, (_, i) => ({
-    key: `cca${i + 1}`,
-    label: `CCA${i + 1}`,
-  })),
-  { key: "attendance", label: "Attendance" },
-  { key: "paymentStatus", label: "Payment Status" },
-  { key: "verified", label: "Verified" },
-];
+import InactivePortalView from "../components/vendor/InactivePortalView";
+import SummaryCards from "../components/vendor/SummaryCards";
+import VendorExportFieldsModal from "../components/vendor/VendorExportFieldsModal";
+import { normalizeVerified, normalizeText } from "../utils/vendorUtils";
+import { useVendorExport } from "../hooks/useVendorExport";
 
 export default function VendorDashboard() {
   const { user } = useAuth();
@@ -62,13 +32,6 @@ export default function VendorDashboard() {
     row: null,
     checked: false,
   });
-  const [exportModal, setExportModal] = useState({
-    isOpen: false,
-    format: "csv",
-  });
-  const [selectedExportFields, setSelectedExportFields] = useState(
-    EXPORT_FIELDS.map((field) => field.key),
-  );
   const [isVendorPortalActive, setIsVendorPortalActive] = useState(true);
   const [adminName, setAdminName] = useState("");
   const [adminContact, setAdminContact] = useState("");
@@ -418,6 +381,20 @@ export default function VendorDashboard() {
     });
   }, [rowsAfterBaseFilters, statusFilter]);
 
+  // Export functionality
+  const {
+    exportModal,
+    selectedExportFields,
+    handleExportCSV,
+    handleExportPDF,
+    closeExportModal,
+    toggleExportField,
+    handleSelectAllExportFields,
+    handleClearAllExportFields,
+    handleConfirmExport,
+    canExport,
+  } = useVendorExport(visibleRows);
+
   const applyVerificationUpdate = async ({ row, checked, markPaid }) => {
     if (!row?.selectionId || !row?.ccaId) return;
 
@@ -504,198 +481,6 @@ export default function VendorDashboard() {
     setViewingSelection(selected);
   };
 
-  const groupedExportRows = useMemo(() => {
-    if (!visibleRows.length) return [];
-
-    const grouped = visibleRows.reduce((acc, row) => {
-      const key = row.selectionId || row.studentUid || row.studentName;
-
-      if (!acc[key]) {
-        acc[key] = {
-          studentName: row.studentName,
-          className: row.className,
-          items: [],
-        };
-      }
-
-      acc[key].items.push({
-        ccaId: row.ccaId,
-        ccaName: row.ccaName,
-        attendanceLabel: row.attendanceLabel,
-        paymentStatus: row.paymentStatus,
-        verified: row.verified,
-      });
-
-      return acc;
-    }, {});
-
-    return Object.values(grouped).map((group) => {
-      const uniqueItemsByCca = group.items.reduce((acc, item) => {
-        const itemKey = item.ccaId || item.ccaName;
-        if (!acc[itemKey]) {
-          acc[itemKey] = item;
-        }
-        return acc;
-      }, {});
-
-      const items = Object.values(uniqueItemsByCca);
-
-      // Prepare CCA columns (CCA1, CCA2, CCA3)
-      const ccaColumns = Array.from(
-        { length: MAX_CCAS },
-        (_, i) => items[i]?.ccaName || "",
-      );
-
-      return {
-        studentName: group.studentName,
-        className: group.className,
-        ...Object.fromEntries(
-          ccaColumns.map((val, idx) => [`cca${idx + 1}`, val]),
-        ),
-        attendance: items
-          .map((item) => `${item.ccaName}: ${item.attendanceLabel}`)
-          .join(" | "),
-        paymentStatus: items
-          .map((item) => `${item.ccaName}: ${item.paymentStatus}`)
-          .join(" | "),
-        verified: items
-          .map((item) => `${item.ccaName}: ${item.verified ? "Yes" : "No"}`)
-          .join(" | "),
-      };
-    });
-  }, [visibleRows]);
-
-  const selectedExportFieldDefs = useMemo(
-    () =>
-      EXPORT_FIELDS.filter((field) => selectedExportFields.includes(field.key)),
-    [selectedExportFields],
-  );
-
-  const openExportModal = (format) => {
-    if (!groupedExportRows.length) return;
-    setExportModal({ isOpen: true, format });
-  };
-
-  const closeExportModal = () => {
-    setExportModal((prev) => ({ ...prev, isOpen: false }));
-  };
-
-  const toggleExportField = (fieldKey) => {
-    setSelectedExportFields((prev) => {
-      if (prev.includes(fieldKey)) {
-        return prev.filter((key) => key !== fieldKey);
-      }
-      return [...prev, fieldKey];
-    });
-  };
-
-  const handleSelectAllExportFields = () => {
-    setSelectedExportFields(EXPORT_FIELDS.map((field) => field.key));
-  };
-
-  const handleClearAllExportFields = () => {
-    setSelectedExportFields([]);
-  };
-
-  const buildExportRows = () =>
-    groupedExportRows.map((row) =>
-      selectedExportFieldDefs.map((field) => row[field.key] ?? ""),
-    );
-
-  const handleExportCSV = () => {
-    openExportModal("csv");
-  };
-
-  const exportCSVWithSelectedFields = () => {
-    if (!groupedExportRows.length || !selectedExportFieldDefs.length) return;
-
-    const headers = selectedExportFieldDefs.map((field) => field.label);
-
-    const rows = buildExportRows().map((row) =>
-      row.map((cell) => escapeCSV(cell)).join(","),
-    );
-
-    const csvContent = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `Vendor_Students_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportPDF = () => {
-    openExportModal("pdf");
-  };
-
-  const exportPDFWithSelectedFields = () => {
-    if (!groupedExportRows.length || !selectedExportFieldDefs.length) return;
-
-    const rowsHtml = buildExportRows()
-      .map(
-        (cells) =>
-          `<tr>${cells
-            .map((cell) => `<td>${escapeHtml(cell)}</td>`)
-            .join("")}</tr>`,
-      )
-      .join("\n");
-
-    const headerHtml = selectedExportFieldDefs
-      .map((field) => `<th>${escapeHtml(field.label)}</th>`)
-      .join("");
-
-    const html = `
-      <html>
-        <head>
-          <title>Vendor Student List</title>
-          <style>
-            @page { size: A4 landscape; margin: 12mm; }
-            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
-            h2{font-size:14px;margin:0 0 8px}
-            table{width:100%;border-collapse:collapse}
-            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
-            th{background:#f3f4f6;font-weight:700}
-          </style>
-        </head>
-        <body>
-          <h2>Vendor Students</h2>
-          <table>
-            <thead>
-              <tr>${headerHtml}</tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
-
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.document.write(html);
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-    }, 300);
-  };
-
-  const handleConfirmExport = () => {
-    if (!selectedExportFieldDefs.length) return;
-
-    if (exportModal.format === "pdf") {
-      exportPDFWithSelectedFields();
-    } else {
-      exportCSVWithSelectedFields();
-    }
-
-    closeExportModal();
-  };
-
   const summary = useMemo(() => {
     return rowsAfterBaseFilters.reduce(
       (acc, row) => {
@@ -734,26 +519,7 @@ export default function VendorDashboard() {
       <Header />
 
       {!isVendorPortalActive ? (
-        <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <div className="max-w-3xl mx-auto mt-8 bg-white border border-slate-200 rounded-3xl p-8 shadow-sm text-center">
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight mb-3">
-              Vendor Portal Not Active
-            </h1>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              The vendor portal is currently not active. Please contact the
-              administrator.
-            </p>
-            <p className="text-slate-700 text-sm font-bold mt-4">
-              {adminName && adminContact
-                ? `${adminName} - ${adminContact}`
-                : adminContact
-                  ? adminContact
-                  : adminName
-                    ? adminName
-                    : "School administration"}
-            </p>
-          </div>
-        </main>
+        <InactivePortalView adminName={adminName} adminContact={adminContact} />
       ) : (
         <main className="max-w-6xl mx-auto px-3 py-4 sm:px-6 sm:py-6 md:px-10">
           <div className="space-y-4">
@@ -770,75 +536,14 @@ export default function VendorDashboard() {
               onClearFilters={handleClearFilters}
               onExportCSV={handleExportCSV}
               onExportPDF={handleExportPDF}
-              canExport={visibleRows.length > 0}
+              canExport={canExport}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <button
-                type="button"
-                onClick={() => setStatusFilter("all")}
-                className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
-                  statusFilter === "all"
-                    ? "border-slate-400 ring-2 ring-slate-200"
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Visible Rows
-                </p>
-                <p className="text-lg sm:text-xl font-black text-slate-800 mt-1">
-                  {summary.total}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("verified")}
-                className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
-                  statusFilter === "verified"
-                    ? "border-emerald-400 ring-2 ring-emerald-100"
-                    : "border-emerald-200 hover:border-emerald-300"
-                }`}
-              >
-                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-500">
-                  Verified
-                </p>
-                <p className="text-lg sm:text-xl font-black text-emerald-700 mt-1">
-                  {summary.verified}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("pending")}
-                className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
-                  statusFilter === "pending"
-                    ? "border-amber-400 ring-2 ring-amber-100"
-                    : "border-amber-200 hover:border-amber-300"
-                }`}
-              >
-                <p className="text-[10px] font-black uppercase tracking-wider text-amber-500">
-                  Pending
-                </p>
-                <p className="text-lg sm:text-xl font-black text-amber-700 mt-1">
-                  {summary.pending}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("unpaid")}
-                className={`bg-white rounded-xl border p-3 sm:p-4 text-left transition-colors ${
-                  statusFilter === "unpaid"
-                    ? "border-rose-400 ring-2 ring-rose-100"
-                    : "border-rose-200 hover:border-rose-300"
-                }`}
-              >
-                <p className="text-[10px] font-black uppercase tracking-wider text-rose-500">
-                  Unpaid
-                </p>
-                <p className="text-lg sm:text-xl font-black text-rose-700 mt-1">
-                  {summary.unpaid}
-                </p>
-              </button>
-            </div>
+            <SummaryCards
+              summary={summary}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+            />
 
             <VendorStudentsTable
               rows={visibleRows}
@@ -861,87 +566,16 @@ export default function VendorDashboard() {
         classMap={classMapForModal}
       />
 
-      {exportModal.isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            onClick={closeExportModal}
-          ></div>
-
-          <div className="relative w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-black text-slate-800">
-                Select fields to export
-              </h3>
-              <p className="text-xs font-semibold text-slate-500 mt-1">
-                Choose the columns to include in the exported{" "}
-                {exportModal.format.toUpperCase()} file.
-              </p>
-              <div className="mt-3 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSelectAllExportFields}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold"
-                >
-                  Select All
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearAllExportFields}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold"
-                >
-                  Clear All
-                </button>
-              </div>
-            </div>
-
-            <div className="px-5 py-4 space-y-2 max-h-72 overflow-y-auto">
-              {EXPORT_FIELDS.map((field) => {
-                const checked = selectedExportFields.includes(field.key);
-
-                return (
-                  <label
-                    key={field.key}
-                    className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 cursor-pointer hover:bg-slate-50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleExportField(field.key)}
-                      className="h-4 w-4 rounded border-slate-300 text-brand-primary focus:ring-brand-primary/40"
-                    />
-                    <span className="text-sm font-semibold text-slate-700">
-                      {field.label}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-
-            <div className="px-5 py-4 border-t border-slate-200 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeExportModal}
-                className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmExport}
-                disabled={!selectedExportFieldDefs.length}
-                className={`px-4 py-2.5 rounded-xl font-bold text-sm ${
-                  selectedExportFieldDefs.length
-                    ? "bg-brand-primary text-white hover:bg-indigo-700"
-                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                }`}
-              >
-                Export {exportModal.format.toUpperCase()}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <VendorExportFieldsModal
+        isOpen={exportModal.isOpen}
+        onClose={closeExportModal}
+        format={exportModal.format}
+        selectedFields={selectedExportFields}
+        onToggleField={toggleExportField}
+        onSelectAll={handleSelectAllExportFields}
+        onClearAll={handleClearAllExportFields}
+        onConfirm={handleConfirmExport}
+      />
 
       <MessageModal
         isOpen={paymentConfirm.isOpen}
