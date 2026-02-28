@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   FiX,
   FiClock,
@@ -11,18 +11,53 @@ import {
 } from "react-icons/fi";
 import { db } from "../../firebase";
 import { collection, getDocs } from "firebase/firestore";
+import { formatTeacherDisplayName } from "../../utils/teacherAlias";
 
 export default function CCADetailsModal({
   isOpen,
   onClose,
   cca,
   classes = [],
+  users = {},
 }) {
   const [vendorName, setVendorName] = useState("Loading...");
 
+  // --- ENRICH TEACHER DISPLAY NAME ---
+  const enrichedCCA = useMemo(() => {
+    if (!cca) return null;
+
+    // Find the teacher's alias from the users data
+    const usersArray = Array.isArray(users)
+      ? users
+      : Object.values(users || {});
+    const matchedTeacher = usersArray.find((user) => {
+      if (!user || user.role !== "teacher") return false;
+      const userDisplayName = (user.displayName || user.name || "")
+        .trim()
+        .toLowerCase();
+      const userName = (user.name || "").trim().toLowerCase();
+      const userEmail = (user.email || "").trim().toLowerCase();
+      const teacherName = (cca.teacher || "").trim().toLowerCase();
+      return (
+        userDisplayName === teacherName ||
+        userName === teacherName ||
+        userEmail === teacherName
+      );
+    });
+
+    const alias = matchedTeacher?.alias || cca.teacherAlias || "";
+    const teacherDisplay = formatTeacherDisplayName(cca.teacher || "", alias);
+
+    return {
+      ...cca,
+      teacherAlias: alias,
+      teacherDisplay,
+    };
+  }, [cca, users]);
+
   // --- FETCH VENDOR INFO ---
   useEffect(() => {
-    if (isOpen && cca) {
+    if (isOpen && enrichedCCA) {
       const fetchVendor = async () => {
         try {
           const vendorsRef = collection(db, "vendors");
@@ -32,7 +67,7 @@ export default function CCADetailsModal({
           snapshot.forEach((doc) => {
             const data = doc.data();
             if (data.associatedCCAs && Array.isArray(data.associatedCCAs)) {
-              if (data.associatedCCAs.some((c) => c.id === cca.id)) {
+              if (data.associatedCCAs.some((c) => c.id === enrichedCCA.id)) {
                 foundVendor = data.name;
               }
             }
@@ -47,9 +82,9 @@ export default function CCADetailsModal({
 
       fetchVendor();
     }
-  }, [isOpen, cca]);
+  }, [isOpen, enrichedCCA]);
 
-  if (!isOpen || !cca) return null;
+  if (!isOpen || !enrichedCCA) return null;
 
   // Helper to convert 24hr to 12hr for display
   const formatTime12hr = (timeStr) => {
@@ -62,7 +97,7 @@ export default function CCADetailsModal({
   };
 
   const assignedClassNames = classes
-    .filter((cls) => cls.allowedCCAs?.includes(cca.id))
+    .filter((cls) => cls.allowedCCAs?.includes(enrichedCCA.id))
     .map((cls) => cls.name);
 
   // Helper to format specific date string
@@ -77,8 +112,8 @@ export default function CCADetailsModal({
     });
   };
 
-  const enrolledCount = cca.enrolledCount || 0;
-  const maxSeats = cca.maxSeats || 0;
+  const enrolledCount = enrichedCCA.enrolledCount || 0;
+  const maxSeats = enrichedCCA.maxSeats || 0;
 
   // Calculate Status
   const isFull = maxSeats > 0 && enrolledCount >= maxSeats;
@@ -107,18 +142,19 @@ export default function CCADetailsModal({
           <div className="mt-2">
             <span
               className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-3 ${
-                cca.isActive
+                enrichedCCA.isActive
                   ? "bg-emerald-500/20 text-emerald-300"
                   : "bg-slate-700 text-slate-400"
               }`}
             >
-              {cca.isActive ? "Active CCA" : "Hidden / Inactive"}
+              {enrichedCCA.isActive ? "Active CCA" : "Hidden / Inactive"}
             </span>
             <h2 className="text-2xl font-black tracking-tight leading-tight mb-1">
-              {cca.name}
+              {enrichedCCA.name}
             </h2>
             <div className="flex items-center gap-2 text-slate-400 font-medium text-sm">
-              <FiUserCheck /> {cca.teacherDisplay || cca.teacher || "TBA"}
+              <FiUserCheck />{" "}
+              {enrichedCCA.teacherDisplay || enrichedCCA.teacher || "TBA"}
             </div>
           </div>
         </div>
@@ -151,8 +187,8 @@ export default function CCADetailsModal({
                 Rp Fee
               </div>
               <div className="text-2xl font-black text-brand-primary">
-                {Number(cca.price) > 0
-                  ? `Rp ${Number(cca.price).toLocaleString()}`
+                {Number(enrichedCCA.price) > 0
+                  ? `Rp ${Number(enrichedCCA.price).toLocaleString()}`
                   : "Free"}
               </div>
               <p className="text-[10px] font-bold text-slate-400 mt-1">
@@ -167,7 +203,7 @@ export default function CCADetailsModal({
               About
             </h3>
             <p className="text-slate-600 text-sm leading-relaxed bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-              {cca.description || "No description provided."}
+              {enrichedCCA.description || "No description provided."}
             </p>
           </div>
 
@@ -198,7 +234,9 @@ export default function CCADetailsModal({
                 <p className="text-xs font-bold text-slate-400 uppercase">
                   Venue
                 </p>
-                <p className="font-bold text-slate-700">{cca.venue || "TBD"}</p>
+                <p className="font-bold text-slate-700">
+                  {enrichedCCA.venue || "TBD"}
+                </p>
               </div>
             </div>
 
@@ -211,8 +249,8 @@ export default function CCADetailsModal({
                   Time
                 </p>
                 <p className="font-bold text-slate-700">
-                  {formatTime12hr(cca.startTime)} -{" "}
-                  {formatTime12hr(cca.endTime)}
+                  {formatTime12hr(enrichedCCA.startTime)} -{" "}
+                  {formatTime12hr(enrichedCCA.endTime)}
                 </p>
               </div>
             </div>
@@ -231,9 +269,10 @@ export default function CCADetailsModal({
               </div>
 
               <div className="pl-14 space-y-1">
-                {cca.sessionDates && cca.sessionDates.length > 0 ? (
+                {enrichedCCA.sessionDates &&
+                enrichedCCA.sessionDates.length > 0 ? (
                   // Sort dates chronologically
-                  [...cca.sessionDates].sort().map((dateStr, idx) => (
+                  [...enrichedCCA.sessionDates].sort().map((dateStr, idx) => (
                     <div
                       key={idx}
                       className="flex gap-3 text-sm font-medium text-slate-600 border-l-2 border-slate-200 pl-3"

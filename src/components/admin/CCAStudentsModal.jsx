@@ -6,6 +6,7 @@ import {
   FiChevronDown,
   FiDownload,
 } from "react-icons/fi";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 export default function CCAStudentsModal({
   isOpen,
@@ -17,6 +18,19 @@ export default function CCAStudentsModal({
 }) {
   const [expandedClasses, setExpandedClasses] = useState({});
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "cca",
+    "className",
+    "studentName",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(11);
+
+  const exportFields = [
+    { key: "cca", label: "CCA" },
+    { key: "className", label: "Class" },
+    { key: "studentName", label: "Student Name" },
+  ];
 
   const groupedStudents = useMemo(() => {
     if (!cca || !Array.isArray(selections)) return [];
@@ -141,23 +155,39 @@ export default function CCAStudentsModal({
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPDF = () => {
+  const handleOpenExportPDF = () => {
+    if (!exportRows.length) return;
+    setExportFieldsOpen(true);
+  };
+
+  const handleExportPDF = (
+    fields = selectedExportFields,
+    fontSize = pdfFontSize,
+  ) => {
     if (!groupedStudents.length) return;
 
-    const groupedHtml = groupedStudents
-      .map((group) => {
-        const studentItems = group.students
-          .map((student) => `<li>${escapeHtml(student.name)}</li>`)
-          .join("");
+    const selectedColumns = exportFields.filter((field) =>
+      fields.includes(field.key),
+    );
+    if (!selectedColumns.length) return;
 
-        return `
-          <section style="margin-bottom:12px;">
-            <h3 style="font-size:12px;margin:0 0 6px;">${escapeHtml(group.className)} (${group.students.length})</h3>
-            <ul style="margin:0;padding-left:18px;">${studentItems}</ul>
-          </section>
-        `;
+    const tableRows = exportRows
+      .map((row) => {
+        const rowData = {
+          cca: cca?.name || "",
+          className: row.className,
+          studentName: row.studentName,
+        };
+        const cells = selectedColumns
+          .map((field) => `<td>${escapeHtml(rowData[field.key])}</td>`)
+          .join("");
+        return `<tr>${cells}</tr>`;
       })
       .join("\n");
+
+    const tableHeaders = selectedColumns
+      .map((field) => `<th>${escapeHtml(field.label)}</th>`)
+      .join("");
 
     const html = `
       <html>
@@ -165,16 +195,25 @@ export default function CCAStudentsModal({
           <title>${escapeHtml(cca?.name || "CCA")} Student List</title>
           <style>
             @page { size: A4; margin: 12mm; }
-            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:11px;color:#111}
-            h2{font-size:15px;margin:0 0 4px}
-            p{margin:0 0 12px;color:#444;font-size:11px}
-            li{margin:2px 0;}
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+            h2{font-size:${Math.max(fontSize + 4, 15)}px;margin:0 0 4px}
+            p{margin:0 0 12px;color:#444;font-size:${fontSize}px}
+            table{width:100%;border-collapse:collapse}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px;vertical-align:top}
+            th{background:#f3f4f6;font-weight:700}
           </style>
         </head>
         <body>
           <h2>${escapeHtml(cca?.name || "CCA")} - Student List</h2>
           <p>Total Students: ${totalStudents}</p>
-          ${groupedHtml}
+          <table>
+            <thead>
+              <tr>${tableHeaders}</tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
         </body>
       </html>
     `;
@@ -187,6 +226,12 @@ export default function CCAStudentsModal({
       printWindow.focus();
       printWindow.print();
     }, 300);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+    handleExportPDF(fields, fontSize);
   };
 
   return (
@@ -235,7 +280,7 @@ export default function CCAStudentsModal({
                   <button
                     type="button"
                     onClick={() => {
-                      handleExportPDF();
+                      handleOpenExportPDF();
                       setExportOpen(false);
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
@@ -245,6 +290,17 @@ export default function CCAStudentsModal({
                 </div>
               )}
             </div>
+
+            <ExportFieldsModal
+              isOpen={exportFieldsOpen}
+              onClose={() => setExportFieldsOpen(false)}
+              fields={exportFields}
+              selectedFields={selectedExportFields}
+              onChangeFields={setSelectedExportFields}
+              fontSize={pdfFontSize}
+              onFontSizeChange={setPdfFontSize}
+              onExport={handleExportFieldsConfirm}
+            />
 
             <button
               onClick={handleClose}

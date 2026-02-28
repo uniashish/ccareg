@@ -8,6 +8,7 @@ import {
   FiChevronDown,
   FiSearch,
 } from "react-icons/fi";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 export default function MissingStudentsModal({
   isOpen,
@@ -15,9 +16,22 @@ export default function MissingStudentsModal({
   missingStudents,
 }) {
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "name",
+    "email",
+    "class",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(10);
   const [filterText, setFilterText] = useState("");
   const [selectedClass, setSelectedClass] = useState("all");
   const exportMenuRef = useRef(null);
+
+  const exportFields = [
+    { key: "name", label: "Student Name" },
+    { key: "email", label: "Email" },
+    { key: "class", label: "Class" },
+  ];
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -93,22 +107,43 @@ export default function MissingStudentsModal({
     document.body.removeChild(link);
   };
 
-  const handleExportPDF = () => {
+  const handleOpenExportPDF = () => {
+    if (!filteredStudents.length) return;
+    setExportFieldsOpen(true);
+  };
+
+  const handleExportPDF = (
+    fields = selectedExportFields,
+    fontSize = pdfFontSize,
+  ) => {
     const escapeHtml = (value) =>
       String(value ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 
+    const selectedColumns = exportFields.filter((field) =>
+      fields.includes(field.key),
+    );
+    if (!selectedColumns.length) return;
+
     const rowsHtml = filteredStudents
-      .map(
-        (student) => `<tr>
-          <td>${escapeHtml(student.name)}</td>
-          <td>${escapeHtml(student.email)}</td>
-          <td>${escapeHtml(student.class)}</td>
-        </tr>`,
-      )
+      .map((student) => {
+        const row = {
+          name: student.name,
+          email: student.email,
+          class: student.class,
+        };
+        const cells = selectedColumns
+          .map((field) => `<td>${escapeHtml(row[field.key])}</td>`)
+          .join("");
+        return `<tr>${cells}</tr>`;
+      })
       .join("\n");
+
+    const headersHtml = selectedColumns
+      .map((field) => `<th>${escapeHtml(field.label)}</th>`)
+      .join("");
 
     const html = `
       <html>
@@ -116,10 +151,10 @@ export default function MissingStudentsModal({
           <title>Missing Students</title>
           <style>
             @page { size: A4 portrait; margin: 12mm; }
-            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
-            h2{font-size:13px;margin-bottom:6px}
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+            h2{font-size:${Math.max(fontSize + 3, 13)}px;margin-bottom:6px}
             table{width:100%;border-collapse:collapse}
-            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px}
             th{background:#f3f4f6;font-weight:700}
           </style>
         </head>
@@ -127,7 +162,7 @@ export default function MissingStudentsModal({
           <h2>Missing Selections</h2>
           <table>
             <thead>
-              <tr><th>Student Name</th><th>Email</th><th>Class</th></tr>
+              <tr>${headersHtml}</tr>
             </thead>
             <tbody>
               ${rowsHtml}
@@ -145,6 +180,12 @@ export default function MissingStudentsModal({
       w.focus();
       w.print();
     }, 300);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+    handleExportPDF(fields, fontSize);
   };
 
   return (
@@ -315,7 +356,7 @@ export default function MissingStudentsModal({
                 </button>
                 <button
                   onClick={() => {
-                    handleExportPDF();
+                    handleOpenExportPDF();
                     setExportOpen(false);
                   }}
                   className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
@@ -325,6 +366,17 @@ export default function MissingStudentsModal({
               </div>
             )}
           </div>
+
+          <ExportFieldsModal
+            isOpen={exportFieldsOpen}
+            onClose={() => setExportFieldsOpen(false)}
+            fields={exportFields}
+            selectedFields={selectedExportFields}
+            onChangeFields={setSelectedExportFields}
+            fontSize={pdfFontSize}
+            onFontSizeChange={setPdfFontSize}
+            onExport={handleExportFieldsConfirm}
+          />
         </div>
       </div>
     </div>

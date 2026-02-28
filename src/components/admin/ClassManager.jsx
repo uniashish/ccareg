@@ -10,12 +10,32 @@ import {
 import { db } from "../../firebase"; // Import db
 import { collection, onSnapshot } from "firebase/firestore"; // Import Firestore methods
 import ClassDetailsModal from "./ClassDetailsModal";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 // --- SUB-COMPONENT: SELECTIONS MODAL ---
 function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "index",
+    "studentName",
+    "email",
+    "cca1",
+    "cca2",
+    "cca3",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(10);
   const [studentFilter, setStudentFilter] = useState("");
   const exportMenuRef = useRef(null);
+
+  const exportFields = [
+    { key: "index", label: "#" },
+    { key: "studentName", label: "Student Name" },
+    { key: "email", label: "Email" },
+    { key: "cca1", label: "CCA1" },
+    { key: "cca2", label: "CCA2" },
+    { key: "cca3", label: "CCA3" },
+  ];
 
   // Filter selections for this specific class
   const classSelections = (selections || []).filter(
@@ -73,7 +93,15 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
     document.body.removeChild(link);
   };
 
-  const handleExportPDF = () => {
+  const handleOpenExportPDF = () => {
+    if (classSelections.length === 0) return;
+    setExportFieldsOpen(true);
+  };
+
+  const handleExportPDF = (
+    fields = selectedExportFields,
+    fontSize = pdfFontSize,
+  ) => {
     if (classSelections.length === 0) return;
 
     const escapeHtml = (value) =>
@@ -82,21 +110,31 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 
+    const selectedColumns = exportFields.filter((field) =>
+      fields.includes(field.key),
+    );
+    if (!selectedColumns.length) return;
+
     const rowsHtml = classSelections
       .map((s, idx) => {
-        const cca1 = s.selectedCCAs?.[0]?.name || "";
-        const cca2 = s.selectedCCAs?.[1]?.name || "";
-        const cca3 = s.selectedCCAs?.[2]?.name || "";
-        return `<tr>
-          <td>${idx + 1}</td>
-          <td>${escapeHtml(s.studentName)}</td>
-          <td>${escapeHtml(s.studentEmail)}</td>
-          <td>${escapeHtml(cca1)}</td>
-          <td>${escapeHtml(cca2)}</td>
-          <td>${escapeHtml(cca3)}</td>
-        </tr>`;
+        const row = {
+          index: idx + 1,
+          studentName: s.studentName,
+          email: s.studentEmail,
+          cca1: s.selectedCCAs?.[0]?.name || "",
+          cca2: s.selectedCCAs?.[1]?.name || "",
+          cca3: s.selectedCCAs?.[2]?.name || "",
+        };
+        const cells = selectedColumns
+          .map((field) => `<td>${escapeHtml(row[field.key])}</td>`)
+          .join("");
+        return `<tr>${cells}</tr>`;
       })
       .join("\n");
+
+    const headersHtml = selectedColumns
+      .map((field) => `<th>${escapeHtml(field.label)}</th>`)
+      .join("");
 
     const html = `
       <html>
@@ -104,10 +142,10 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
           <title>${escapeHtml(classData?.name || "Class")} Selections</title>
           <style>
             @page { size: A4 landscape; margin: 12mm; }
-            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
-            h2{font-size:13px;margin-bottom:6px}
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+            h2{font-size:${Math.max(fontSize + 3, 13)}px;margin-bottom:6px}
             table{width:100%;border-collapse:collapse}
-            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px;vertical-align:top}
             th{background:#f3f4f6;font-weight:700}
           </style>
         </head>
@@ -115,14 +153,7 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
           <h2>${escapeHtml(classData?.name || "Class")} - Student Selections</h2>
           <table>
             <thead>
-              <tr>
-                <th>#</th>
-                <th>Student Name</th>
-                <th>Email</th>
-                <th>CCA1</th>
-                <th>CCA2</th>
-                <th>CCA3</th>
-              </tr>
+              <tr>${headersHtml}</tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
           </table>
@@ -138,6 +169,12 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
       w.focus();
       w.print();
     }, 300);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+    handleExportPDF(fields, fontSize);
   };
 
   useEffect(() => {
@@ -308,7 +345,7 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
                 <button
                   type="button"
                   onClick={() => {
-                    handleExportPDF();
+                    handleOpenExportPDF();
                     setExportOpen(false);
                   }}
                   className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 border-t border-slate-100"
@@ -326,6 +363,17 @@ function ClassSelectionsModal({ isOpen, onClose, classData, selections }) {
             Close
           </button>
         </div>
+
+        <ExportFieldsModal
+          isOpen={exportFieldsOpen}
+          onClose={() => setExportFieldsOpen(false)}
+          fields={exportFields}
+          selectedFields={selectedExportFields}
+          onChangeFields={setSelectedExportFields}
+          fontSize={pdfFontSize}
+          onFontSizeChange={setPdfFontSize}
+          onExport={handleExportFieldsConfirm}
+        />
       </div>
     </div>
   );

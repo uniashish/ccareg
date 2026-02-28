@@ -36,10 +36,12 @@ export default function CustomListModalCard({
   }, [exportOpen]);
 
   return (
-    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden transform transition-all animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col">
+    <div className="relative bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden transform transition-all animate-in zoom-in-95 duration-200 max-h-[90vh] sm:max-h-[85vh] flex flex-col">
       {/* Header with Close Button */}
-      <div className="flex items-center justify-between p-6 border-b border-slate-200">
-        <h2 className="text-2xl font-black text-slate-800">My List</h2>
+      <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
+        <h2 className="text-xl sm:text-2xl font-black text-slate-800">
+          My List
+        </h2>
         <button
           onClick={onClose}
           className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-full hover:bg-slate-100"
@@ -49,22 +51,22 @@ export default function CustomListModalCard({
       </div>
 
       {/* Toolbar */}
-      <div className="p-4 bg-slate-50 border-b border-slate-200">
-        <div className="flex items-center gap-3">
+      <div className="p-3 sm:p-4 bg-slate-50 border-b border-slate-200">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <button
             onClick={onAddStudent}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-black font-bold transition-colors bg-green-50 text-green-600 hover:bg-green-100"
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-black text-sm font-bold transition-colors bg-green-50 text-green-600 hover:bg-green-100"
           >
             <FiUserPlus size={18} />
             Add Student
           </button>
 
           {/* Export Button */}
-          <div className="relative ml-auto" ref={exportMenuRef}>
+          <div className="relative sm:ml-auto" ref={exportMenuRef}>
             <button
               onClick={() => setExportOpen(!exportOpen)}
               disabled={customList.length === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 font-bold transition-colors bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-slate-300 text-sm font-bold transition-colors bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FiDownload size={18} />
               Export
@@ -101,7 +103,7 @@ export default function CustomListModalCard({
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {isLoading ? (
           <div className="text-center py-12">
             <p className="text-slate-400 text-sm">Loading your list...</p>
@@ -117,14 +119,14 @@ export default function CustomListModalCard({
             {customList.map((student, index) => (
               <div
                 key={student.id}
-                className="p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-colors"
+                className="p-3 sm:p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-colors"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
+                  <div className="flex-1 min-w-0">
                     <div className="font-bold text-slate-700 text-sm">
                       {student.studentName}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-slate-500 mt-1 break-words">
                       {student.className} • {student.studentEmail}
                     </div>
                     {student.selectedCCAs &&
@@ -186,7 +188,7 @@ export default function CustomListModalCard({
                   </div>
                   <button
                     onClick={() => onRemoveStudent(index)}
-                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
                     title="Remove student"
                   >
                     <FiX size={18} />

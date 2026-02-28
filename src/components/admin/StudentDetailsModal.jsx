@@ -9,6 +9,7 @@ import {
 } from "react-icons/fi";
 import { db } from "../../firebase";
 import { doc, getDoc } from "firebase/firestore";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 export default function StudentDetailsModal({
   isOpen,
@@ -20,6 +21,24 @@ export default function StudentDetailsModal({
   const [loading, setLoading] = useState(true);
   const [allExportOpen, setAllExportOpen] = useState(false);
   const [ccaExportOpenById, setCcaExportOpenById] = useState({});
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [exportTarget, setExportTarget] = useState(null);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "cca",
+    "date",
+    "status",
+    "presentDays",
+    "presentPercent",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(10);
+
+  const exportFields = [
+    { key: "cca", label: "CCA" },
+    { key: "date", label: "Date" },
+    { key: "status", label: "Status" },
+    { key: "presentDays", label: "Present Days" },
+    { key: "presentPercent", label: "Present %" },
+  ];
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -190,6 +209,8 @@ export default function StudentDetailsModal({
       setEnrichedCCAs([]);
       setAllExportOpen(false);
       setCcaExportOpenById({});
+      setExportFieldsOpen(false);
+      setExportTarget(null);
     }
   }, [isOpen, selection]);
 
@@ -308,21 +329,41 @@ export default function StudentDetailsModal({
     URL.revokeObjectURL(url);
   };
 
-  const exportPDF = (rows, fileBase, title) => {
+  const exportPDF = (
+    rows,
+    fileBase,
+    title,
+    fields = selectedExportFields,
+    fontSize = pdfFontSize,
+  ) => {
     if (!rows.length) return;
 
+    const selectedColumns = exportFields.filter((field) =>
+      fields.includes(field.key),
+    );
+    if (!selectedColumns.length) return;
+
     const tableRows = rows
-      .map(
-        (row) =>
-          `<tr>
-            <td>${escapeHtml(row.ccaName)}</td>
-            <td>${escapeHtml(row.dateLabel)}</td>
-            <td>${escapeHtml(row.status)}</td>
-            <td>${escapeHtml(row.presentSummary)}</td>
-            <td>${escapeHtml(row.presentPercent)}</td>
-          </tr>`,
-      )
+      .map((row) => {
+        const rowData = {
+          cca: row.ccaName,
+          date: row.dateLabel,
+          status: row.status,
+          presentDays: row.presentSummary,
+          presentPercent: row.presentPercent,
+        };
+
+        const cells = selectedColumns
+          .map((column) => `<td>${escapeHtml(rowData[column.key])}</td>`)
+          .join("");
+
+        return `<tr>${cells}</tr>`;
+      })
       .join("\n");
+
+    const tableHeaders = selectedColumns
+      .map((column) => `<th>${escapeHtml(column.label)}</th>`)
+      .join("");
 
     const html = `
       <html>
@@ -330,11 +371,11 @@ export default function StudentDetailsModal({
           <title>${escapeHtml(fileBase)}</title>
           <style>
             @page { size: A4 landscape; margin: 12mm; }
-            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
-            h2{font-size:14px;margin:0 0 4px}
-            p{margin:0 0 10px;color:#444;font-size:10px}
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+            h2{font-size:${Math.max(fontSize + 4, 14)}px;margin:0 0 4px}
+            p{margin:0 0 10px;color:#444;font-size:${fontSize}px}
             table{width:100%;border-collapse:collapse}
-            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px;vertical-align:top}
             th{background:#f3f4f6;font-weight:700}
           </style>
         </head>
@@ -343,13 +384,7 @@ export default function StudentDetailsModal({
           <p>Student: ${escapeHtml(selection.studentName || "")}, Class: ${escapeHtml(className)}</p>
           <table>
             <thead>
-              <tr>
-                <th>CCA</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Present Days</th>
-                <th>Present %</th>
-              </tr>
+              <tr>${tableHeaders}</tr>
             </thead>
             <tbody>
               ${tableRows}
@@ -367,6 +402,26 @@ export default function StudentDetailsModal({
       printWindow.focus();
       printWindow.print();
     }, 300);
+  };
+
+  const openExportOptions = ({ rows, fileBase, title }) => {
+    if (!rows?.length) return;
+    setExportTarget({ rows, fileBase, title });
+    setExportFieldsOpen(true);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+    if (!exportTarget) return;
+
+    exportPDF(
+      exportTarget.rows,
+      exportTarget.fileBase,
+      exportTarget.title,
+      fields,
+      fontSize,
+    );
   };
 
   return (
@@ -435,7 +490,11 @@ export default function StudentDetailsModal({
                       const rows = buildRowsForAllCCAs();
                       const datePart = new Date().toISOString().split("T")[0];
                       const fileBase = `All_CCA_Attendance_${selection.studentUid || selection.id || "student"}_${datePart}`;
-                      exportPDF(rows, fileBase, "All CCA Attendance");
+                      openExportOptions({
+                        rows,
+                        fileBase,
+                        title: "All CCA Attendance",
+                      });
                       setAllExportOpen(false);
                     }}
                     className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
@@ -540,11 +599,11 @@ export default function StudentDetailsModal({
                                   "_",
                                 );
                                 const fileBase = `CCA_Attendance_${safeName}_${datePart}`;
-                                exportPDF(
+                                openExportOptions({
                                   rows,
                                   fileBase,
-                                  `${cca.name} Attendance`,
-                                );
+                                  title: `${cca.name} Attendance`,
+                                });
                                 setCcaExportOpenById((prev) => ({
                                   ...prev,
                                   [cca.id || idx]: false,
@@ -654,6 +713,20 @@ export default function StudentDetailsModal({
             Close
           </button>
         </div>
+
+        <ExportFieldsModal
+          isOpen={exportFieldsOpen}
+          onClose={() => {
+            setExportFieldsOpen(false);
+            setExportTarget(null);
+          }}
+          fields={exportFields}
+          selectedFields={selectedExportFields}
+          onChangeFields={setSelectedExportFields}
+          fontSize={pdfFontSize}
+          onFontSizeChange={setPdfFontSize}
+          onExport={handleExportFieldsConfirm}
+        />
       </div>
     </div>
   );

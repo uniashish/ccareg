@@ -8,6 +8,7 @@ import {
 } from "react-icons/fi";
 import { db } from "../../firebase";
 import { doc, getDoc } from "firebase/firestore";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 const parseDate = (value) => {
   if (!value) return null;
@@ -60,6 +61,27 @@ export default function AdminAttendanceModal({
 }) {
   const [attendanceByDate, setAttendanceByDate] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "date",
+    "status",
+    "present",
+    "absent",
+    "total",
+    "presentStudents",
+    "absentStudents",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(10);
+
+  const exportFields = [
+    { key: "date", label: "Date" },
+    { key: "status", label: "Status" },
+    { key: "present", label: "Present" },
+    { key: "absent", label: "Absent" },
+    { key: "total", label: "Total" },
+    { key: "presentStudents", label: "Present Students" },
+    { key: "absentStudents", label: "Absent Students" },
+  ];
 
   const escapeCSV = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
   const escapeHtml = (value) =>
@@ -232,24 +254,57 @@ export default function AdminAttendanceModal({
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPDF = () => {
+  const handleOpenExportPDF = () => {
+    const rows = buildExportRows();
+    if (!rows.length) return;
+    setExportFieldsOpen(true);
+  };
+
+  const handleExportPDF = (
+    fields = selectedExportFields,
+    fontSize = pdfFontSize,
+  ) => {
     const rows = buildExportRows();
     if (!rows.length) return;
 
+    const columnMap = {
+      date: "Date",
+      status: "Status",
+      present: "Present",
+      absent: "Absent",
+      total: "Total",
+      presentStudents: "Present Students",
+      absentStudents: "Absent Students",
+    };
+
+    const selectedColumns = exportFields.filter((field) =>
+      fields.includes(field.key),
+    );
+    if (!selectedColumns.length) return;
+
     const tableRows = rows
-      .map(
-        (row) =>
-          `<tr>
-            <td>${escapeHtml(row.dateLabel)}</td>
-            <td>${escapeHtml(row.status)}</td>
-            <td>${row.presentCount}</td>
-            <td>${row.absentCount}</td>
-            <td>${row.totalCount}</td>
-            <td>${escapeHtml(row.presentStudents.join(", ") || "-")}</td>
-            <td>${escapeHtml(row.absentStudents.join(", ") || "-")}</td>
-          </tr>`,
-      )
+      .map((row) => {
+        const rowData = {
+          date: escapeHtml(row.dateLabel),
+          status: escapeHtml(row.status),
+          present: row.presentCount,
+          absent: row.absentCount,
+          total: row.totalCount,
+          presentStudents: escapeHtml(row.presentStudents.join(", ") || "-"),
+          absentStudents: escapeHtml(row.absentStudents.join(", ") || "-"),
+        };
+
+        const cells = selectedColumns
+          .map((column) => `<td>${rowData[column.key]}</td>`)
+          .join("");
+
+        return `<tr>${cells}</tr>`;
+      })
       .join("\n");
+
+    const tableHeaders = selectedColumns
+      .map((column) => `<th>${escapeHtml(columnMap[column.key])}</th>`)
+      .join("");
 
     const html = `
       <html>
@@ -257,10 +312,10 @@ export default function AdminAttendanceModal({
           <title>${escapeHtml(cca.name)} Attendance</title>
           <style>
             @page { size: A4 landscape; margin: 12mm; }
-            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
-            h2{font-size:14px;margin:0 0 8px}
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+            h2{font-size:${Math.max(fontSize + 2, 12)}px;margin:0 0 8px}
             table{width:100%;border-collapse:collapse}
-            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px;vertical-align:top}
             th{background:#f3f4f6;font-weight:700}
           </style>
         </head>
@@ -268,15 +323,7 @@ export default function AdminAttendanceModal({
           <h2>${escapeHtml(cca.name)} - Attendance by Date</h2>
           <table>
             <thead>
-              <tr>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Present</th>
-                <th>Absent</th>
-                <th>Total</th>
-                <th>Present Students</th>
-                <th>Absent Students</th>
-              </tr>
+              <tr>${tableHeaders}</tr>
             </thead>
             <tbody>
               ${tableRows}
@@ -294,6 +341,12 @@ export default function AdminAttendanceModal({
       printWindow.focus();
       printWindow.print();
     }, 300);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+    handleExportPDF(fields, fontSize);
   };
 
   return (
@@ -324,7 +377,7 @@ export default function AdminAttendanceModal({
               <FiDownload size={13} /> CSV
             </button>
             <button
-              onClick={handleExportPDF}
+              onClick={handleOpenExportPDF}
               disabled={isLoading || attendanceByDate.length === 0}
               className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors inline-flex items-center gap-1.5 ${
                 isLoading || attendanceByDate.length === 0
@@ -419,6 +472,17 @@ export default function AdminAttendanceModal({
           )}
         </div>
       </div>
+
+      <ExportFieldsModal
+        isOpen={exportFieldsOpen}
+        onClose={() => setExportFieldsOpen(false)}
+        fields={exportFields}
+        selectedFields={selectedExportFields}
+        onChangeFields={setSelectedExportFields}
+        fontSize={pdfFontSize}
+        onFontSizeChange={setPdfFontSize}
+        onExport={handleExportFieldsConfirm}
+      />
     </div>
   );
 }

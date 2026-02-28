@@ -9,6 +9,7 @@ import {
   FiFilter,
   FiDownload,
 } from "react-icons/fi";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 export default function UserManager({
   users,
@@ -20,7 +21,20 @@ export default function UserManager({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "fullName",
+    "email",
+    "accessLevel",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(10);
   const exportMenuRef = useRef(null);
+
+  const exportFields = [
+    { key: "fullName", label: "Full Name" },
+    { key: "email", label: "Email Address" },
+    { key: "accessLevel", label: "Access Level" },
+  ];
 
   const roles = ["all", "admin", "teacher", "student", "vendor"];
 
@@ -41,7 +55,11 @@ export default function UserManager({
     return filteredUsers.map((u) => {
       const userName =
         u.displayName || u.name || u.email?.split("@")[0] || "Unknown User";
-      return [userName, u.email || "", u.role || ""];
+      return {
+        fullName: userName,
+        email: u.email || "",
+        accessLevel: u.role || "",
+      };
     });
   };
 
@@ -53,7 +71,9 @@ export default function UserManager({
   const handleExportCSV = () => {
     const headers = ["Full Name", "Email Address", "Access Level"];
     const rows = getExportRows().map((row) =>
-      row.map((cell) => escapeCSV(cell)).join(","),
+      [row.fullName, row.email, row.accessLevel]
+        .map((cell) => escapeCSV(cell))
+        .join(","),
     );
     const csvContent = [headers.join(","), ...rows].join("\n");
 
@@ -71,19 +91,38 @@ export default function UserManager({
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPDF = () => {
+  const handleOpenExportPDF = () => {
+    if (filteredUsers.length === 0) return;
+    setExportFieldsOpen(true);
+  };
+
+  const handleExportPDF = (
+    fields = selectedExportFields,
+    fontSize = pdfFontSize,
+  ) => {
     const escapeHtml = (value) =>
       String(value ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 
+    const selectedColumns = exportFields.filter((field) =>
+      fields.includes(field.key),
+    );
+    if (!selectedColumns.length) return;
+
     const rowsHtml = getExportRows()
-      .map(
-        (row) =>
-          `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`,
-      )
+      .map((row) => {
+        const cells = selectedColumns
+          .map((field) => `<td>${escapeHtml(row[field.key])}</td>`)
+          .join("");
+        return `<tr>${cells}</tr>`;
+      })
       .join("\n");
+
+    const headersHtml = selectedColumns
+      .map((field) => `<th>${escapeHtml(field.label)}</th>`)
+      .join("");
 
     const html = `
       <html>
@@ -91,10 +130,10 @@ export default function UserManager({
           <title>User List Export</title>
           <style>
             @page { size: A4 landscape; margin: 12mm; }
-            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
-            h2{font-size:13px;margin-bottom:6px}
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+            h2{font-size:${Math.max(fontSize + 3, 13)}px;margin-bottom:6px}
             table{width:100%;border-collapse:collapse}
-            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px;vertical-align:top}
             th{background:#f3f4f6;font-weight:700}
           </style>
         </head>
@@ -102,11 +141,7 @@ export default function UserManager({
           <h2>User List (${escapeHtml(activeFilter)})</h2>
           <table>
             <thead>
-              <tr>
-                <th>Full Name</th>
-                <th>Email Address</th>
-                <th>Access Level</th>
-              </tr>
+              <tr>${headersHtml}</tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
           </table>
@@ -122,6 +157,12 @@ export default function UserManager({
       w.focus();
       w.print();
     }, 300);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+    handleExportPDF(fields, fontSize);
   };
 
   useEffect(() => {
@@ -201,7 +242,7 @@ export default function UserManager({
                   <button
                     type="button"
                     onClick={() => {
-                      handleExportPDF();
+                      handleOpenExportPDF();
                       setExportOpen(false);
                     }}
                     className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 border-t border-slate-100"
@@ -210,6 +251,17 @@ export default function UserManager({
                   </button>
                 </div>
               )}
+
+              <ExportFieldsModal
+                isOpen={exportFieldsOpen}
+                onClose={() => setExportFieldsOpen(false)}
+                fields={exportFields}
+                selectedFields={selectedExportFields}
+                onChangeFields={setSelectedExportFields}
+                fontSize={pdfFontSize}
+                onFontSizeChange={setPdfFontSize}
+                onExport={handleExportFieldsConfirm}
+              />
             </div>
           </div>
         </div>

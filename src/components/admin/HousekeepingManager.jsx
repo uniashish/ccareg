@@ -18,8 +18,8 @@ import AdminContactManager from "./AdminContactManager";
 import EmailTemplateManager from "./EmailTemplateManager";
 import MissingStudentsModal from "./MissingStudentsModal";
 import { downloadVendorsCSV } from "../../utils/csvExporter";
-import { downloadVendorsPDF } from "../../utils/pdfExporter";
 import PortalControl from "./PortalControl";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 // --- IMPORT ---
 import VendorManagerModal from "./VendorManagerModal";
@@ -50,6 +50,34 @@ export default function HousekeepingManager({
 
   // --- NEW STATE: VENDORS LIST ---
   const [vendors, setVendors] = useState([]);
+
+  // --- STATE (VENDOR PDF EXPORT) ---
+  const [showVendorExportModal, setShowVendorExportModal] = useState(false);
+  const [selectedVendorExportFields, setSelectedVendorExportFields] = useState([
+    "vendorName",
+    "email",
+    "contactPerson",
+    "contactNumber",
+    "bankName",
+    "bankAccountName",
+    "accountNumber",
+    "associatedCCAs",
+  ]);
+  const [vendorPdfFontSize, setVendorPdfFontSize] = useState(10);
+
+  const vendorExportFields = useMemo(
+    () => [
+      { key: "vendorName", label: "Vendor Name" },
+      { key: "email", label: "Email Address" },
+      { key: "contactPerson", label: "Contact Person" },
+      { key: "contactNumber", label: "Contact Number" },
+      { key: "bankName", label: "Bank Name" },
+      { key: "bankAccountName", label: "Bank Account Name" },
+      { key: "accountNumber", label: "Account Number" },
+      { key: "associatedCCAs", label: "Associated CCAs" },
+    ],
+    [],
+  );
 
   // --- FETCH VENDORS ---
   useEffect(() => {
@@ -108,8 +136,103 @@ export default function HousekeepingManager({
     downloadVendorsCSV(vendors);
   };
 
-  const handleExportVendorsPDF = () => {
-    downloadVendorsPDF(vendors);
+  const handleOpenVendorExportPDF = () => {
+    setShowVendorExportModal(true);
+  };
+
+  const handleVendorExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedVendorExportFields(fields);
+    setVendorPdfFontSize(fontSize);
+    setShowVendorExportModal(false);
+    // Generate PDF with selected fields
+    generateVendorPDF(fields, fontSize);
+  };
+
+  const generateVendorPDF = (fields, fontSize) => {
+    const escapeHtml = (value) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    // Map vendor to row object
+    const getVendorRow = (vendor) => {
+      const associatedCCAs = Array.isArray(vendor.associatedCCAs)
+        ? vendor.associatedCCAs
+            .map((cca) => cca?.name)
+            .filter(Boolean)
+            .join(", ")
+        : "";
+
+      return {
+        vendorName: vendor.name || "",
+        email: vendor.email || "",
+        contactPerson: vendor.contactPerson || "",
+        contactNumber: vendor.contactNumber || "",
+        bankName: vendor.bankName || "",
+        bankAccountName: vendor.bankAccountName || "",
+        accountNumber: vendor.accountNumber || "",
+        associatedCCAs: associatedCCAs,
+      };
+    };
+
+    // Build table headers
+    const fieldLabelMap = vendorExportFields.reduce((acc, f) => {
+      acc[f.key] = f.label;
+      return acc;
+    }, {});
+
+    const thHtml = fields
+      .map((fk) => `<th>${fieldLabelMap[fk] || fk}</th>`)
+      .join("");
+
+    // Build table rows
+    const rowsHtml = vendors
+      .map((vendor) => {
+        const rowData = getVendorRow(vendor);
+        const tds = fields
+          .map((fk) => `<td>${escapeHtml(rowData[fk] || "")}</td>`)
+          .join("");
+        return `<tr>${tds}</tr>`;
+      })
+      .join("\n");
+
+    const html = `
+      <html>
+        <head>
+          <title>CCA Vendors</title>
+          <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+            h2{font-size:${fontSize + 3}px;margin-bottom:6px}
+            table{width:100%;border-collapse:collapse}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px;vertical-align:top}
+            th{background:#f3f4f6;font-weight:700}
+          </style>
+        </head>
+        <body>
+          <h2>CCA Vendors</h2>
+          <table>
+            <thead>
+              <tr>
+                ${thHtml}
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "", "width=900,height=650");
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
   };
 
   return (
@@ -207,7 +330,7 @@ export default function HousekeepingManager({
                   <FiDownload /> Export CSV
                 </button>
                 <button
-                  onClick={handleExportVendorsPDF}
+                  onClick={handleOpenVendorExportPDF}
                   className="w-full py-2 px-3 bg-white border border-slate-200 hover:border-brand-primary hover:text-brand-primary text-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
                 >
                   <FiDownload /> Export PDF
@@ -305,6 +428,15 @@ export default function HousekeepingManager({
       <VendorManagerModal
         isOpen={isVendorModalOpen}
         onClose={() => setIsVendorModalOpen(false)}
+      />
+
+      <ExportFieldsModal
+        isOpen={showVendorExportModal}
+        onClose={() => setShowVendorExportModal(false)}
+        onExport={handleVendorExportFieldsConfirm}
+        fields={vendorExportFields}
+        selectedFields={selectedVendorExportFields}
+        fontSize={vendorPdfFontSize}
       />
     </div>
   );

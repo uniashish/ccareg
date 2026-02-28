@@ -26,6 +26,7 @@ import {
   FiChevronDown,
   FiUsers,
   FiLayers,
+  FiDownload,
 } from "react-icons/fi";
 import { downloadSelectionsCSV } from "../utils/csvExporter";
 import { downloadSelectionsPDF } from "../utils/pdfExporter";
@@ -152,14 +153,14 @@ function CCADetailsModal({ isOpen, onClose, cca, classes }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
-        <div className="p-5 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
-          <div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200 max-h-[90vh]">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+          <div className="flex-1 min-w-0">
             <span className="text-[9px] font-black uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded-md">
               CCA Details
             </span>
-            <h2 className="text-xl font-black text-slate-800 mt-2 leading-tight">
+            <h2 className="text-lg sm:text-xl font-black text-slate-800 mt-2 leading-tight truncate">
               {cca.name}
             </h2>
             {cca.category && (
@@ -170,13 +171,13 @@ function CCADetailsModal({ isOpen, onClose, cca, classes }) {
           </div>
           <button
             onClick={onClose}
-            className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-100 transition-all"
+            className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-100 transition-all shrink-0 ml-2"
           >
             <FiX size={20} />
           </button>
         </div>
 
-        <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
           {/* Stats Bar */}
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
             <div className="flex justify-between items-center mb-2">
@@ -456,8 +457,8 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
   if (!isOpen || !selection) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
         {/* Modal Header */}
         <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
           <div>
@@ -865,7 +866,7 @@ export default function TeacherDashboard() {
         <Header />
 
         {/* UPDATED MAIN: flex-grow ensures it takes up available space */}
-        <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <main className="flex-grow w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
           {!isTeacherPortalActive ? (
             <div className="max-w-3xl mx-auto mt-8 bg-white border border-slate-200 rounded-3xl p-8 shadow-sm text-center">
               <h1 className="text-2xl font-black text-slate-800 tracking-tight mb-3">
@@ -888,149 +889,175 @@ export default function TeacherDashboard() {
           ) : (
             <>
               {/* --- PAGE HEADER & FILTERS --- */}
-              <div className="mb-8">
+              <div className="mb-2 sm:mb-3 md:mb-4">
                 {/* Filters Bar (Controls the Right Column) */}
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
-                  <div className="relative flex-1 w-full">
-                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search student name..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      disabled={activeView === "attendance"}
-                      className={`w-full pl-10 pr-4 py-3 bg-slate-50 border border-black rounded-xl text-sm font-bold text-slate-700 transition-all outline-none ${
-                        activeView === "attendance"
-                          ? "cursor-not-allowed opacity-60"
-                          : "focus:bg-white focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10"
-                      }`}
-                    />
-                  </div>
-                  <div className="relative w-full md:w-48">
-                    <FiGrid
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                      size={14}
-                    />
-                    <select
-                      value={filterClass}
-                      onChange={(e) => setFilterClass(e.target.value)}
-                      disabled={activeView === "attendance"}
-                      className={`w-full pl-9 pr-4 py-3 bg-slate-50 border border-black rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none ${
-                        activeView === "attendance"
-                          ? "cursor-not-allowed opacity-60"
-                          : "cursor-pointer focus:bg-white focus:border-brand-primary"
-                      }`}
-                    >
-                      <option value="">All Classes</option>
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="relative w-full md:w-64">
-                    <FiActivity
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                      size={14}
-                    />
-                    <select
-                      value={filterCCA}
-                      onChange={(e) => setFilterCCA(e.target.value)}
-                      disabled={activeView === "attendance"}
-                      className={`w-full pl-9 pr-4 py-3 bg-slate-50 border border-black rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none truncate ${
-                        activeView === "attendance"
-                          ? "cursor-not-allowed opacity-60"
-                          : "cursor-pointer focus:bg-white focus:border-brand-primary"
-                      }`}
-                    >
-                      <option value="">All CCAs</option>
-                      {ccas.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {(searchTerm || filterClass || filterCCA) && (
-                    <button
-                      onClick={() => {
-                        setSearchTerm("");
-                        setFilterClass("");
-                        setFilterCCA("");
-                      }}
-                      disabled={activeView === "attendance"}
-                      className={`p-3 rounded-xl border border-black transition-colors ${
-                        activeView === "attendance"
-                          ? "text-slate-300 bg-slate-100 cursor-not-allowed"
-                          : "text-red-500 bg-red-50 hover:bg-red-100"
-                      }`}
-                      title="Clear Filters"
-                    >
-                      <FiX />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomListOpen(true)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-black font-bold transition-colors bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
-                    title="My List"
-                  >
-                    My List
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAttendanceViewToggle}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border border-black font-bold transition-colors ${
-                      activeView === "attendance"
-                        ? "bg-slate-800 text-white hover:bg-slate-700"
-                        : "bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20"
-                    }`}
-                    title={
-                      activeView === "attendance"
-                        ? "Back to dashboard"
-                        : "Take Attendance"
-                    }
-                  >
-                    {activeView === "attendance"
-                      ? "Back to Dashboard"
-                      : "Take Attendance"}
-                  </button>
-                  <div className="relative" ref={exportMenuRef}>
-                    <button
-                      onClick={() => setExportOpen((v) => !v)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-xl border border-black font-bold transition-colors ${filteredStudents && filteredStudents.length > 0 ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-slate-50 text-slate-300 cursor-not-allowed"}`}
-                      title="Export options"
-                      disabled={
-                        !filteredStudents || filteredStudents.length === 0
-                      }
-                    >
-                      Export
-                      <FiChevronDown />
-                    </button>
+                <div className="bg-white p-2 sm:p-3 rounded-2xl shadow-sm border border-slate-200">
+                  {/* Search and Filters Row - All in one flex container */}
+                  <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 items-stretch sm:items-center flex-wrap">
+                    {/* Search Input - Reduced width */}
+                    <div className="relative w-full sm:w-56">
+                      <FiSearch
+                        className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                        size={16}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Search student..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        disabled={activeView === "attendance"}
+                        className={`w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 bg-slate-50 border border-black rounded-xl text-xs sm:text-sm font-bold text-slate-700 transition-all outline-none ${
+                          activeView === "attendance"
+                            ? "cursor-not-allowed opacity-60"
+                            : "focus:bg-white focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10"
+                        }`}
+                      />
+                    </div>
 
-                    {exportOpen && (
-                      <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-50">
-                        <button
-                          onClick={() => {
-                            handleExportCSV();
-                            setExportOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50"
+                    {/* Filters and Clear Button */}
+                    <div className="flex gap-1 sm:gap-2 flex-wrap">
+                      <div className="relative">
+                        <FiGrid
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                          size={14}
+                        />
+                        <select
+                          value={filterClass}
+                          onChange={(e) => setFilterClass(e.target.value)}
+                          disabled={activeView === "attendance"}
+                          className={`w-32 sm:w-40 pl-8 pr-3 py-1.5 sm:py-2 bg-slate-50 border border-black rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none ${
+                            activeView === "attendance"
+                              ? "cursor-not-allowed opacity-60"
+                              : "cursor-pointer focus:bg-white focus:border-brand-primary"
+                          }`}
                         >
-                          Export CSV
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleExportPDF();
-                            setExportOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50"
-                        >
-                          Export PDF
-                        </button>
+                          <option value="">All Classes</option>
+                          {classes.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    )}
+                      <div className="relative">
+                        <FiActivity
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                          size={14}
+                        />
+                        <select
+                          value={filterCCA}
+                          onChange={(e) => setFilterCCA(e.target.value)}
+                          disabled={activeView === "attendance"}
+                          className={`w-40 sm:w-48 pl-8 pr-3 py-1.5 sm:py-2 bg-slate-50 border border-black rounded-xl text-xs font-bold text-slate-600 transition-all outline-none appearance-none truncate ${
+                            activeView === "attendance"
+                              ? "cursor-not-allowed opacity-60"
+                              : "cursor-pointer focus:bg-white focus:border-brand-primary"
+                          }`}
+                        >
+                          <option value="">All CCAs</option>
+                          {ccas.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {(searchTerm || filterClass || filterCCA) && (
+                        <button
+                          onClick={() => {
+                            setSearchTerm("");
+                            setFilterClass("");
+                            setFilterCCA("");
+                          }}
+                          disabled={activeView === "attendance"}
+                          className={`p-2.5 sm:p-3 rounded-xl border border-black transition-colors ${
+                            activeView === "attendance"
+                              ? "text-slate-300 bg-slate-100 cursor-not-allowed"
+                              : "text-red-500 bg-red-50 hover:bg-red-100"
+                          }`}
+                          title="Clear Filters"
+                        >
+                          <FiX size={18} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Action Buttons - My List, Take Attendance, Export */}
+                    <div className="flex gap-1 sm:gap-2 flex-wrap ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomListOpen(true)}
+                        className="flex items-center justify-center gap-1 sm:gap-2 px-3 py-2 rounded-xl border border-black text-xs sm:text-sm font-bold transition-colors bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                        title="My List"
+                      >
+                        <FiUsers size={16} />
+                        <span className="hidden sm:inline">My List</span>
+                        <span className="sm:hidden">List</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAttendanceViewToggle}
+                        className={`flex items-center justify-center gap-1 sm:gap-2 px-3 py-2 rounded-xl border border-black text-xs sm:text-sm font-bold transition-colors ${
+                          activeView === "attendance"
+                            ? "bg-slate-800 text-white hover:bg-slate-700"
+                            : "bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20"
+                        }`}
+                        title={
+                          activeView === "attendance"
+                            ? "Back to dashboard"
+                            : "Take Attendance"
+                        }
+                      >
+                        <FiActivity size={16} />
+                        <span className="hidden sm:inline">
+                          {activeView === "attendance"
+                            ? "Back to Dashboard"
+                            : "Take Attendance"}
+                        </span>
+                        <span className="sm:hidden">
+                          {activeView === "attendance"
+                            ? "Dashboard"
+                            : "Attendance"}
+                        </span>
+                      </button>
+                      <div className="relative" ref={exportMenuRef}>
+                        <button
+                          onClick={() => setExportOpen((v) => !v)}
+                          className={`flex items-center justify-center gap-1 sm:gap-2 px-3 py-2 rounded-xl border border-black text-xs sm:text-sm font-bold transition-colors ${filteredStudents && filteredStudents.length > 0 ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-slate-50 text-slate-300 cursor-not-allowed"}`}
+                          title="Export options"
+                          disabled={
+                            !filteredStudents || filteredStudents.length === 0
+                          }
+                        >
+                          <FiDownload size={16} />
+                          Export
+                          <FiChevronDown size={14} />
+                        </button>
+
+                        {exportOpen && (
+                          <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-50">
+                            <button
+                              onClick={() => {
+                                handleExportCSV();
+                                setExportOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-t-lg"
+                            >
+                              Export CSV
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleExportPDF();
+                                setExportOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-b-lg border-t border-slate-100"
+                            >
+                              Export PDF
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1046,93 +1073,104 @@ export default function TeacherDashboard() {
               ) : (
                 <>
                   {/* --- 2-COLUMN LAYOUT WITH EXPLICIT HEIGHTS --- */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 lg:gap-4 items-start">
                     {/* MOBILE: Student Selections Panel First */}
                     <div className="block lg:hidden lg:col-span-8 order-1">
-                      <div className="flex items-center gap-2 mb-6 px-1">
-                        <FiUsers className="text-brand-primary" />
-                        <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                      <div className="flex items-center gap-2 mb-2 sm:mb-3 px-1">
+                        <FiUsers className="text-brand-primary" size={18} />
+                        <h2 className="text-xs sm:text-sm font-black text-slate-400 uppercase tracking-widest">
                           Student Selections
                         </h2>
                         <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">
                           {filteredStudents.length}
                         </span>
                       </div>
-                      <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
+                      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
                         {loading ? (
-                          <div className="p-12 flex justify-center text-slate-400">
-                            <span className="animate-pulse font-bold">
+                          <div className="p-8 sm:p-12 flex justify-center text-slate-400">
+                            <span className="animate-pulse font-bold text-sm">
                               Loading records...
                             </span>
                           </div>
                         ) : (
-                          <div className="overflow-y-auto max-h-[55vh] lg:max-h-[calc(100vh-400px)]">
-                            {/* Mobile: Card format, Desktop: Table */}
-                            <div>
-                              {filteredStudents.length > 0 ? (
-                                filteredStudents.map((student) => (
-                                  <div key={student.id} className="mb-6">
-                                    <div className="relative overflow-hidden bg-white p-4 rounded-2xl border border-slate-300 shadow-lg">
-                                      <div className="font-bold text-slate-700 text-base mb-1">
-                                        {student.studentName}
-                                      </div>
-                                      <div className="text-xs text-slate-400 mb-4">
-                                        {student.className} &bull;{" "}
+                          <div className="overflow-y-auto max-h-[60vh] p-2 sm:p-3">
+                            {filteredStudents.length > 0 ? (
+                              filteredStudents.map((student) => (
+                                <div
+                                  key={student.id}
+                                  className="mb-2 last:mb-0"
+                                >
+                                  <div
+                                    onClick={() => setViewingSelection(student)}
+                                    className="relative overflow-hidden bg-white p-2 sm:p-3 rounded-xl border border-slate-300 shadow-md hover:shadow-lg cursor-pointer transition-all"
+                                  >
+                                    <div className="font-bold text-slate-700 text-sm sm:text-base mb-1">
+                                      {student.studentName}
+                                    </div>
+                                    <div className="text-xs text-slate-400 mb-3">
+                                      {student.className} &bull;{" "}
+                                      <span className="break-all">
                                         {student.studentEmail}
-                                      </div>
-                                      <div className="space-y-4">
-                                        {student.selectedCCAs &&
-                                        student.selectedCCAs.length > 0 ? (
-                                          student.selectedCCAs.map(
-                                            (cca, idx) => (
-                                              <div
-                                                key={cca.id || idx}
-                                                className="rounded-xl bg-slate-50"
-                                              >
-                                                <StudentCCARecordCard
-                                                  cca={cca}
-                                                  onClick={() =>
-                                                    setViewingCCA(
-                                                      ccas.find(
-                                                        (c) => c.id === cca.id,
-                                                      ),
-                                                    )
-                                                  }
-                                                />
-                                              </div>
-                                            ),
-                                          )
-                                        ) : (
-                                          <div className="text-slate-400 text-xs italic mb-2">
-                                            No CCAs selected.
+                                      </span>
+                                    </div>
+                                    <div className="space-y-2 sm:space-y-3">
+                                      {student.selectedCCAs &&
+                                      student.selectedCCAs.length > 0 ? (
+                                        student.selectedCCAs.map((cca, idx) => (
+                                          <div
+                                            key={cca.id || idx}
+                                            className="rounded-xl bg-slate-50"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setViewingCCA(
+                                                ccas.find(
+                                                  (c) => c.id === cca.id,
+                                                ),
+                                              );
+                                            }}
+                                          >
+                                            <StudentCCARecordCard
+                                              cca={cca}
+                                              onClick={() =>
+                                                setViewingCCA(
+                                                  ccas.find(
+                                                    (c) => c.id === cca.id,
+                                                  ),
+                                                )
+                                              }
+                                            />
                                           </div>
-                                        )}
-                                      </div>
+                                        ))
+                                      ) : (
+                                        <div className="text-slate-400 text-xs italic">
+                                          No CCAs selected.
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                ))
-                              ) : (
-                                <div className="p-8 text-center text-slate-400 text-sm italic">
-                                  No matches found.
                                 </div>
-                              )}
-                            </div>
+                              ))
+                            ) : (
+                              <div className="p-8 text-center text-slate-400 text-sm italic">
+                                No matches found.
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
 
                     {/* CCA LIST PANEL (MOBILE BELOW, DESKTOP LEFT) */}
-                    <div className="lg:col-span-4 space-y-4 order-2 lg:order-1">
+                    <div className="lg:col-span-4 space-y-2 order-2 lg:order-1">
                       <div className="flex items-center gap-2 mb-2 px-1">
-                        <FiLayers className="text-brand-primary" />
-                        <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                        <FiLayers className="text-brand-primary" size={18} />
+                        <h2 className="text-xs sm:text-sm font-black text-slate-400 uppercase tracking-widest">
                           CCA List
                         </h2>
                       </div>
-                      <div className="space-y-3 overflow-y-auto bg-slate-50/50 rounded-2xl p-4 max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
+                      <div className="space-y-2 overflow-y-auto bg-slate-50/50 rounded-2xl p-2 sm:p-3 max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
                         {loading ? (
-                          <div className="text-center py-10 text-slate-400">
+                          <div className="text-center py-10 text-slate-400 text-sm">
                             Loading CCAs...
                           </div>
                         ) : ccas.length > 0 ? (
@@ -1140,15 +1178,15 @@ export default function TeacherDashboard() {
                             <div
                               key={cca.id}
                               onClick={() => setViewingCCA(cca)}
-                              className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] p-4 rounded-xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] [transform:perspective(1200px)_rotateX(2deg)] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] cursor-pointer transition-all duration-300 group"
+                              className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#fee2e2_100%)] p-2 sm:p-3 rounded-xl border border-slate-300 shadow-[0_18px_24px_-18px_rgba(15,23,42,0.55),0_8px_10px_-8px_rgba(15,23,42,0.3),0_1px_0_rgba(255,255,255,0.85)_inset] hover:shadow-[0_28px_38px_-20px_rgba(15,23,42,0.6),0_12px_16px_-10px_rgba(15,23,42,0.35),0_1px_0_rgba(255,255,255,0.9)_inset] hover:[transform:perspective(1200px)_rotateX(4deg)_translateY(-4px)] cursor-pointer transition-all duration-300 group"
                             >
                               <div className="pointer-events-none absolute inset-0 rounded-xl bg-[linear-gradient(160deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.1)_35%,rgba(255,255,255,0)_70%)]" />
                               <div className="flex justify-between items-start relative z-10">
-                                <h3 className="font-bold text-slate-800 text-sm group-hover:text-brand-primary transition-colors">
+                                <h3 className="font-bold text-slate-800 text-sm group-hover:text-brand-primary transition-colors pr-2">
                                   {cca.name}
                                 </h3>
                                 {cca.category && (
-                                  <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">
+                                  <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase shrink-0">
                                     {cca.category}
                                   </span>
                                 )}
@@ -1163,20 +1201,20 @@ export default function TeacherDashboard() {
                               <div className="mt-3 flex items-center gap-2 relative z-10">
                                 <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                                   <div
-                                    className="h-full bg-slate-300 group-hover:bg-brand-primary"
+                                    className="h-full bg-slate-300 group-hover:bg-brand-primary transition-colors"
                                     style={{
                                       width: `${Math.min(((cca.enrolledCount || 0) / (cca.maxSeats || 1)) * 100, 100)}%`,
                                     }}
                                   ></div>
                                 </div>
-                                <span className="text-[9px] font-bold text-slate-400">
+                                <span className="text-[9px] font-bold text-slate-400 whitespace-nowrap">
                                   {cca.enrolledCount || 0}/{cca.maxSeats || "∞"}
                                 </span>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div className="text-slate-400 text-sm italic">
+                          <div className="text-slate-400 text-sm italic text-center py-4">
                             No CCAs found.
                           </div>
                         )}
@@ -1185,8 +1223,8 @@ export default function TeacherDashboard() {
 
                     {/* DESKTOP: Student Selections Panel Right */}
                     <div className="hidden lg:block lg:col-span-8 order-3">
-                      <div className="flex items-center gap-2 mb-6 px-1">
-                        <FiUsers className="text-brand-primary" />
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <FiUsers className="text-brand-primary" size={18} />
                         <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">
                           Student Selections
                         </h2>
@@ -1202,84 +1240,79 @@ export default function TeacherDashboard() {
                             </span>
                           </div>
                         ) : (
-                          <div className="overflow-y-auto max-h-[55vh] lg:max-h-[calc(100vh-400px)]">
-                            <div className="hidden md:block">
-                              <table className="w-full text-left">
-                                <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
-                                  <tr>
-                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                      Student
-                                    </th>
-                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                      Class
-                                    </th>
-                                    <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                      Choices
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                  {filteredStudents.length > 0 ? (
-                                    filteredStudents.map((student) => (
-                                      <tr
-                                        key={student.id}
-                                        onClick={() =>
-                                          setViewingSelection(student)
-                                        }
-                                        className="group hover:bg-brand-primary/5 cursor-pointer transition-colors"
-                                      >
-                                        <td className="p-4">
-                                          <div className="font-bold text-slate-700 group-hover:text-brand-primary text-sm">
-                                            {student.studentName}
-                                          </div>
-                                          <div className="text-[10px] text-slate-400 font-mono">
-                                            {student.studentEmail}
-                                          </div>
-                                        </td>
-                                        <td className="p-4">
-                                          <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md whitespace-nowrap">
-                                            {student.className}
-                                          </span>
-                                        </td>
-                                        <td className="p-4">
-                                          <div className="flex flex-wrap gap-1">
-                                            {student.selectedCCAs
-                                              ?.slice(0, 2)
-                                              .map((c) => (
-                                                <span
-                                                  key={c.id}
-                                                  className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded border border-indigo-100 whitespace-nowrap"
-                                                >
-                                                  {c.name}
-                                                </span>
-                                              ))}
-                                            {student.selectedCCAs?.length >
-                                              2 && (
-                                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded">
-                                                +
-                                                {student.selectedCCAs.length -
-                                                  2}
+                          <div className="overflow-y-auto max-h-[calc(100vh-300px)]">
+                            <table className="w-full text-left">
+                              <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
+                                <tr>
+                                  <th className="p-3 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                    Student
+                                  </th>
+                                  <th className="p-3 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                    Class
+                                  </th>
+                                  <th className="p-3 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                    Choices
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {filteredStudents.length > 0 ? (
+                                  filteredStudents.map((student) => (
+                                    <tr
+                                      key={student.id}
+                                      onClick={() =>
+                                        setViewingSelection(student)
+                                      }
+                                      className="group hover:bg-brand-primary/5 cursor-pointer transition-colors"
+                                    >
+                                      <td className="p-3">
+                                        <div className="font-bold text-slate-700 group-hover:text-brand-primary text-sm">
+                                          {student.studentName}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-mono">
+                                          {student.studentEmail}
+                                        </div>
+                                      </td>
+                                      <td className="p-3">
+                                        <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md whitespace-nowrap">
+                                          {student.className}
+                                        </span>
+                                      </td>
+                                      <td className="p-3">
+                                        <div className="flex flex-wrap gap-1">
+                                          {student.selectedCCAs
+                                            ?.slice(0, 2)
+                                            .map((c) => (
+                                              <span
+                                                key={c.id}
+                                                className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded border border-indigo-100 whitespace-nowrap"
+                                              >
+                                                {c.name}
                                               </span>
-                                            )}
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))
-                                  ) : (
-                                    <tr>
-                                      <td
-                                        colSpan="3"
-                                        className="p-12 text-center text-slate-400"
-                                      >
-                                        <p className="text-sm">
-                                          No matches found.
-                                        </p>
+                                            ))}
+                                          {student.selectedCCAs?.length > 2 && (
+                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded">
+                                              +{student.selectedCCAs.length - 2}
+                                            </span>
+                                          )}
+                                        </div>
                                       </td>
                                     </tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td
+                                      colSpan="3"
+                                      className="p-6 text-center text-slate-400"
+                                    >
+                                      <p className="text-sm">
+                                        No matches found.
+                                      </p>
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
                           </div>
                         )}
                       </div>
@@ -1292,8 +1325,8 @@ export default function TeacherDashboard() {
         </main>
 
         {/* --- ADDED FOOTER --- */}
-        <footer className="w-full py-6 text-center border-t border-slate-200 bg-transparent mt-auto">
-          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+        <footer className="w-full py-2 sm:py-3 text-center border-t border-slate-200 bg-transparent mt-auto">
+          <p className="text-[9px] sm:text-[10px] font-bold text-slate-300 uppercase tracking-widest px-4">
             Developed and Maintained by Ashish Bhatnagar SISKGNEJ
           </p>
         </footer>

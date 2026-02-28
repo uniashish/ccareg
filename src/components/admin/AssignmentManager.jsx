@@ -8,6 +8,7 @@ import {
   FiDownload,
 } from "react-icons/fi";
 import MessageModal from "../common/MessageModal";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 export default function AssignmentManager({
   classesList,
@@ -18,6 +19,15 @@ export default function AssignmentManager({
   onToggleCCA,
 }) {
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "class",
+    "cca",
+    "teacher",
+    "venue",
+    "status",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(10);
   const exportMenuRef = useRef(null);
   const [modalState, setModalState] = useState({
     isOpen: false,
@@ -39,21 +49,31 @@ export default function AssignmentManager({
   };
 
   const getExportRows = () => {
-    return assignedCCAs.map((cca) => [
-      selectedClass?.name || "",
-      cca.name || "",
-      cca.teacherDisplay || cca.teacher || "",
-      cca.venue || "",
-      cca.isActive === false ? "Hidden" : "Active",
-    ]);
+    return assignedCCAs.map((cca) => ({
+      class: selectedClass?.name || "",
+      cca: cca.name || "",
+      teacher: cca.teacherDisplay || cca.teacher || "",
+      venue: cca.venue || "",
+      status: cca.isActive === false ? "Hidden" : "Active",
+    }));
   };
+
+  const exportFields = [
+    { key: "class", label: "Class" },
+    { key: "cca", label: "CCA" },
+    { key: "teacher", label: "Teacher" },
+    { key: "venue", label: "Venue" },
+    { key: "status", label: "Status" },
+  ];
 
   const handleExportCSV = () => {
     if (!selectedClass) return;
 
     const headers = ["Class", "CCA", "Teacher", "Venue", "Status"];
     const rows = getExportRows().map((row) =>
-      row.map((cell) => escapeCSV(cell)).join(","),
+      [row.class, row.cca, row.teacher, row.venue, row.status]
+        .map((cell) => escapeCSV(cell))
+        .join(","),
     );
     const csvContent = [headers.join(","), ...rows].join("\n");
 
@@ -71,7 +91,15 @@ export default function AssignmentManager({
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPDF = () => {
+  const handleOpenExportPDF = () => {
+    if (!selectedClass || assignedCCAs.length === 0) return;
+    setExportFieldsOpen(true);
+  };
+
+  const handleExportPDF = (
+    fields = selectedExportFields,
+    fontSize = pdfFontSize,
+  ) => {
     if (!selectedClass) return;
 
     const escapeHtml = (value) =>
@@ -80,12 +108,23 @@ export default function AssignmentManager({
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 
+    const selectedColumns = exportFields.filter((field) =>
+      fields.includes(field.key),
+    );
+    if (!selectedColumns.length) return;
+
     const rowsHtml = getExportRows()
-      .map(
-        (row) =>
-          `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`,
-      )
+      .map((row) => {
+        const cells = selectedColumns
+          .map((field) => `<td>${escapeHtml(row[field.key])}</td>`)
+          .join("");
+        return `<tr>${cells}</tr>`;
+      })
       .join("\n");
+
+    const headersHtml = selectedColumns
+      .map((field) => `<th>${escapeHtml(field.label)}</th>`)
+      .join("");
 
     const html = `
       <html>
@@ -93,10 +132,10 @@ export default function AssignmentManager({
           <title>Assigned CCAs - ${escapeHtml(selectedClass.name)}</title>
           <style>
             @page { size: A4 landscape; margin: 12mm; }
-            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
-            h2{font-size:13px;margin-bottom:6px}
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+            h2{font-size:${Math.max(fontSize + 3, 13)}px;margin-bottom:6px}
             table{width:100%;border-collapse:collapse}
-            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:10px;vertical-align:top}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px;vertical-align:top}
             th{background:#f3f4f6;font-weight:700}
           </style>
         </head>
@@ -104,13 +143,7 @@ export default function AssignmentManager({
           <h2>Assigned CCAs - ${escapeHtml(selectedClass.name)}</h2>
           <table>
             <thead>
-              <tr>
-                <th>Class</th>
-                <th>CCA</th>
-                <th>Teacher</th>
-                <th>Venue</th>
-                <th>Status</th>
-              </tr>
+              <tr>${headersHtml}</tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
           </table>
@@ -126,6 +159,12 @@ export default function AssignmentManager({
       w.focus();
       w.print();
     }, 300);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+    handleExportPDF(fields, fontSize);
   };
 
   const showError = (title, message) => {
@@ -273,7 +312,7 @@ export default function AssignmentManager({
                       <button
                         type="button"
                         onClick={() => {
-                          handleExportPDF();
+                          handleOpenExportPDF();
                           setExportOpen(false);
                         }}
                         className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 border-t border-slate-100"
@@ -285,6 +324,17 @@ export default function AssignmentManager({
                 </div>
               </div>
             </div>
+
+            <ExportFieldsModal
+              isOpen={exportFieldsOpen}
+              onClose={() => setExportFieldsOpen(false)}
+              fields={exportFields}
+              selectedFields={selectedExportFields}
+              onChangeFields={setSelectedExportFields}
+              fontSize={pdfFontSize}
+              onFontSizeChange={setPdfFontSize}
+              onExport={handleExportFieldsConfirm}
+            />
 
             <div className="flex-1 overflow-y-auto p-6">
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 pb-20">

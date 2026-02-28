@@ -400,6 +400,7 @@ export default function AdminDashboard() {
         onClose={() => setViewingCCA(null)}
         cca={viewingCCA}
         classes={classesList}
+        users={usersData}
       />
       <UpdateRoleModal
         key={selectedUser?.uid || "none"}

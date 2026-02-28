@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { db } from "../../firebase";
 import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import MessageModal from "../common/MessageModal";
+import ExportFieldsModal from "../common/ExportFieldsModal";
 
 const normalizeText = (value) =>
   String(value || "")
@@ -65,6 +66,16 @@ export default function TeacherAttendancePanel({
     {},
   );
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState([
+    "studentName",
+    "class",
+    "sessionStatuses",
+    "totalPresent",
+    "totalAbsent",
+    "teacherInCharge",
+  ]);
+  const [pdfFontSize, setPdfFontSize] = useState(10);
   const [expandedPastByStudent, setExpandedPastByStudent] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingSavedAttendance, setIsLoadingSavedAttendance] =
@@ -538,6 +549,15 @@ export default function TeacherAttendancePanel({
   const handleExportPDF = () => {
     const rows = buildAttendanceExportRows();
     if (rows.length === 0) return;
+    setExportFieldsOpen(true);
+  };
+
+  const runExportPDF = (
+    fields = selectedExportFields,
+    fontSize = pdfFontSize,
+  ) => {
+    const rows = buildAttendanceExportRows();
+    if (rows.length === 0) return;
 
     const datePart = new Date().toISOString().split("T")[0];
     const ccaPart = (selectedCCA?.name || "CCA")
@@ -546,34 +566,44 @@ export default function TeacherAttendancePanel({
       .replace(/[^a-zA-Z0-9_-]/g, "");
     const reportFileBase = `Attendance_${ccaPart}_${datePart}`;
 
-    const sessionHeaders = rows[0].sessionHeaders;
-    const teacherInCharge = rows[0].teacherInCharge;
+    const exportFields = [
+      { key: "studentName", label: "Student Name" },
+      { key: "class", label: "Class" },
+      { key: "sessionStatuses", label: "Session Statuses" },
+      { key: "totalPresent", label: "Total Present" },
+      { key: "totalAbsent", label: "Total Absent" },
+      { key: "teacherInCharge", label: "Teacher In-Charge" },
+    ];
 
-    const tableHeaderCells = [
-      "Student Name",
-      "Class",
-      ...sessionHeaders,
-      "Total Present",
-      "Total Absent",
-    ]
-      .map((header) => `<th>${escapeHtml(header)}</th>`)
+    const selectedColumns = exportFields.filter((field) =>
+      fields.includes(field.key),
+    );
+    if (!selectedColumns.length) return;
+
+    const tableHeaderCells = selectedColumns
+      .map((column) => `<th>${escapeHtml(column.label)}</th>`)
       .join("");
 
     const rowsHtml = rows
       .map((row) => {
-        const statusCells = row.statuses
-          .map((status) => `<td>${escapeHtml(status)}</td>`)
+        const rowData = {
+          studentName: row.student.studentName,
+          class: row.student.className,
+          sessionStatuses: row.statuses.join(", "),
+          totalPresent: row.totalPresent,
+          totalAbsent: row.totalAbsent,
+          teacherInCharge: row.teacherInCharge,
+        };
+
+        const rowCells = selectedColumns
+          .map((column) => `<td>${escapeHtml(rowData[column.key])}</td>`)
           .join("");
 
-        return `<tr>
-          <td>${escapeHtml(row.student.studentName)}</td>
-          <td>${escapeHtml(row.student.className)}</td>
-          ${statusCells}
-          <td>${row.totalPresent}</td>
-          <td>${row.totalAbsent}</td>
-        </tr>`;
+        return `<tr>${rowCells}</tr>`;
       })
       .join("\n");
+
+    const teacherInCharge = rows[0].teacherInCharge;
 
     const html = `
       <html>
@@ -581,11 +611,11 @@ export default function TeacherAttendancePanel({
           <title>${escapeHtml(reportFileBase)}</title>
           <style>
             @page { size: A4 landscape; margin: 10mm; }
-            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:10px;color:#111}
-            h2{font-size:14px;margin:0 0 4px}
-            p{margin:0 0 8px;font-size:10px;color:#444}
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:12px;font-size:${fontSize}px;color:#111}
+            h2{font-size:${Math.max(fontSize + 4, 14)}px;margin:0 0 4px}
+            p{margin:0 0 8px;font-size:${fontSize}px;color:#444}
             table{width:100%;border-collapse:collapse}
-            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:9px;vertical-align:top}
+            th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:${fontSize}px;vertical-align:top}
             th{background:#f3f4f6;font-weight:700}
           </style>
         </head>
@@ -612,6 +642,12 @@ export default function TeacherAttendancePanel({
       w.focus();
       w.print();
     }, 300);
+  };
+
+  const handleExportFieldsConfirm = (fields, fontSize) => {
+    setSelectedExportFields(fields);
+    setPdfFontSize(fontSize);
+    runExportPDF(fields, fontSize);
   };
 
   const canExport =
@@ -690,16 +726,16 @@ export default function TeacherAttendancePanel({
   }, [selectedCCAId, sessionDates]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 items-start">
       <div className="lg:col-span-4">
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-            <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest">
+        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-100 bg-slate-50">
+            <h2 className="text-xs sm:text-sm font-black text-slate-500 uppercase tracking-widest">
               My CCAs
             </h2>
           </div>
 
-          <div className="p-4 space-y-2 overflow-y-auto max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
+          <div className="p-3 sm:p-4 space-y-2 overflow-y-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[calc(100vh-400px)]">
             {teacherCCAs.length > 0 ? (
               teacherCCAs.map((cca) => {
                 const isActive = cca.id === selectedCCAId;
@@ -714,7 +750,7 @@ export default function TeacherAttendancePanel({
                         : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                     }`}
                   >
-                    {cca.name}
+                    <span className="block truncate">{cca.name}</span>
                   </button>
                 );
               })
@@ -1004,8 +1040,8 @@ export default function TeacherAttendancePanel({
                 </table>
               </div>
 
-              <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-xs font-bold text-slate-400 w-full sm:w-auto">
+              <div className="px-4 sm:px-5 py-3 sm:py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-xs font-bold text-slate-400">
                   {hasUnsavedChanges
                     ? "You have unsaved attendance changes"
                     : "Attendance is up to date"}
@@ -1039,6 +1075,24 @@ export default function TeacherAttendancePanel({
         onCancel={modalState.onCancel}
         confirmText={modalState.confirmText}
         cancelText={modalState.cancelText}
+      />
+
+      <ExportFieldsModal
+        isOpen={exportFieldsOpen}
+        onClose={() => setExportFieldsOpen(false)}
+        fields={[
+          { key: "studentName", label: "Student Name" },
+          { key: "class", label: "Class" },
+          { key: "sessionStatuses", label: "Session Statuses" },
+          { key: "totalPresent", label: "Total Present" },
+          { key: "totalAbsent", label: "Total Absent" },
+          { key: "teacherInCharge", label: "Teacher In-Charge" },
+        ]}
+        selectedFields={selectedExportFields}
+        onChangeFields={setSelectedExportFields}
+        fontSize={pdfFontSize}
+        onFontSizeChange={setPdfFontSize}
+        onExport={handleExportFieldsConfirm}
       />
     </div>
   );
