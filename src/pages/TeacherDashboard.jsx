@@ -6,6 +6,7 @@ import CustomStudentList from "../components/teacher/customlist/CustomStudentLis
 import MessageModal from "../components/common/MessageModal";
 import ExportFieldsModal from "../components/common/ExportFieldsModal";
 import { useAuth } from "../context/AuthContext";
+import { useDataCache } from "../context/DataCacheContext";
 import { db } from "../firebase";
 import {
   collection,
@@ -13,6 +14,8 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  query,
+  where,
 } from "firebase/firestore";
 import {
   FiSearch,
@@ -642,6 +645,12 @@ function StudentDetailsModal({ isOpen, onClose, selection, allCCAs }) {
 // --- MAIN COMPONENT ---
 export default function TeacherDashboard() {
   const { user } = useAuth();
+  const {
+    classes: cachedClasses,
+    ccas: cachedCCAs,
+    isLoading: cacheLoading,
+  } = useDataCache();
+
   const [selections, setSelections] = useState([]);
   const [classes, setClasses] = useState([]);
   const [ccas, setCCAs] = useState([]);
@@ -733,41 +742,105 @@ export default function TeacherDashboard() {
 
   // --- FETCH DATA ---
   useEffect(() => {
-    const fetchAllData = async () => {
+    const fetchTeacherData = async () => {
       try {
-        const classesSnap = await getDocs(collection(db, "classes"));
-        const classesData = classesSnap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }));
-        classesData.sort((a, b) => a.name.localeCompare(b.name));
-        setClasses(classesData);
+        // ✅ OPTIMIZED Phase 2, Issue #2: Use cached classes and CCAs
+        // Instead of fetching everyone's data
+        setClasses(cachedClasses);
 
-        const ccasSnap = await getDocs(collection(db, "ccas"));
-        const ccasData = ccasSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        ccasData.sort((a, b) => a.name.localeCompare(b.name));
+        // Step 1: Try to get CCAs for this teacher by teacherInCharge field
+        let teacherCCAs = [];
+        const teacherCCAsQuery = query(
+          collection(db, "ccas"),
+          where("teacherInCharge", "==", user?.uid || ""),
+        );
 
+        try {
+          const teacherCCAsSnap = await getDocs(teacherCCAsQuery);
+          teacherCCAs = teacherCCAsSnap.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
+        } catch (queryError) {
+          // Firestore index might not exist yet, try fallback
+          console.warn(
+            "⚠️ teacherInCharge index not found. Loading all CCAs as fallback. See FIRESTORE_INDEXES_SETUP.md",
+          );
+        }
+
+        // Fallback: If no CCAs found with teacherInCharge filter, load ALL CCAs
+        // This ensures teacher sees their data even if field isn't populated yet
+        if (teacherCCAs.length === 0) {
+          console.warn(
+            "⚠️ No CCAs found with teacherInCharge field. Using fallback to load all CCAs. This is normal if you haven't populated the teacherInCharge field in your CCAs collection.",
+          );
+          const allCCAsSnap = await getDocs(collection(db, "ccas"));
+          teacherCCAs = allCCAsSnap.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
+        }
+
+        // Get users for enrichment
         const usersSnap = await getDocs(collection(db, "users"));
         const usersData = usersSnap.docs.map((d) => ({
           id: d.id,
           ...d.data(),
         }));
-        setCCAs(enrichCCAsWithTeacherAlias(ccasData, usersData));
 
-        const selectionsSnap = await getDocs(collection(db, "selections"));
-        const activeSelections = selectionsSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((s) => s.status !== "cancelled");
-        setSelections(activeSelections);
+        setCCAs(enrichCCAsWithTeacherAlias(teacherCCAs, usersData));
+
+        // Step 2: Get selections ONLY for teacher's CCA IDs (if we found any)
+        const teacherCCAIds = teacherCCAs.map((cca) => cca.id);
+
+        if (teacherCCAIds.length > 0) {
+          const selectionsQuery = query(
+            collection(db, "selections"),
+            where("selectedCCAs", "array-contains-any", teacherCCAIds),
+          );
+
+          const selectionsSnap = await getDocs(selectionsQuery);
+          const activeSelections = selectionsSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((s) => s.status !== "cancelled");
+          setSelections(activeSelections);
+        } else {
+          setSelections([]);
+        }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        // Fallback: Load all data if there's an error
+        try {
+          const allCCAsSnap = await getDocs(collection(db, "ccas"));
+          const usersSnap = await getDocs(collection(db, "users"));
+          const selectionsSnap = await getDocs(collection(db, "selections"));
+
+          const teacherCCAs = allCCAsSnap.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
+          const usersData = usersSnap.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
+          const activeSelections = selectionsSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((s) => s.status !== "cancelled");
+
+          setCCAs(enrichCCAsWithTeacherAlias(teacherCCAs, usersData));
+          setSelections(activeSelections);
+        } catch (fallbackError) {
+          console.error("Fallback data fetch also failed:", fallbackError);
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAllData();
-  }, []);
+    if (user?.uid && cachedClasses.length > 0) {
+      fetchTeacherData();
+    }
+  }, [user?.uid, cachedClasses]);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {

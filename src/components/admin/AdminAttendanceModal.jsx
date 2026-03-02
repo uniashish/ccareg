@@ -7,7 +7,14 @@ import {
   FiDownload,
 } from "react-icons/fi";
 import { db } from "../../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import ExportFieldsModal from "../common/ExportFieldsModal";
 
 const parseDate = (value) => {
@@ -139,30 +146,42 @@ export default function AdminAttendanceModal({
 
       setIsLoading(true);
       try {
-        const docs = await Promise.allSettled(
-          dateKeys.map((dateKey) =>
-            getDoc(doc(db, "attendanceRecords", `${cca.id}_${dateKey}`)),
-          ),
+        // ✅ OPTIMIZED Issue #3: Single batch query instead of 600+ individual getDoc calls
+        // Before: Promise.allSettled with 600 getDoc calls
+        // After: Single getDocs query filtered by ccaId
+        const attendanceQuery = query(
+          collection(db, "attendanceRecords"),
+          where("ccaId", "==", cca.id),
         );
 
-        const rows = dateKeys.map((dateKey, index) => {
-          const result = docs[index];
-          if (result.status !== "fulfilled" || !result.value.exists()) {
-            return {
+        const snapshot = await getDocs(attendanceQuery);
+
+        // Group attendance records by date
+        const attendanceByDateMap = {};
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const dateKey = data.dateKey || data.date;
+
+          if (dateKey) {
+            attendanceByDateMap[dateKey] = {
+              dateKey,
+              presentStudentIds: Array.isArray(data.presentStudentIds)
+                ? data.presentStudentIds
+                : [],
+              hasSubmittedRecord: true,
+            };
+          }
+        });
+
+        // Create rows for all expected date keys, filling in missing ones
+        const rows = dateKeys.map((dateKey) => {
+          return (
+            attendanceByDateMap[dateKey] || {
               dateKey,
               presentStudentIds: [],
               hasSubmittedRecord: false,
-            };
-          }
-
-          const data = result.value.data() || {};
-          return {
-            dateKey,
-            presentStudentIds: Array.isArray(data.presentStudentIds)
-              ? data.presentStudentIds
-              : [],
-            hasSubmittedRecord: true,
-          };
+            }
+          );
         });
 
         setAttendanceByDate(rows);

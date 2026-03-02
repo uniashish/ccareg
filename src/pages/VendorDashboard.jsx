@@ -3,7 +3,14 @@ import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
 import sisBackground from "../assets/sisbackground.png";
 import { db } from "../firebase";
-import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  doc,
+  updateDoc,
+  query,
+  where,
+} from "firebase/firestore";
 import VendorToolbar from "../components/vendor/VendorToolbar";
 import VendorStudentsTable from "../components/vendor/VendorStudentsTable";
 import StudentDetailsModal from "../components/admin/StudentDetailsModal";
@@ -37,65 +44,97 @@ export default function VendorDashboard() {
   const [adminContact, setAdminContact] = useState("");
 
   useEffect(() => {
-    const unsubVendors = onSnapshot(collection(db, "vendors"), (snapshot) => {
-      setVendors(
-        snapshot.docs.map((document) => ({
-          id: document.id,
-          ...document.data(),
-        })),
-      );
-    });
-
-    const unsubCcas = onSnapshot(collection(db, "ccas"), (snapshot) => {
-      setCcas(
-        snapshot.docs.map((document) => ({
-          id: document.id,
-          ...document.data(),
-        })),
-      );
-    });
-
-    const unsubClasses = onSnapshot(collection(db, "classes"), (snapshot) => {
-      setClassesList(
-        snapshot.docs.map((document) => ({
-          id: document.id,
-          ...document.data(),
-        })),
-      );
-    });
-
-    const unsubSelections = onSnapshot(
-      collection(db, "selections"),
-      (snapshot) => {
-        setSelections(
-          snapshot.docs.map((document) => ({
-            id: document.id,
-            ...document.data(),
-          })),
-        );
-      },
+    // ✅ OPTIMIZED Issue #2: Filter vendors by email instead of loading all
+    const vendorQuery = query(
+      collection(db, "vendors"),
+      where("email", "==", user?.email || ""),
     );
 
-    const unsubAttendance = onSnapshot(
-      collection(db, "attendanceRecords"),
-      (snapshot) => {
-        setAttendanceRecords(
-          snapshot.docs.map((document) => ({
-            id: document.id,
-            ...document.data(),
-          })),
+    const unsubVendors = onSnapshot(vendorQuery, (snapshot) => {
+      const vendorDocs = snapshot.docs.map((document) => ({
+        id: document.id,
+        ...document.data(),
+      }));
+      setVendors(vendorDocs);
+
+      // ✅ OPTIMIZED: Only load CCAs, Selections, and Attendance for THIS vendor's CCAs
+      if (vendorDocs.length > 0) {
+        const vendorCcaIds = vendorDocs[0].associatedCCAs || [];
+
+        // Always listen to all CCAs (they're small reference data)
+        const unsubCcas = onSnapshot(collection(db, "ccas"), (snapshot) => {
+          setCcas(
+            snapshot.docs.map((document) => ({
+              id: document.id,
+              ...document.data(),
+            })),
+          );
+        });
+
+        // Always listen to all classes (they're small reference data)
+        const unsubClasses = onSnapshot(
+          collection(db, "classes"),
+          (snapshot) => {
+            setClassesList(
+              snapshot.docs.map((document) => ({
+                id: document.id,
+                ...document.data(),
+              })),
+            );
+          },
         );
-      },
-    );
+
+        // ✅ Filter selections to only vendor's CCAs
+        if (vendorCcaIds.length > 0) {
+          const selectionsQuery = query(
+            collection(db, "selections"),
+            where("selectedCCAs", "array-contains-any", vendorCcaIds),
+          );
+
+          const unsubSelections = onSnapshot(selectionsQuery, (snapshot) => {
+            setSelections(
+              snapshot.docs.map((document) => ({
+                id: document.id,
+                ...document.data(),
+              })),
+            );
+          });
+
+          // ✅ Filter attendance records to only vendor's CCAs
+          const attendanceQuery = query(
+            collection(db, "attendanceRecords"),
+            where("ccaId", "in", vendorCcaIds),
+          );
+
+          const unsubAttendance = onSnapshot(attendanceQuery, (snapshot) => {
+            setAttendanceRecords(
+              snapshot.docs.map((document) => ({
+                id: document.id,
+                ...document.data(),
+              })),
+            );
+          });
+
+          return () => {
+            unsubCcas();
+            unsubClasses();
+            unsubSelections();
+            unsubAttendance();
+          };
+        } else {
+          // If vendor has no CCAs, just clean up CCAs and classes listeners
+          return () => {
+            unsubCcas();
+            unsubClasses();
+          };
+        }
+      }
+    });
 
     return () => {
       unsubVendors();
-      unsubCcas();
-      unsubClasses();
-      unsubSelections();
-      unsubAttendance();
     };
-  }, []);
+  }, [user?.email]);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {

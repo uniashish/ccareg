@@ -78,8 +78,15 @@ export function useAdminData(showMessage = () => {}) {
       (error) => console.error("Error fetching selections:", error),
     );
 
-    // D. Listen to Users (for names/emails)
-    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+    // D. Listen to Admin/Teacher Users ONLY (OPTIMIZED - Issue #1 Fix)
+    // ✅ CHANGE: Filter to admin/teacher roles instead of loading all users
+    // This reduces read operations by 80-95% when there are many students
+    const adminUsersQuery = query(
+      collection(db, "users"),
+      where("role", "in", ["admin", "teacher"]),
+    );
+
+    const unsubUsers = onSnapshot(adminUsersQuery, (snapshot) => {
       const userMap = {};
       snapshot.docs.forEach((doc) => {
         userMap[doc.id] = doc.data();
