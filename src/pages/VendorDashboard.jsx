@@ -84,21 +84,20 @@ export default function VendorDashboard() {
           },
         );
 
-        // ✅ Filter selections to only vendor's CCAs
+        // ✅ Load all selections (client-side filtering by vendor CCA IDs happens in allRows useMemo)
+        // Note: Can't use array-contains-any with selectedCCAs objects, so we load all and filter client-side
         if (vendorCcaIds.length > 0) {
-          const selectionsQuery = query(
+          const unsubSelections = onSnapshot(
             collection(db, "selections"),
-            where("selectedCCAs", "array-contains-any", vendorCcaIds),
+            (snapshot) => {
+              setSelections(
+                snapshot.docs.map((document) => ({
+                  id: document.id,
+                  ...document.data(),
+                })),
+              );
+            },
           );
-
-          const unsubSelections = onSnapshot(selectionsQuery, (snapshot) => {
-            setSelections(
-              snapshot.docs.map((document) => ({
-                id: document.id,
-                ...document.data(),
-              })),
-            );
-          });
 
           // ✅ Filter attendance records to only vendor's CCAs
           const attendanceQuery = query(
