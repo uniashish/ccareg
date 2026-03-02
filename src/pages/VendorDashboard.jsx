@@ -11,6 +11,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
+import { useDataCache } from "../context/DataCacheContext";
 import VendorToolbar from "../components/vendor/VendorToolbar";
 import VendorStudentsTable from "../components/vendor/VendorStudentsTable";
 import StudentDetailsModal from "../components/admin/StudentDetailsModal";
@@ -23,9 +24,10 @@ import { useVendorExport } from "../hooks/useVendorExport";
 
 export default function VendorDashboard() {
   const { user } = useAuth();
+  // ✅ OPTIMIZED Issue #4: Use shared DataCacheContext for classes and CCAs
+  const { classes: classesList, ccas } = useDataCache();
+
   const [vendors, setVendors] = useState([]);
-  const [ccas, setCcas] = useState([]);
-  const [classesList, setClassesList] = useState([]);
   const [selections, setSelections] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [selectedCcaId, setSelectedCcaId] = useState("all");
@@ -57,32 +59,10 @@ export default function VendorDashboard() {
       }));
       setVendors(vendorDocs);
 
-      // ✅ OPTIMIZED: Only load CCAs, Selections, and Attendance for THIS vendor's CCAs
+      // ✅ OPTIMIZED: Only load Selections and Attendance for THIS vendor's CCAs
+      // Classes and CCAs now use shared DataCacheContext (Issue #4)
       if (vendorDocs.length > 0) {
         const vendorCcaIds = vendorDocs[0].associatedCCAs || [];
-
-        // Always listen to all CCAs (they're small reference data)
-        const unsubCcas = onSnapshot(collection(db, "ccas"), (snapshot) => {
-          setCcas(
-            snapshot.docs.map((document) => ({
-              id: document.id,
-              ...document.data(),
-            })),
-          );
-        });
-
-        // Always listen to all classes (they're small reference data)
-        const unsubClasses = onSnapshot(
-          collection(db, "classes"),
-          (snapshot) => {
-            setClassesList(
-              snapshot.docs.map((document) => ({
-                id: document.id,
-                ...document.data(),
-              })),
-            );
-          },
-        );
 
         // ✅ Load all selections (client-side filtering by vendor CCA IDs happens in allRows useMemo)
         // Note: Can't use array-contains-any with selectedCCAs objects, so we load all and filter client-side
@@ -115,17 +95,12 @@ export default function VendorDashboard() {
           });
 
           return () => {
-            unsubCcas();
-            unsubClasses();
             unsubSelections();
             unsubAttendance();
           };
         } else {
-          // If vendor has no CCAs, just clean up CCAs and classes listeners
-          return () => {
-            unsubCcas();
-            unsubClasses();
-          };
+          // If vendor has no CCAs, cleanup is handled by dependency array
+          return () => {};
         }
       }
     });

@@ -8,6 +8,8 @@ import {
   deleteDoc,
   deleteField,
   runTransaction, // <--- ADDED THIS IMPORT
+  query,
+  where,
 } from "firebase/firestore";
 
 // --- COMPONENTS ---
@@ -64,6 +66,7 @@ export default function AdminDashboard() {
   const [isAliasModalOpen, setIsAliasModalOpen] = useState(false);
   const [selectedAliasUser, setSelectedAliasUser] = useState(null);
   const [isSavingAlias, setIsSavingAlias] = useState(false);
+  const [userRoleFilter, setUserRoleFilter] = useState("all");
 
   const {
     ccas,
@@ -88,19 +91,36 @@ export default function AdminDashboard() {
     handleSaveCCA,
     handleDeleteCCA,
     toggleCCAMap,
-  } = useAdminData(showMessage);
+  } = useAdminData(showMessage, userRoleFilter);
 
-  // Listener for "Users" Tab
+  // Listener for "Users" Tab (OPTIMIZED Issue #7: Server-side role filtering)
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
+    // ✅ OPTIMIZED: Query users by role at database level instead of client-side
+    let usersQuery;
+    if (userRoleFilter === "all") {
+      // Load all admin/teacher users (only these roles are shown)
+      usersQuery = query(
+        collection(db, "users"),
+        where("role", "in", ["admin", "teacher"]),
+      );
+    } else {
+      // Load specific role (admin or teacher)
+      usersQuery = query(
+        collection(db, "users"),
+        where("role", "==", userRoleFilter),
+      );
+    }
+
+    const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
       const list = snapshot.docs.map((doc) => ({
         ...doc.data(),
         uid: doc.id,
       }));
       setLocalUsersList(list);
     });
+
     return () => unsubscribe();
-  }, []);
+  }, [userRoleFilter]);
 
   // --- ACTIONS ---
 
@@ -351,6 +371,7 @@ export default function AdminDashboard() {
                 onEditRole={handleEditUserRole}
                 onEditAlias={handleEditUserAlias}
                 onDeleteUser={handleDeleteUser}
+                onRoleFilterChange={setUserRoleFilter}
               />
             )}
 

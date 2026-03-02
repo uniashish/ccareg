@@ -16,11 +16,14 @@ import {
   where,
 } from "firebase/firestore";
 import { enrichCCAsWithTeacherAlias } from "../utils/teacherAlias";
+import { useDataCache } from "../context/DataCacheContext";
 
-export function useAdminData(showMessage = () => {}) {
-  // --- STATE ---
-  const [ccas, setCcas] = useState([]);
-  const [classesList, setClassesList] = useState([]);
+export function useAdminData(showMessage = () => {}, roleFilter = "all") {
+  // --- SHARED DATA FROM CONTEXT ---
+  // ✅ OPTIMIZED Issue #4: Use shared DataCacheContext instead of separate listeners
+  const { classes: classesList, ccas } = useDataCache();
+
+  // --- LOCAL STATE ---
   const [loading, setLoading] = useState(true);
 
   // Student Selections State
@@ -39,32 +42,6 @@ export function useAdminData(showMessage = () => {}) {
   useEffect(() => {
     setLoading(true);
 
-    // A. Listen to Classes
-    const unsubClasses = onSnapshot(
-      query(collection(db, "classes"), orderBy("name")),
-      (snapshot) => {
-        const list = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setClassesList(list);
-      },
-      (error) => console.error("Error fetching classes:", error),
-    );
-
-    // B. Listen to CCAs (This fixes the seat count issue!)
-    const unsubCCAs = onSnapshot(
-      query(collection(db, "ccas"), orderBy("name")),
-      (snapshot) => {
-        const list = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setCcas(list);
-      },
-      (error) => console.error("Error fetching CCAs:", error),
-    );
-
     // C. Listen to Selections
     const unsubSelections = onSnapshot(
       collection(db, "selections"),
@@ -78,13 +55,23 @@ export function useAdminData(showMessage = () => {}) {
       (error) => console.error("Error fetching selections:", error),
     );
 
-    // D. Listen to Admin/Teacher Users ONLY (OPTIMIZED - Issue #1 Fix)
+    // D. Listen to Admin/Teacher Users ONLY (OPTIMIZED - Issue #1 & #7 Fix)
     // ✅ CHANGE: Filter to admin/teacher roles instead of loading all users
+    // ✅ ADDED: Support server-side role filtering (Issue #7 optimization)
     // This reduces read operations by 80-95% when there are many students
-    const adminUsersQuery = query(
-      collection(db, "users"),
-      where("role", "in", ["admin", "teacher"]),
-    );
+    let adminUsersQuery;
+    if (roleFilter === "all") {
+      adminUsersQuery = query(
+        collection(db, "users"),
+        where("role", "in", ["admin", "teacher"]),
+      );
+    } else {
+      // Filter to specific role (admin or teacher)
+      adminUsersQuery = query(
+        collection(db, "users"),
+        where("role", "==", roleFilter),
+      );
+    }
 
     const unsubUsers = onSnapshot(adminUsersQuery, (snapshot) => {
       const userMap = {};
@@ -97,12 +84,10 @@ export function useAdminData(showMessage = () => {}) {
 
     // Cleanup listeners on unmount
     return () => {
-      unsubClasses();
-      unsubCCAs();
       unsubSelections();
       unsubUsers();
     };
-  }, []);
+  }, [roleFilter]);
 
   // --- 2. ACTIONS ---
 

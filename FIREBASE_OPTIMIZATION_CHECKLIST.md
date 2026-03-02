@@ -5,7 +5,7 @@
 | Component         | Issue                        | Current Reads   | Optimized Reads  | Savings    |
 | ----------------- | ---------------------------- | --------------- | ---------------- | ---------- |
 | Admin Dashboard   | All users subscribed         | 100+ ops/min    | 2-5 ops/min      | **95%**    |
-| Vendor Dashboard  | All selections & attendance  | 50-80 ops/min   | 3-10 ops/min     | **80-90%** |
+| Vendor Dashboard  | All selections & attendance  | 50-80 ops/min   | 35-60 ops/min    | **25-30%** |
 | Attendance Modal  | 600 individual getDoc calls  | 600 per open    | 1 per open       | **99%**    |
 | Teacher Dashboard | All selections loaded        | 100+ selections | 10-50 selections | **80%**    |
 | Overall App       | Multiple duplicate listeners | Baseline (100%) | 25-40 ops/min    | **60-75%** |
@@ -25,7 +25,8 @@
 - [ ] **1.2 Optimize Vendor Dashboard**
   - File: `src/pages/VendorDashboard.jsx` (lines 39-93)
   - Change: Add vendor email filter, then filter selections by vendor CCAs
-  - Impact: Reduces vendor dashboard reads by 85-90%
+  - Impact: Reduces vendor dashboard reads by 25-30% (client-side selection filtering)
+  - Note: Full 85-90% would require denormalization (Phase 3.4)
   - Code: See FIREBASE_OPTIMIZATION_CODE_EXAMPLES.md § 2
 
 - [ ] **1.3 Fix Attendance Modal**
@@ -165,7 +166,7 @@
 | File                       | Current Issue        | Required Change        | Est. Savings |
 | -------------------------- | -------------------- | ---------------------- | ------------ |
 | `useAdminData.js`          | Loads all users      | Add role filter        | 80-95%       |
-| `VendorDashboard.jsx`      | Loads all data       | Add vendor/CCA filter  | 85-90%       |
+| `VendorDashboard.jsx`      | Loads all data       | Add vendor/CCA filter  | 25-30%       |
 | `AdminAttendanceModal.jsx` | 600 getDoc calls     | Single batch query     | 99%          |
 | `TeacherDashboard.jsx`     | Loads all selections | Filter by teacher CCAs | 80%          |
 

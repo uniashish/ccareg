@@ -17,9 +17,17 @@ export default function UserManager({
   onEditRole,
   onEditAlias,
   onDeleteUser,
+  onRoleFilterChange,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
+
+  // ✅ OPTIMIZED Issue #7: Pass role filter to parent for server-side filtering
+  useEffect(() => {
+    if (onRoleFilterChange) {
+      onRoleFilterChange(activeFilter);
+    }
+  }, [activeFilter, onRoleFilterChange]);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState([
@@ -38,7 +46,8 @@ export default function UserManager({
 
   const roles = ["all", "admin", "teacher", "student", "vendor"];
 
-  // Combined Filter Logic: Search + Role
+  // ✅ OPTIMIZED Issue #7: Only client-side search filtering (role filter moved to server)
+  // Server now filters by role, client only does full-text search
   const filteredUsers = users.filter((u) => {
     const userName = (u.displayName || u.name || "").toLowerCase();
     const userEmail = (u.email || "").toLowerCase();
@@ -46,9 +55,7 @@ export default function UserManager({
       userName.includes(searchQuery.toLowerCase()) ||
       userEmail.includes(searchQuery.toLowerCase());
 
-    const matchesRole = activeFilter === "all" || u.role === activeFilter;
-
-    return matchesSearch && matchesRole;
+    return matchesSearch;
   });
 
   const getExportRows = () => {
