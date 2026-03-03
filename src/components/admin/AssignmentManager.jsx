@@ -6,6 +6,7 @@ import {
   FiBookOpen,
   FiActivity,
   FiDownload,
+  FiSearch,
 } from "react-icons/fi";
 import MessageModal from "../common/MessageModal";
 import ExportFieldsModal from "../common/ExportFieldsModal";
@@ -28,6 +29,7 @@ export default function AssignmentManager({
     "status",
   ]);
   const [pdfFontSize, setPdfFontSize] = useState(10);
+  const [ccaFilter, setCcaFilter] = useState("");
   const exportMenuRef = useRef(null);
   const [modalState, setModalState] = useState({
     isOpen: false,
@@ -38,6 +40,11 @@ export default function AssignmentManager({
 
   const selectedClass = classesList.find((c) => c.id === selectedClassId);
   const activeCCAs = ccas.filter((cca) => cca.isActive !== false);
+
+  // Apply filter to activeCCAs
+  const filteredCCAs = activeCCAs.filter((cca) =>
+    cca.name.toLowerCase().includes(ccaFilter.toLowerCase()),
+  );
 
   const assignedCCAs = activeCCAs.filter((cca) =>
     selectedClass?.allowedCCAs?.includes(cca.id),
@@ -270,57 +277,83 @@ export default function AssignmentManager({
       <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         {selectedClassId ? (
           <>
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div>
-                <h3 className="text-xl font-black text-slate-800">
-                  Manage Assignments
-                </h3>
-                <p className="text-slate-500 text-sm mt-1">
-                  Assigning activities to{" "}
-                  <span className="text-brand-primary font-bold">
-                    {selectedClass?.name}
-                  </span>
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold flex items-center gap-2">
-                  <FiActivity />
-                  {selectedClass?.allowedCCAs?.length || 0} Assigned
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-black text-slate-800">
+                    Manage Assignments
+                  </h3>
+                  <p className="text-slate-500 text-sm mt-1">
+                    Assigning activities to{" "}
+                    <span className="text-brand-primary font-bold">
+                      {selectedClass?.name}
+                    </span>
+                  </p>
                 </div>
-                <div className="relative" ref={exportMenuRef}>
-                  <button
-                    type="button"
-                    onClick={() => setExportOpen((prev) => !prev)}
-                    className="px-3 py-1 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-slate-50 transition-colors"
-                    title="Export class assignments"
-                  >
-                    <FiDownload size={12} /> Export
-                  </button>
+                <div className="flex items-center gap-2">
+                  {/* Filter Input */}
+                  <div className="relative">
+                    <FiSearch
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                      size={16}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Filter CCAs..."
+                      value={ccaFilter}
+                      onChange={(e) => setCcaFilter(e.target.value)}
+                      className="w-64 pl-10 pr-16 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all"
+                    />
+                    {ccaFilter && (
+                      <button
+                        type="button"
+                        onClick={() => setCcaFilter("")}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
 
-                  {exportOpen && (
-                    <div className="absolute right-0 mt-2 w-32 bg-white border border-slate-200 rounded-lg shadow-lg z-20 overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleExportCSV();
-                          setExportOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        Export CSV
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleOpenExportPDF();
-                          setExportOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 border-t border-slate-100"
-                      >
-                        Export PDF
-                      </button>
-                    </div>
-                  )}
+                  <div className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold flex items-center gap-2">
+                    <FiActivity />
+                    {selectedClass?.allowedCCAs?.length || 0} Assigned
+                  </div>
+                  <div className="relative" ref={exportMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setExportOpen((prev) => !prev)}
+                      className="px-3 py-1 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-slate-50 transition-colors"
+                      title="Export class assignments"
+                    >
+                      <FiDownload size={12} /> Export
+                    </button>
+
+                    {exportOpen && (
+                      <div className="absolute right-0 mt-2 w-32 bg-white border border-slate-200 rounded-lg shadow-lg z-20 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleExportCSV();
+                            setExportOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                        >
+                          Export CSV
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleOpenExportPDF();
+                            setExportOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 border-t border-slate-100"
+                        >
+                          Export PDF
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -338,7 +371,7 @@ export default function AssignmentManager({
 
             <div className="flex-1 overflow-y-auto p-6">
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
-                {activeCCAs.map((cca) => {
+                {filteredCCAs.map((cca) => {
                   const isAssigned = selectedClass?.allowedCCAs?.includes(
                     cca.id,
                   );
@@ -397,6 +430,11 @@ export default function AssignmentManager({
                   );
                 })}
               </div>
+              {filteredCCAs.length === 0 && activeCCAs.length > 0 && (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <p className="italic">No CCAs match your search.</p>
+                </div>
+              )}
               {activeCCAs.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400">
                   <p className="italic">No active activities found.</p>
