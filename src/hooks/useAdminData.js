@@ -382,9 +382,63 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
     }, {});
   }, [classesList]);
 
+  // Compute enrolledCount from live selections to avoid stale stored values
+  const enrollmentCountsByIdAndName = useMemo(() => {
+    const countById = {};
+    const countByName = {};
+
+    // Initialize all CCAs
+    (ccas || []).forEach((cca) => {
+      countById[cca.id] = 0;
+      const normalizedName = (cca.name || "").trim().toLowerCase();
+      if (normalizedName) {
+        countByName[normalizedName] = 0;
+      }
+    });
+
+    // Count students by CCA id or name (matching modal logic)
+    (selections || []).forEach((selection) => {
+      const selectedCCAs = Array.isArray(selection.selectedCCAs)
+        ? selection.selectedCCAs
+        : [];
+
+      selectedCCAs.forEach((item) => {
+        // Match by ID
+        if (item?.id && countById.hasOwnProperty(item.id)) {
+          countById[item.id]++;
+        }
+        // Also match by name (for legacy/mixed records)
+        const normalizedItemName = (item?.name || "").trim().toLowerCase();
+        if (
+          normalizedItemName &&
+          countByName.hasOwnProperty(normalizedItemName)
+        ) {
+          // Only increment once per student per CCA name
+          if (!item?.id || !countById.hasOwnProperty(item.id)) {
+            countByName[normalizedItemName]++;
+          }
+        }
+      });
+    });
+
+    return { countById, countByName };
+  }, [ccas, selections]);
+
   const ccasWithTeacherAlias = useMemo(
-    () => enrichCCAsWithTeacherAlias(ccas, users),
-    [ccas, users],
+    () =>
+      enrichCCAsWithTeacherAlias(ccas, users).map((cca) => {
+        const normalizedName = (cca.name || "").trim().toLowerCase();
+        // Prioritize ID-based count, fall back to name-based
+        const correctCount =
+          enrollmentCountsByIdAndName.countById[cca.id] ??
+          enrollmentCountsByIdAndName.countByName[normalizedName] ??
+          0;
+        return {
+          ...cca,
+          enrolledCount: correctCount,
+        };
+      }),
+    [ccas, users, enrollmentCountsByIdAndName],
   );
 
   return {
@@ -416,5 +470,6 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
     handleDeleteCCA,
     toggleCCAMap,
     resetStudent,
+    enrollmentCountsByIdAndName,
   };
 }

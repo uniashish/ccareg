@@ -9,6 +9,7 @@ import {
   FiTrash2,
   FiActivity,
   FiX,
+  FiPieChart,
 } from "react-icons/fi";
 import { db } from "../../firebase";
 import {
@@ -24,6 +25,7 @@ import ExportFieldsModal from "../common/ExportFieldsModal";
 import MessageModal from "../common/MessageModal";
 import StudentDetailsModal from "./StudentDetailsModal";
 import PaymentStatusFilters from "./PaymentStatusFilters";
+import SelectionChart from "./SelectionChart";
 
 // --- MAIN COMPONENT ---
 export default function SelectionsManager({
@@ -43,6 +45,7 @@ export default function SelectionsManager({
   // --- MODAL STATE ---
   const [viewingSelection, setViewingSelection] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
   const exportMenuRef = useRef(null);
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -519,6 +522,44 @@ export default function SelectionsManager({
     return matchesSearch && matchesClass && matchesCCA && matchesPayment;
   });
 
+  // Count total CCA selections in filtered results
+  const totalCCASelections = useMemo(() => {
+    return filteredSelections.reduce((sum, selection) => {
+      const selectedCCAs = Array.isArray(selection.selectedCCAs)
+        ? selection.selectedCCAs
+        : [];
+      return sum + selectedCCAs.length;
+    }, 0);
+  }, [filteredSelections]);
+
+  // Count payment statuses across all filtered selections
+  const paymentCounts = useMemo(() => {
+    const counts = { unpaid: 0, verified: 0, pending: 0 };
+
+    filteredSelections.forEach((selection) => {
+      const selectedCCAs = Array.isArray(selection.selectedCCAs)
+        ? selection.selectedCCAs
+        : [];
+
+      selectedCCAs.forEach((cca) => {
+        const paid = String(cca?.paymentStatus || "").toLowerCase() === "paid";
+        const verified = isVendorVerified(cca?.verified);
+        const isPending = paid && !verified;
+        const isUnpaid = !paid;
+
+        if (isUnpaid) {
+          counts.unpaid += 1;
+        } else if (verified) {
+          counts.verified += 1;
+        } else if (isPending) {
+          counts.pending += 1;
+        }
+      });
+    });
+
+    return counts;
+  }, [filteredSelections]);
+
   // --- INTERNAL CSV EXPORT FUNCTION ---
   const handleExportCSV = () => {
     if (filteredSelections.length === 0) {
@@ -667,134 +708,152 @@ export default function SelectionsManager({
 
   return (
     <div className="animate-in fade-in duration-500">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <p className="text-slate-500 text-sm mt-1">
-            {filteredSelections.length} students
-          </p>
+      {/* FILTERS TOOLBAR */}
+      <div className="flex flex-col sm:flex-row gap-3 px-3 py-2.5 bg-gradient-to-r from-brand-primary/10 via-brand-neutral/10 to-brand-secondary/10 border border-slate-200 rounded-lg mb-2 w-full">
+        {/* CLEAR FILTERS BUTTON */}
+        {hasActiveFilters && (
+          <button
+            onClick={handleClearFilters}
+            className="flex items-center justify-center px-3 py-2.5 bg-white border border-black rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            title="Clear all filters"
+          >
+            <FiX className="text-lg" />
+          </button>
+        )}
+        <PaymentStatusFilters
+          value={paymentStatusFilter}
+          onChange={handlePaymentStatusChange}
+        />
+        {/* CLASS FILTER */}
+        <div className="relative flex-1">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            <FiGrid />
+          </div>
+          <select
+            value={filterClass}
+            onChange={(e) => setFilterClass(e.target.value)}
+            className="w-full pl-10 pr-8 py-2 bg-white border border-black rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
+          >
+            <option value="">All Classes</option>
+            {classesList.map((cls) => (
+              <option key={cls.id} value={cls.id}>
+                {cls.name}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* ACTIONS & FILTERS TOOLBAR */}
-        <div className="flex flex-col gap-3 w-full md:w-auto">
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            {/* CLEAR FILTERS BUTTON */}
-            {hasActiveFilters && (
-              <button
-                onClick={handleClearFilters}
-                className="flex items-center justify-center px-3 py-2.5 bg-white border border-black rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                title="Clear all filters"
-              >
-                <FiX className="text-lg" />
-              </button>
-            )}
-            <PaymentStatusFilters
-              value={paymentStatusFilter}
-              onChange={handlePaymentStatusChange}
-            />
-            {/* CLASS FILTER */}
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <FiGrid />
-              </div>
-              <select
-                value={filterClass}
-                onChange={(e) => setFilterClass(e.target.value)}
-                className="w-full sm:w-40 pl-10 pr-8 py-2.5 bg-white border border-black rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
-              >
-                <option value="">All Classes</option>
-                {classesList.map((cls) => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* ACTIVITY FILTER */}
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <FiActivity />
-              </div>
-              <select
-                value={filterCCA}
-                onChange={(e) => setFilterCCA(e.target.value)}
-                className="w-full sm:w-48 pl-10 pr-8 py-2.5 bg-white border border-black rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
-              >
-                <option value="">All Activities</option>
-                {uniqueCCANames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* SEARCH BAR */}
-            <div className="relative flex-1 sm:flex-none">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search student..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:w-64 pl-10 pr-4 py-2.5 bg-white border border-black rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
-              />
-            </div>
-
-            {/* EXPORT DROPDOWN */}
-            <div className="relative" ref={exportMenuRef}>
-              <button
-                onClick={() => setExportOpen((v) => !v)}
-                className={`flex items-center justify-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-bold transition-all active:scale-95 shadow-sm ${filteredSelections.length > 0 ? "bg-white border-black text-slate-700 hover:bg-slate-50 hover:border-black" : "bg-slate-50 border-black text-slate-300 cursor-not-allowed"}`}
-                title="Export options"
-                disabled={filteredSelections.length === 0}
-              >
-                <FiDownload />
-                <span className="hidden sm:inline">Export</span>
-                <FiChevronDown />
-              </button>
-
-              {exportOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
-                  <button
-                    onClick={() => {
-                      handleExportCSV();
-                      setExportOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    Export CSV
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleExportPDF();
-                      setExportOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    Export PDF
-                  </button>
-                </div>
-              )}
-              {/* Export Fields Modal */}
-              <ExportFieldsModal
-                isOpen={exportFieldsOpen}
-                onClose={() => setExportFieldsOpen(false)}
-                fields={exportFields}
-                selectedFields={selectedExportFields}
-                onChangeFields={setSelectedExportFields}
-                fontSize={pdfFontSize}
-                onFontSizeChange={setPdfFontSize}
-                onExport={handleExportFieldsConfirm}
-              />
-            </div>
+        {/* ACTIVITY FILTER */}
+        <div className="relative flex-1">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            <FiActivity />
           </div>
+          <select
+            value={filterCCA}
+            onChange={(e) => setFilterCCA(e.target.value)}
+            className="w-full pl-10 pr-8 py-2 bg-white border border-black rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
+          >
+            <option value="">All Activities</option>
+            {uniqueCCANames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* SEARCH BAR */}
+        <div className="relative flex-1">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search student..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-white border border-black rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
+          />
+        </div>
+
+        {/* EXPORT DROPDOWN */}
+        <div className="relative flex-1" ref={exportMenuRef}>
+          <button
+            onClick={() => setExportOpen((v) => !v)}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2 border rounded-xl text-sm font-bold transition-all active:scale-95 shadow-sm ${filteredSelections.length > 0 ? "bg-white border-black text-slate-700 hover:bg-slate-50 hover:border-black" : "bg-slate-50 border-black text-slate-300 cursor-not-allowed"}`}
+            title="Export options"
+            disabled={filteredSelections.length === 0}
+          >
+            <FiDownload />
+            <span className="hidden sm:inline">Export</span>
+            <FiChevronDown />
+          </button>
+
+          {exportOpen && (
+            <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+              <button
+                onClick={() => {
+                  handleExportCSV();
+                  setExportOpen(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Export CSV
+              </button>
+              <button
+                onClick={() => {
+                  handleExportPDF();
+                  setExportOpen(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Export PDF
+              </button>
+            </div>
+          )}
+          {/* Export Fields Modal */}
+          <ExportFieldsModal
+            isOpen={exportFieldsOpen}
+            onClose={() => setExportFieldsOpen(false)}
+            fields={exportFields}
+            selectedFields={selectedExportFields}
+            onChangeFields={setSelectedExportFields}
+            fontSize={pdfFontSize}
+            onFontSizeChange={setPdfFontSize}
+            onExport={handleExportFieldsConfirm}
+          />
         </div>
       </div>
 
+      {/* COMPACT STATS BAR */}
+      <div className="flex items-center justify-between px-3 py-0.5 bg-slate-50 border border-black rounded-lg text-3xs text-slate-600 mb-2">
+        <span className="text-slate-600 font-medium">
+          {filteredSelections.length} students
+        </span>
+        <span className="text-slate-600">
+          {totalCCASelections} CCA{totalCCASelections !== 1 ? "s" : ""}
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="inline-block w-1 h-1 rounded-full bg-red-500"></span>
+          <span>Unpaid: {paymentCounts.unpaid}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="inline-block w-1 h-1 rounded-full bg-yellow-500"></span>
+          <span>Pending: {paymentCounts.pending}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="inline-block w-1 h-1 rounded-full bg-emerald-500"></span>
+          <span>Verified: {paymentCounts.verified}</span>
+        </div>
+        <button
+          onClick={() => setChartOpen(true)}
+          className="inline-flex items-center justify-center p-0.5 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+          title="View CCA distribution chart"
+        >
+          <FiPieChart size={12} />
+        </button>
+      </div>
+
       {/* TABLE CONTAINER */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-gradient-to-r from-brand-primary/10 via-brand-neutral/10 to-brand-secondary/10 border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[68vh]">
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 border-b border-slate-100">
@@ -975,6 +1034,12 @@ export default function SelectionsManager({
         onCancel={modalConfig.onCancel}
         confirmText={modalConfig.confirmText}
         cancelText={modalConfig.cancelText}
+      />
+
+      <SelectionChart
+        isOpen={chartOpen}
+        onClose={() => setChartOpen(false)}
+        selections={filteredSelections}
       />
     </div>
   );
