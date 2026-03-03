@@ -337,6 +337,7 @@ export default function VendorDashboard() {
             attendanceLabel: `${presentCount}/${totalSessions}`,
             paymentStatus: item.paymentStatus === "Paid" ? "Paid" : "Unpaid",
             verified: normalizeVerified(item.verified),
+            grade: item.grade || null,
           };
         });
     });

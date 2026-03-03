@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "../../../firebase";
 import CustomListAddStudentModal from "./CustomListAddStudentModal";
 import CustomListModalCard from "./CustomListModalCard";
@@ -76,9 +76,59 @@ export default function CustomStudentList({
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState("csv");
+  const [isGradingEnabled, setIsGradingEnabled] = useState(false);
+  const [gradeMap, setGradeMap] = useState({});
 
   const teacherId = user?.uid;
   const customListDocId = `${teacherId}_customList`;
+
+  const processGradingData = (data) => {
+    setIsGradingEnabled(data.enabled !== false);
+
+    const grades = Array.isArray(data.grades) ? data.grades : [];
+    const map = {};
+    grades.forEach((grade) => {
+      const gradeId = String(grade?.id || "").trim();
+      if (gradeId) {
+        map[gradeId] = grade?.text || gradeId;
+      }
+    });
+    setGradeMap(map);
+  };
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, "settings", "grading"),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          processGradingData(docSnap.data());
+        } else {
+          setIsGradingEnabled(false);
+          setGradeMap({});
+        }
+      },
+      () => {
+        getFallbackGrading();
+      },
+    );
+
+    async function getFallbackGrading() {
+      try {
+        const docSnap = await getDoc(doc(db, "settings", "grading"));
+        if (docSnap.exists()) {
+          processGradingData(docSnap.data());
+        } else {
+          setIsGradingEnabled(false);
+          setGradeMap({});
+        }
+      } catch {
+        setIsGradingEnabled(false);
+        setGradeMap({});
+      }
+    }
+
+    return () => unsub();
+  }, []);
 
   // Load custom list from Firestore when modal opens
   // ✅ OPTIMIZED: Load only student IDs and lookup full data from selections
@@ -526,6 +576,8 @@ export default function CustomStudentList({
         formatDateLabel={formatDateLabel}
         onExportCSV={handleOpenExportCSV}
         onExportPDF={handleOpenExportPDF}
+        isGradingEnabled={isGradingEnabled}
+        gradeMap={gradeMap}
       />
 
       <CustomListExportModal
@@ -548,6 +600,8 @@ export default function CustomStudentList({
         onToggleCheckbox={handleToggleCheckbox}
         onAddStudents={handleAddStudents}
         customListIds={customListIds}
+        isGradingEnabled={isGradingEnabled}
+        gradeMap={gradeMap}
       />
     </div>
   );

@@ -20,6 +20,7 @@ import MissingStudentsModal from "./MissingStudentsModal";
 import { downloadVendorsCSV } from "../../utils/csvExporter";
 import PortalControl from "./PortalControl";
 import ExportFieldsModal from "../common/ExportFieldsModal";
+import GradingControl from "./GradingControl";
 
 // --- IMPORT ---
 import VendorManagerModal from "./VendorManagerModal";
@@ -248,10 +249,13 @@ export default function HousekeepingManager({
           {/* 3. PORTAL CONTROL */}
           <PortalControl housekeepingCardClass={housekeepingCardClass} />
 
-          {/* 4. EMAIL TEMPLATE MANAGER */}
+          {/* 4. GRADING CONTROL */}
+          <GradingControl housekeepingCardClass={housekeepingCardClass} />
+
+          {/* 5. EMAIL TEMPLATE MANAGER */}
           <EmailTemplateManager />
 
-          {/* 5. VENDOR MANAGEMENT */}
+          {/* 6. VENDOR MANAGEMENT */}
           <div
             className={`${housekeepingCardClass} p-6 flex flex-col justify-between h-full min-h-[300px]`}
           >
@@ -345,7 +349,7 @@ export default function HousekeepingManager({
             </div>
           </div>
 
-          {/* 6. DEFAULTER CHECKER */}
+          {/* 7. DEFAULTER CHECKER */}
           <div
             className={`${housekeepingCardClass} p-6 flex flex-col justify-between`}
           >
@@ -409,7 +413,7 @@ export default function HousekeepingManager({
             </div>
           </div>
 
-          {/* 7. DANGER ZONE */}
+          {/* 8. DANGER ZONE */}
           <TermManager
             selections={selections}
             users={users}

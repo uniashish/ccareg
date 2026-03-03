@@ -6,6 +6,8 @@ export default function CustomListStudentsTable({
   selectedCheckboxes,
   customListIds,
   onToggleCheckbox,
+  isGradingEnabled,
+  gradeMap,
 }) {
   return (
     <div className="flex-1 overflow-y-auto">
@@ -48,14 +50,25 @@ export default function CustomListStudentsTable({
                   </div>
                   {student.selectedCCAs && student.selectedCCAs.length > 0 && (
                     <div className="flex gap-1 flex-wrap mt-2">
-                      {student.selectedCCAs.map((cca, idx) => (
-                        <span
-                          key={cca.id || idx}
-                          className="px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded text-[10px] font-bold"
-                        >
-                          {cca.name}
-                        </span>
-                      ))}
+                      {student.selectedCCAs.map((cca, idx) => {
+                        const gradeText = cca?.grade
+                          ? gradeMap[String(cca.grade)]
+                          : null;
+
+                        return (
+                          <span
+                            key={cca.id || idx}
+                            className="px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded text-[10px] font-bold flex items-center gap-1"
+                          >
+                            <span>{cca.name}</span>
+                            {isGradingEnabled && gradeText && (
+                              <span className="text-indigo-500 opacity-75">
+                                ({gradeText})
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

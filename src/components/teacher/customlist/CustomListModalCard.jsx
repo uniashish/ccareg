@@ -12,6 +12,8 @@ export default function CustomListModalCard({
   formatDateLabel,
   onExportCSV,
   onExportPDF,
+  isGradingEnabled,
+  gradeMap,
 }) {
   const [exportOpen, setExportOpen] = React.useState(false);
   const exportMenuRef = useRef(null);
@@ -180,7 +182,15 @@ export default function CustomListModalCard({
                                   </>
                                 );
                               })()}
-                              <span className="ml-1">{cca.name}</span>
+                              <span className="ml-1 inline-flex items-center gap-1.5">
+                                <span>{cca.name}</span>
+                                {isGradingEnabled && cca?.grade && (
+                                  <span className="px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-black leading-none tracking-wide uppercase">
+                                    {gradeMap[String(cca.grade)] ||
+                                      String(cca.grade)}
+                                  </span>
+                                )}
+                              </span>
                             </span>
                           ))}
                         </div>

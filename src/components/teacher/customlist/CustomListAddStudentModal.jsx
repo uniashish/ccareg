@@ -16,6 +16,8 @@ export default function CustomListAddStudentModal({
   onToggleCheckbox,
   onAddStudents,
   customListIds,
+  isGradingEnabled,
+  gradeMap,
 }) {
   if (!isOpen) return null;
 
@@ -58,6 +60,8 @@ export default function CustomListAddStudentModal({
           selectedCheckboxes={selectedCheckboxes}
           customListIds={customListIds}
           onToggleCheckbox={onToggleCheckbox}
+          isGradingEnabled={isGradingEnabled}
+          gradeMap={gradeMap}
         />
 
         {/* Footer with Action Buttons */}
