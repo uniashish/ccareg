@@ -190,14 +190,14 @@ export default function StudentDashboard() {
       <main className="max-w-7xl mx-auto px-6 py-4 md:px-10">
         {!isStudentPortalActive ? (
           <div className="max-w-3xl mx-auto mt-8 bg-white border border-slate-200 rounded-3xl p-8 shadow-sm text-center">
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight mb-3">
+            <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-slate-800 tracking-tight mb-3">
               Student Portal Not Active
             </h1>
-            <p className="text-slate-600 text-sm leading-relaxed">
+            <p className="text-slate-600 text-xs sm:text-sm md:text-base leading-relaxed">
               The student portal is currently not active. Please contact the
               administrator.
             </p>
-            <p className="text-slate-700 text-sm font-bold mt-4">
+            <p className="text-slate-700 text-xs sm:text-sm md:text-base font-bold mt-4">
               {adminName && adminContact
                 ? `${adminName} - ${adminContact}`
                 : adminContact
@@ -221,10 +221,10 @@ export default function StudentDashboard() {
           <>
             <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
               <div>
-                <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-800 tracking-tight leading-none">
                   CCA Selection
                 </h1>
-                <p className="text-slate-500 text-xs font-medium mt-1">
+                <p className="text-slate-500 text-xs sm:text-sm font-medium mt-1">
                   You have selected {selectedCCAs.length} / {maxSelections}{" "}
                   activities
                 </p>
@@ -232,7 +232,7 @@ export default function StudentDashboard() {
 
               {selectedClassId && (
                 <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <span className="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
                     Selected Slots
                   </span>
                   <div className="flex gap-1.5">
@@ -286,7 +286,7 @@ export default function StudentDashboard() {
                       selectedCCAs.length < minSelections || isSubmitting
                     }
                     onClick={handleSubmitSelection}
-                    className="px-12 py-4 bg-brand-primary text-white rounded-2xl font-black shadow-2xl shadow-brand-primary/40 hover:scale-105 disabled:opacity-20 disabled:scale-100 transition-all active:scale-95 flex items-center gap-3"
+                    className="px-8 sm:px-12 py-3 sm:py-4 bg-brand-primary text-white text-sm sm:text-base md:text-lg rounded-2xl font-black shadow-2xl shadow-brand-primary/40 hover:scale-105 disabled:opacity-20 disabled:scale-100 transition-all active:scale-95 flex items-center gap-2 sm:gap-3"
                   >
                     {isSubmitting
                       ? "Submitting..."
@@ -300,7 +300,7 @@ export default function StudentDashboard() {
             ) : (
               <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-white/50">
                 <FiGrid className="text-3xl text-slate-300 mx-auto mb-3" />
-                <h3 className="text-slate-400 font-black uppercase tracking-widest text-xs">
+                <h3 className="text-slate-400 font-black uppercase tracking-widest text-xs sm:text-sm">
                   Choose your class to begin
                 </h3>
               </div>
@@ -309,7 +309,7 @@ export default function StudentDashboard() {
         )}
 
         <footer className="py-6 text-center">
-          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+          <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest">
             Developed and Maintained by Ashish Bhatnagar SISKGNEJ
           </p>
         </footer>
