@@ -111,8 +111,8 @@ export default function VendorStudentsTable({
 
   const getVerificationLabel = (row, isUpdating, isPaid) => {
     if (isUpdating) return "Updating...";
-    if (row.verified) return "Verified";
-    return isPaid ? "Pending" : "Unpaid";
+    if (row.verified) return "Vendor Verified";
+    return isPaid ? "Pending Vendor Check" : "Unpaid";
   };
 
   const handleGradeChange = async (selectionId, ccaId, gradeId) => {

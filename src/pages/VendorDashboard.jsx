@@ -46,6 +46,24 @@ export default function VendorDashboard() {
   const [adminContact, setAdminContact] = useState("");
 
   useEffect(() => {
+    // Inner listener refs — must be tracked in the closure so the effect
+    // cleanup (and each vendor snapshot) can properly unsubscribe them.
+    // onSnapshot ignores the return value of its callback, so returning
+    // cleanup functions from inside the callback never works.
+    let unsubSelections = null;
+    let unsubAttendance = null;
+
+    const cleanupInner = () => {
+      if (unsubSelections) {
+        unsubSelections();
+        unsubSelections = null;
+      }
+      if (unsubAttendance) {
+        unsubAttendance();
+        unsubAttendance = null;
+      }
+    };
+
     // ✅ OPTIMIZED Issue #2: Filter vendors by email instead of loading all
     const vendorQuery = query(
       collection(db, "vendors"),
@@ -59,15 +77,24 @@ export default function VendorDashboard() {
       }));
       setVendors(vendorDocs);
 
+      // Tear down stale inner listeners before (re)creating them so we
+      // never stack duplicate listeners when vendor data changes.
+      cleanupInner();
+
       // ✅ OPTIMIZED: Only load Selections and Attendance for THIS vendor's CCAs
       // Classes and CCAs now use shared DataCacheContext (Issue #4)
       if (vendorDocs.length > 0) {
-        const vendorCcaIds = vendorDocs[0].associatedCCAs || [];
+        // Extract string IDs from associatedCCAs, which may be stored as
+        // objects ({id, name}) or legacy plain strings.
+        const rawAssociatedCCAs = vendorDocs[0].associatedCCAs || [];
+        const vendorCcaIds = rawAssociatedCCAs
+          .map((item) => (typeof item === "string" ? item : item?.id || ""))
+          .filter(Boolean);
 
         // ✅ Load all selections (client-side filtering by vendor CCA IDs happens in allRows useMemo)
         // Note: Can't use array-contains-any with selectedCCAs objects, so we load all and filter client-side
         if (vendorCcaIds.length > 0) {
-          const unsubSelections = onSnapshot(
+          unsubSelections = onSnapshot(
             collection(db, "selections"),
             (snapshot) => {
               setSelections(
@@ -85,7 +112,7 @@ export default function VendorDashboard() {
             where("ccaId", "in", vendorCcaIds),
           );
 
-          const unsubAttendance = onSnapshot(attendanceQuery, (snapshot) => {
+          unsubAttendance = onSnapshot(attendanceQuery, (snapshot) => {
             setAttendanceRecords(
               snapshot.docs.map((document) => ({
                 id: document.id,
@@ -93,20 +120,19 @@ export default function VendorDashboard() {
               })),
             );
           });
-
-          return () => {
-            unsubSelections();
-            unsubAttendance();
-          };
         } else {
-          // If vendor has no CCAs, cleanup is handled by dependency array
-          return () => {};
+          setSelections([]);
+          setAttendanceRecords([]);
         }
+      } else {
+        setSelections([]);
+        setAttendanceRecords([]);
       }
     });
 
     return () => {
       unsubVendors();
+      cleanupInner();
     };
   }, [user?.email]);
 

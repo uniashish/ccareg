@@ -13,8 +13,8 @@ export default function PaymentStatusFilters({ value, onChange }) {
         className="w-full sm:w-44 pl-10 pr-8 py-2.5 bg-white border border-black rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
       >
         <option value="all">All Payments</option>
-        <option value="pending">Pending</option>
-        <option value="verified">Verified</option>
+        <option value="pending">Pending Vendor Verification</option>
+        <option value="verified">Vendor Verified</option>
         <option value="unpaid">Unpaid</option>
       </select>
     </div>

@@ -790,19 +790,22 @@ export default function TeacherDashboard() {
 
         setCCAs(enrichCCAsWithTeacherAlias(teacherCCAs, usersData));
 
-        // Step 2: Get selections ONLY for teacher's CCA IDs (if we found any)
-        const teacherCCAIds = teacherCCAs.map((cca) => cca.id);
+        // Step 2: Load selections and filter by CCA IDs in selectedCCAs[].id.
+        // Firestore cannot query array of objects by nested id using array-contains-any.
+        const teacherCCAIds = teacherCCAs.map((cca) => cca.id).filter(Boolean);
+        const teacherCCAIdSet = new Set(teacherCCAIds);
 
-        if (teacherCCAIds.length > 0) {
-          const selectionsQuery = query(
-            collection(db, "selections"),
-            where("selectedCCAs", "array-contains-any", teacherCCAIds),
-          );
-
-          const selectionsSnap = await getDocs(selectionsQuery);
+        if (teacherCCAIdSet.size > 0) {
+          const selectionsSnap = await getDocs(collection(db, "selections"));
           const activeSelections = selectionsSnap.docs
             .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((s) => s.status !== "cancelled");
+            .filter((selection) => {
+              if (selection.status === "cancelled") return false;
+              const selectedCCAs = Array.isArray(selection.selectedCCAs)
+                ? selection.selectedCCAs
+                : [];
+              return selectedCCAs.some((item) => teacherCCAIdSet.has(item?.id));
+            });
           setSelections(activeSelections);
         } else {
           setSelections([]);

@@ -16,6 +16,7 @@ import {
   collection,
   doc,
   getDocs,
+  increment,
   query,
   where,
   writeBatch,
@@ -273,31 +274,6 @@ export default function SelectionsManager({
     }, 300);
   };
 
-  const cleanupAttendanceRecords = async (attendanceDocs, selection) => {
-    const studentIds = [selection.id, selection.studentUid].filter(Boolean);
-    const studentIdSet = new Set(studentIds);
-    const batch = writeBatch(db);
-    let hasUpdates = false;
-
-    attendanceDocs.forEach((record) => {
-      const currentIds = Array.isArray(record.presentStudentIds)
-        ? record.presentStudentIds
-        : [];
-      const updatedIds = currentIds.filter((id) => !studentIdSet.has(id));
-
-      if (updatedIds.length === currentIds.length) return;
-
-      batch.update(doc(db, "attendanceRecords", record.id), {
-        presentStudentIds: updatedIds,
-      });
-      hasUpdates = true;
-    });
-
-    if (hasUpdates) {
-      await batch.commit();
-    }
-  };
-
   const executeAttendanceAwareRemoval = async ({
     format,
     rows,
@@ -307,6 +283,7 @@ export default function SelectionsManager({
   }) => {
     closeModal();
 
+    // Download the attendance record before touching the database.
     if (format === "pdf") {
       downloadStudentAttendancePDF({ rows, selection, cca });
     } else {
@@ -314,15 +291,45 @@ export default function SelectionsManager({
     }
 
     try {
-      await cleanupAttendanceRecords(attendanceDocs, selection);
-      const removed = await onDeleteCCA(selection.id, cca);
-      if (!removed) {
-        showModal(
-          "error",
-          "Removal Failed",
-          "Attendance data was cleaned, but removing the student CCA failed. Please refresh and verify the record.",
-        );
+      // Build one atomic batch so that attendance cleanup, selection
+      // update/deletion, and seat decrement all succeed or all fail together.
+      const studentIds = [selection.id, selection.studentUid].filter(Boolean);
+      const studentIdSet = new Set(studentIds);
+
+      const batch = writeBatch(db);
+
+      // 1. Remove student from attendance records
+      attendanceDocs.forEach((record) => {
+        const currentIds = Array.isArray(record.presentStudentIds)
+          ? record.presentStudentIds
+          : [];
+        const updatedIds = currentIds.filter((id) => !studentIdSet.has(id));
+        if (updatedIds.length !== currentIds.length) {
+          batch.update(doc(db, "attendanceRecords", record.id), {
+            presentStudentIds: updatedIds,
+          });
+        }
+      });
+
+      // 2. Remove CCA from the selection (delete selection if it becomes empty)
+      const selectionRef = doc(db, "selections", selection.id);
+      const updatedCCAList = (selection.selectedCCAs || []).filter(
+        (c) => c.id !== cca.id,
+      );
+      if (updatedCCAList.length === 0) {
+        batch.delete(selectionRef);
+      } else {
+        batch.update(selectionRef, { selectedCCAs: updatedCCAList });
       }
+
+      // 3. Decrement the CCA seat count atomically
+      if (cca?.id) {
+        batch.update(doc(db, "ccas", cca.id), {
+          enrolledCount: increment(-1),
+        });
+      }
+
+      await batch.commit();
     } catch (error) {
       console.error("Error removing attendance-linked CCA:", error);
       showModal(
@@ -422,7 +429,7 @@ export default function SelectionsManager({
       cancelText: "Cancel",
       onConfirm: async () => {
         closeModal();
-        const deleted = await onResetStudent(selectionId, true);
+        const deleted = await onResetStudent(selectionId);
         if (deleted) {
           showModal(
             "success",

@@ -45,7 +45,26 @@ export default function TermManager({ selections, users, classMap }) {
       }
       if (count > 0) await batch.commit();
 
-      // 3. RESET CCAS
+      // 3. DELETE ATTENDANCE RECORDS
+      // Must be cleared with selections so old-term attendance data never
+      // re-associates with returning students in the new term.
+      const attendanceRef = collection(db, "attendanceRecords");
+      const attendanceSnapshot = await getDocs(attendanceRef);
+      let attendanceBatch = writeBatch(db);
+      let attendanceCount = 0;
+
+      for (const attendanceDoc of attendanceSnapshot.docs) {
+        attendanceBatch.delete(doc(db, "attendanceRecords", attendanceDoc.id));
+        attendanceCount++;
+        if (attendanceCount >= batchSize) {
+          await attendanceBatch.commit();
+          attendanceBatch = writeBatch(db);
+          attendanceCount = 0;
+        }
+      }
+      if (attendanceCount > 0) await attendanceBatch.commit();
+
+      // 4. RESET CCAS
       const ccasRef = collection(db, "ccas");
       const ccasSnapshot = await getDocs(ccasRef);
       let ccaBatch = writeBatch(db);
@@ -62,7 +81,9 @@ export default function TermManager({ selections, users, classMap }) {
       }
       if (ccaCount > 0) await ccaBatch.commit();
 
-      setSuccessMsg("Backup downloaded & New term started!");
+      setSuccessMsg(
+        "Backup downloaded & New term started! All attendance records cleared.",
+      );
       setTimeout(() => setSuccessMsg(""), 5000);
     } catch (error) {
       console.error("Error clearing term data:", error);

@@ -74,6 +74,7 @@ export default function CustomStudentList({
   const [completedDateKeysByCCA, setCompletedDateKeysByCCA] = useState({});
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState("csv");
   const [isGradingEnabled, setIsGradingEnabled] = useState(false);
@@ -161,7 +162,8 @@ export default function CustomStudentList({
           setCustomList([]);
         }
         setHasLoadedOnce(true);
-      } catch {
+      } catch (error) {
+        console.error("Failed to load custom student list:", error);
         setHasLoadedOnce(true);
       } finally {
         setIsLoadingList(false);
@@ -192,8 +194,10 @@ export default function CustomStudentList({
           },
           { merge: true },
         );
-      } catch {
-        // Intentionally swallow errors to avoid noisy console output
+        setSaveError(false);
+      } catch (error) {
+        console.error("Failed to save custom student list:", error);
+        setSaveError(true);
       }
     }, 500); // Debounce 500ms
 
@@ -564,6 +568,22 @@ export default function CustomStudentList({
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity animate-in fade-in"
         onClick={onClose}
       ></div>
+
+      {saveError && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[10000] flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-300 text-red-700 text-sm font-semibold rounded-xl shadow-lg">
+          <span>⚠️</span>
+          <span>
+            Your list could not be saved. Check your connection and try again.
+          </span>
+          <button
+            onClick={() => setSaveError(false)}
+            className="ml-2 text-red-400 hover:text-red-600 font-bold"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <CustomListModalCard
         onClose={onClose}

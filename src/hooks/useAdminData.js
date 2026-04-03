@@ -286,15 +286,11 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
   };
 
   // Full Reset Logic (Wipe Student)
-  const resetStudent = async (studentUid, skipConfirm = false) => {
-    if (
-      !skipConfirm &&
-      !window.confirm(
-        "This will remove all selections for this student. Continue?",
-      )
-    )
-      return false;
-
+  // Caller is responsible for showing confirmation UI before invoking this.
+  // All callers (SelectionsManager) use MessageModal confirmation and pass
+  // skipConfirm=true. window.confirm is intentionally not used here because
+  // popup blockers can auto-confirm or auto-deny it silently.
+  const resetStudent = async (studentUid) => {
     try {
       const selRef = doc(db, "selections", studentUid);
       const selSnap = await getDoc(selRef);
@@ -314,50 +310,57 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
       const studentIds = [studentUid, data.studentUid].filter(Boolean);
       const studentIdSet = new Set(studentIds);
 
-      // 1. Clean up attendance records for all CCAs
+      // --- PHASE 1: ALL READS ---
+      // Collect every attendance record that needs the student removed.
+      // Must complete all reads before any writes so the single batch
+      // commit below is atomic — nothing is permanently written until
+      // attendance cleanup, selection deletion, and seat decrements all
+      // succeed together.
+      const attendanceUpdates = []; // { ref, updatedIds }
+
       if (data.selectedCCAs && Array.isArray(data.selectedCCAs)) {
         for (const cca of data.selectedCCAs) {
-          const attendanceQuery = query(
-            collection(db, "attendanceRecords"),
-            where("ccaId", "==", cca.id),
+          if (!cca?.id) continue;
+          const attendanceSnapshot = await getDocs(
+            query(
+              collection(db, "attendanceRecords"),
+              where("ccaId", "==", cca.id),
+            ),
           );
-          const attendanceSnapshot = await getDocs(attendanceQuery);
-
-          const attendanceBatch = writeBatch(db);
-          let hasAttendanceUpdates = false;
-
           attendanceSnapshot.docs.forEach((attendanceDoc) => {
-            const attendanceData = attendanceDoc.data();
-            const currentIds = Array.isArray(attendanceData.presentStudentIds)
-              ? attendanceData.presentStudentIds
+            const currentIds = Array.isArray(
+              attendanceDoc.data().presentStudentIds,
+            )
+              ? attendanceDoc.data().presentStudentIds
               : [];
             const updatedIds = currentIds.filter((id) => !studentIdSet.has(id));
-
             if (updatedIds.length !== currentIds.length) {
-              attendanceBatch.update(
-                doc(db, "attendanceRecords", attendanceDoc.id),
-                {
-                  presentStudentIds: updatedIds,
-                },
-              );
-              hasAttendanceUpdates = true;
+              attendanceUpdates.push({
+                ref: attendanceDoc.ref,
+                updatedIds,
+              });
             }
           });
-
-          if (hasAttendanceUpdates) {
-            await attendanceBatch.commit();
-          }
         }
       }
 
-      // 2. Delete Selection and Return Seats
+      // --- PHASE 2: SINGLE BATCH COMMIT ---
+      // Attendance cleanup + selection deletion + enrolledCount decrements
+      // are all written in one commit. If any part fails, nothing is written.
       const batch = writeBatch(db);
+
+      attendanceUpdates.forEach(({ ref, updatedIds }) => {
+        batch.update(ref, { presentStudentIds: updatedIds });
+      });
+
       batch.delete(selRef);
 
       if (data.selectedCCAs && Array.isArray(data.selectedCCAs)) {
         data.selectedCCAs.forEach((cca) => {
-          const ccaRef = doc(db, "ccas", cca.id);
-          batch.update(ccaRef, { enrolledCount: increment(-1) });
+          if (!cca?.id) return;
+          batch.update(doc(db, "ccas", cca.id), {
+            enrolledCount: increment(-1),
+          });
         });
       }
 

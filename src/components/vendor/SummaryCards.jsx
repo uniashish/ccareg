@@ -37,7 +37,7 @@ export default function SummaryCards({
       >
         <div className="flex items-center justify-between gap-2">
           <p className="text-[9px] font-black uppercase tracking-wider text-emerald-500">
-            Verified
+            Vendor Verified
           </p>
           <p className="text-sm sm:text-base font-black text-emerald-700">
             {summary.verified}
@@ -56,7 +56,7 @@ export default function SummaryCards({
       >
         <div className="flex items-center justify-between gap-2">
           <p className="text-[9px] font-black uppercase tracking-wider text-amber-500">
-            Pending
+            Pending Vendor Check
           </p>
           <p className="text-sm sm:text-base font-black text-amber-700">
             {summary.pending}

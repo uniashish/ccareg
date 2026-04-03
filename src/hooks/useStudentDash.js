@@ -5,8 +5,10 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  query,
   serverTimestamp,
   runTransaction,
+  where,
 } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import { enrichCCAsWithTeacherAlias } from "../utils/teacherAlias";
@@ -59,9 +61,12 @@ export function useStudentDash() {
     const unsubCCAs = onSnapshot(collection(db, "ccas"), (snapshot) => {
       setRawCCAs(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
-    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-      setUsers(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    });
+    const unsubUsers = onSnapshot(
+      query(collection(db, "users"), where("role", "in", ["admin", "teacher"])),
+      (snapshot) => {
+        setUsers(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      },
+    );
     return () => {
       unsubClasses();
       unsubCCAs();
@@ -168,32 +173,50 @@ export function useStudentDash() {
           return map;
         }, {});
 
-        // 2. Identify NEW items
-        const ccasToIncrement = selectedCCAs.filter(
-          (current) => !previousCCAs.some((prev) => prev.id === current.id),
+        // 2. Identify added and removed CCAs to keep enrolledCount in sync.
+        const selectedIds = new Set(
+          selectedCCAs.map((item) => item?.id).filter(Boolean),
+        );
+        const previousIds = new Set(
+          previousCCAs.map((item) => item?.id).filter(Boolean),
         );
 
-        // 3. Read CCA documents for the NEW items only
-        const ccaReads = [];
-        for (const cca of ccasToIncrement) {
-          const ref = doc(db, "ccas", cca.id);
+        const ccasToIncrement = selectedCCAs.filter(
+          (current) => current?.id && !previousIds.has(current.id),
+        );
+
+        const ccasToDecrement = previousCCAs.filter(
+          (previous) => previous?.id && !selectedIds.has(previous.id),
+        );
+
+        // 3. Read all affected CCA docs once (both adds and removals)
+        const affectedIds = [
+          ...new Set([
+            ...ccasToIncrement.map((item) => item.id),
+            ...ccasToDecrement.map((item) => item.id),
+          ]),
+        ];
+
+        const ccaReadsById = {};
+        for (const ccaId of affectedIds) {
+          const ref = doc(db, "ccas", ccaId);
           const docSnap = await transaction.get(ref);
-          ccaReads.push({
-            ref: ref,
+          ccaReadsById[ccaId] = {
+            ref,
             doc: docSnap,
-            name: cca.name,
-          });
+          };
         }
 
         // --- LOGIC CHECK ---
 
         // Check if any NEW CCA is invalid or full
-        for (const item of ccaReads) {
-          if (!item.doc.exists()) {
+        for (const item of ccasToIncrement) {
+          const currentRead = ccaReadsById[item.id];
+          if (!currentRead?.doc?.exists()) {
             throw new Error(`CCA ${item.name} no longer exists.`);
           }
 
-          const data = item.doc.data();
+          const data = currentRead.doc.data();
           const currentEnrolled = data.enrolledCount || 0;
           const max = data.maxSeats || 0;
 
@@ -206,15 +229,27 @@ export function useStudentDash() {
 
         // --- PHASE 2: WRITES ---
 
-        // 1. Update Enrolled Counts
-        for (const item of ccaReads) {
-          const currentEnrolled = item.doc.data().enrolledCount || 0;
-          transaction.update(item.ref, {
+        // 1. Increment counts for newly added CCAs
+        for (const item of ccasToIncrement) {
+          const currentRead = ccaReadsById[item.id];
+          const currentEnrolled = currentRead.doc.data().enrolledCount || 0;
+          transaction.update(currentRead.ref, {
             enrolledCount: currentEnrolled + 1,
           });
         }
 
-        // 2. Update/Create Selection Record
+        // 2. Decrement counts for removed CCAs (floor at 0)
+        for (const item of ccasToDecrement) {
+          const currentRead = ccaReadsById[item.id];
+          if (!currentRead?.doc?.exists()) continue;
+
+          const currentEnrolled = currentRead.doc.data().enrolledCount || 0;
+          transaction.update(currentRead.ref, {
+            enrolledCount: Math.max(currentEnrolled - 1, 0),
+          });
+        }
+
+        // 3. Update/Create Selection Record
         const selectionData = {
           studentUid: activeUser.uid,
           studentEmail: activeUser.email,
