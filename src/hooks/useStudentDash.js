@@ -137,6 +137,28 @@ export function useStudentDash() {
       return;
     }
 
+    if (!selectedClassId) {
+      showModal(
+        "error",
+        "Class Required",
+        "Please select an active class before confirming.",
+      );
+      return;
+    }
+
+    const selectedClass = classes.find(
+      (classItem) => classItem.id === selectedClassId,
+    );
+
+    if (!selectedClass || selectedClass.isActive === false) {
+      showModal(
+        "error",
+        "Class Unavailable",
+        "The selected class is disabled. Please choose an active class before confirming.",
+      );
+      return;
+    }
+
     const activeUser = currentUser || auth.currentUser;
     if (!activeUser) {
       showModal(
@@ -149,12 +171,24 @@ export function useStudentDash() {
 
     setIsSubmitting(true);
 
-    const selectedClassName =
-      classes.find((classItem) => classItem.id === selectedClassId)?.name || "";
+    const selectedClassName = selectedClass.name || "";
 
     try {
       await runTransaction(db, async (transaction) => {
         // --- PHASE 1: READS ---
+
+        const selectedClassRef = doc(db, "classes", selectedClassId);
+        const selectedClassDoc = await transaction.get(selectedClassRef);
+
+        if (!selectedClassDoc.exists()) {
+          throw new Error("The selected class no longer exists.");
+        }
+
+        if (selectedClassDoc.data().isActive === false) {
+          throw new Error(
+            "The selected class is disabled. Please choose an active class.",
+          );
+        }
 
         // 1. Read User Selection
         const selectionRef = doc(db, "selections", activeUser.uid);

@@ -118,14 +118,43 @@ export default function StudentDashboard() {
     setSelectedCCAs,
   ]);
 
+  useEffect(() => {
+    if (!selectedClassId || hasSubmitted) return;
+
+    const selectedClass = classes.find(
+      (classItem) => classItem.id === selectedClassId,
+    );
+
+    if (selectedClass && selectedClass.isActive === false) {
+      setSelectedClassId("");
+      setSelectedCCAs([]);
+      showLocalModal(
+        "info",
+        "Class Unavailable",
+        "The selected class is currently disabled. Please choose an active class.",
+      );
+    }
+  }, [
+    classes,
+    hasSubmitted,
+    selectedClassId,
+    setSelectedCCAs,
+    setSelectedClassId,
+  ]);
+
   const availableCCAs = selectedClassId
     ? ccas.filter((cca) => {
         const currentClass = classes.find((c) => c.id === selectedClassId);
-        return currentClass?.allowedCCAs?.includes(cca.id);
+        if (!currentClass || currentClass.isActive === false) return false;
+        return currentClass.allowedCCAs?.includes(cca.id);
       })
     : [];
 
   const handleClassSelect = (id) => {
+    const selectedClass = classes.find((classItem) => classItem.id === id);
+
+    if (!selectedClass || selectedClass.isActive === false) return;
+
     setSelectedClassId(id);
     setSelectedCCAs([]);
   };

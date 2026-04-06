@@ -63,7 +63,7 @@ export default function ClassSelector(props) {
       unsubscribeAuth();
       if (unsubscribeSnapshot) unsubscribeSnapshot();
     };
-  }, []); // Run once on mount
+  }, [onSelectClass, selectedClassId]);
 
   // LOCK LOGIC: Locked if DB has record OR Parent passed a record
   const activeLockId =
@@ -73,14 +73,18 @@ export default function ClassSelector(props) {
       : null);
   const isLocked = !!activeLockId;
 
+  const isClassActive = (classItem) => classItem?.isActive !== false;
+
   // Safe Click Handler
-  const handleClassClick = (id) => {
+  const handleClassClick = (classItem) => {
     // 1. Absolute Block if Locked
     if (isLocked) return;
 
+    if (!isClassActive(classItem)) return;
+
     // 2. Trigger Parent Update
     if (onSelectClass) {
-      onSelectClass(id);
+      onSelectClass(classItem.id);
     } else {
       console.error(
         "ClassSelector: Missing onSelectClass or setSelectedClassId prop",
@@ -126,6 +130,7 @@ export default function ClassSelector(props) {
         ) : (
           <div className="flex flex-wrap gap-2">
             {classes.map((cls) => {
+              const isDisabledClass = !isClassActive(cls);
               // Highlight if matches Lock or Selection
               const isSelected = (activeLockId || selectedClassId) === cls.id;
 
@@ -142,6 +147,9 @@ export default function ClassSelector(props) {
                   baseStyle +=
                     "bg-blue-600 text-white shadow-lg shadow-blue-600/20 scale-[1.02] ring-2 ring-offset-1 ring-blue-600 ";
                 }
+              } else if (isDisabledClass) {
+                baseStyle +=
+                  "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-70 ";
               } else {
                 if (isLocked) {
                   // LOCKED & UNSELECTED: Faded
@@ -157,11 +165,14 @@ export default function ClassSelector(props) {
               return (
                 <button
                   key={cls.id}
-                  onClick={() => handleClassClick(cls.id)}
-                  disabled={isLocked}
+                  onClick={() => handleClassClick(cls)}
+                  disabled={isLocked || isDisabledClass}
                   className={baseStyle}
                   // Double protection: CSS pointer-events
-                  style={{ pointerEvents: isLocked ? "none" : "auto" }}
+                  style={{
+                    pointerEvents:
+                      isLocked || isDisabledClass ? "none" : "auto",
+                  }}
                 >
                   {cls.name}
                   {isSelected && (
