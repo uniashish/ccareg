@@ -210,16 +210,55 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
       Array.isArray(cls.allowedCCAs) ? cls.allowedCCAs.includes(id) : false,
     );
 
-    if (assignedClasses.length > 0) {
-      const classNames = assignedClasses
-        .map((cls) => cls.name)
-        .filter(Boolean)
-        .join(", ");
+    const vendorsSnapshot = await getDocs(collection(db, "vendors"));
+    const assignedVendors = vendorsSnapshot.docs
+      .map((vendorDoc) => ({
+        id: vendorDoc.id,
+        ...vendorDoc.data(),
+      }))
+      .filter((vendor) => {
+        const associatedCCAs = Array.isArray(vendor.associatedCCAs)
+          ? vendor.associatedCCAs
+          : [];
+
+        return associatedCCAs.some((associatedCCA) => {
+          if (typeof associatedCCA === "string") {
+            return associatedCCA === id;
+          }
+
+          return associatedCCA?.id === id;
+        });
+      });
+
+    if (assignedClasses.length > 0 || assignedVendors.length > 0) {
+      const reasons = [];
+
+      if (assignedClasses.length > 0) {
+        const classNames = assignedClasses
+          .map((cls) => cls.name)
+          .filter(Boolean)
+          .join(", ");
+
+        reasons.push(
+          `it is assigned to class${assignedClasses.length > 1 ? "es" : ""}: ${classNames}`,
+        );
+      }
+
+      if (assignedVendors.length > 0) {
+        const vendorNames = assignedVendors
+          .map((vendor) => vendor.name || vendor.email || vendor.id)
+          .filter(Boolean)
+          .join(", ");
+
+        reasons.push(
+          `it is assigned to vendor${assignedVendors.length > 1 ? "s" : ""}: ${vendorNames}`,
+        );
+      }
 
       showMessage({
         type: "error",
         title: "Cannot Delete CCA",
-        message: `${ccaDoc.name || "This CCA"} cannot be deleted because it is assigned to class${assignedClasses.length > 1 ? "es" : ""}: ${classNames}. Remove the assignment first.`,
+        message: `${ccaDoc.name || "This CCA"} cannot be deleted because ${reasons.join(" and ")}. Remove the assignment first.`,
       });
       return;
     }
