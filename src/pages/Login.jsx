@@ -227,7 +227,7 @@ export default function Login() {
 
       <div className="login-card-float login-card-glow relative z-10 w-full max-w-[620px] flex flex-col items-center justify-center gap-5 sm:gap-6 bg-white/95 px-5 py-7 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl border border-white/50 transform transition-transform hover:scale-[1.02]">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 text-center leading-tight">
-          SIS KGNEJ CCA Registration Portal
+          SIS NEJ CCA Registration Portal
         </h1>
 
         {!user && (
@@ -239,7 +239,7 @@ export default function Login() {
               <FcGoogle size={18} />
             </span>
             <span className="text-slate-800 font-semibold tracking-tight text-sm sm:text-base text-center">
-              Login with SIS KGNEJ Google Account
+              Login with SIS NEJ Google Account
             </span>
           </button>
         )}
