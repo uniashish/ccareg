@@ -21,7 +21,7 @@ export default function Header() {
             CCA<span className="text-brand-primary">MANAGER</span>
           </h1>
           <p className="hidden sm:block text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
-            SIS KGNEJ CCA Portal
+            SIS NEJ CCA Portal
           </p>
         </div>
       </div>
