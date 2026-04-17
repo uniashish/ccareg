@@ -8,17 +8,18 @@ import {
   query,
   serverTimestamp,
   runTransaction,
+  increment,
   where,
 } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
+import { useDataCache } from "../context/DataCacheContext";
 import { enrichCCAsWithTeacherAlias } from "../utils/teacherAlias";
 
 export function useStudentDash() {
   const { currentUser } = useAuth();
+  const { classes, ccas: rawCCAs } = useDataCache();
 
   // --- DATA STATE ---
-  const [classes, setClasses] = useState([]);
-  const [rawCCAs, setRawCCAs] = useState([]);
   const [users, setUsers] = useState([]);
 
   // --- SELECTION STATE ---
@@ -53,14 +54,8 @@ export function useStudentDash() {
     });
   };
 
-  // 1. DATA LISTENERS (Classes & CCAs)
+  // 1. DATA LISTENERS (CCAs via DataCacheContext; users for teacher alias)
   useEffect(() => {
-    const unsubClasses = onSnapshot(collection(db, "classes"), (snapshot) => {
-      setClasses(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    });
-    const unsubCCAs = onSnapshot(collection(db, "ccas"), (snapshot) => {
-      setRawCCAs(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    });
     const unsubUsers = onSnapshot(
       query(collection(db, "users"), where("role", "in", ["admin", "teacher"])),
       (snapshot) => {
@@ -68,8 +63,6 @@ export function useStudentDash() {
       },
     );
     return () => {
-      unsubClasses();
-      unsubCCAs();
       unsubUsers();
     };
   }, []);
@@ -266,9 +259,8 @@ export function useStudentDash() {
         // 1. Increment counts for newly added CCAs
         for (const item of ccasToIncrement) {
           const currentRead = ccaReadsById[item.id];
-          const currentEnrolled = currentRead.doc.data().enrolledCount || 0;
           transaction.update(currentRead.ref, {
-            enrolledCount: currentEnrolled + 1,
+            enrolledCount: increment(1),
           });
         }
 
@@ -277,10 +269,14 @@ export function useStudentDash() {
           const currentRead = ccaReadsById[item.id];
           if (!currentRead?.doc?.exists()) continue;
 
-          const currentEnrolled = currentRead.doc.data().enrolledCount || 0;
-          transaction.update(currentRead.ref, {
-            enrolledCount: Math.max(currentEnrolled - 1, 0),
-          });
+          const currentData = currentRead.doc.data();
+          const currentEnrolled = currentData.enrolledCount || 0;
+          // Only decrement if count is above 0 to avoid going negative
+          if (currentEnrolled > 0) {
+            transaction.update(currentRead.ref, {
+              enrolledCount: increment(-1),
+            });
+          }
         }
 
         // 3. Update/Create Selection Record
@@ -300,6 +296,8 @@ export function useStudentDash() {
               verified: previous.verified === true,
             };
           }),
+          // Flat array of CCA IDs for efficient server-side vendor filtering
+          selectedCcaIds: selectedCCAs.map((c) => c.id).filter(Boolean),
           timestamp: serverTimestamp(),
           status: "submitted",
         };
@@ -319,6 +317,7 @@ export function useStudentDash() {
           paymentStatus: c.paymentStatus === "Paid" ? "Paid" : "Unpaid",
           verified: c.verified === true,
         })),
+        selectedCcaIds: selectedCCAs.map((c) => c.id).filter(Boolean),
         status: "submitted",
       };
 
@@ -357,5 +356,6 @@ export function useStudentDash() {
     // EXPOSE MODAL STATE TO UI
     modalConfig,
     closeModal,
+    showModal,
   };
 }

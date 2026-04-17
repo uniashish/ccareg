@@ -1,4 +1,5 @@
 // src/utils/csvExporter.js
+import { escapeCSV } from "./vendorUtils";
 
 export const downloadSelectionsCSV = (selections, users, classes) => {
   // 1. Define Headers
@@ -45,15 +46,15 @@ export const downloadSelectionsCSV = (selections, users, classes) => {
     const cca3 = s.selectedCCAs[2]?.name || "-";
     const time = s.timestamp ? s.timestamp.toDate().toLocaleString() : "";
 
-    // Escape quotes to prevent CSV errors
+    // Escape quotes to prevent CSV errors and formula injection
     return [
-      `"${studentName}"`,
-      `"${s.studentEmail || ""}"`,
-      `"${className}"`,
-      `"${cca1}"`,
-      `"${cca2}"`,
-      `"${cca3}"`,
-      `"${time}"`,
+      escapeCSV(studentName),
+      escapeCSV(s.studentEmail || ""),
+      escapeCSV(className),
+      escapeCSV(cca1),
+      escapeCSV(cca2),
+      escapeCSV(cca3),
+      escapeCSV(time),
     ].join(",");
   });
 

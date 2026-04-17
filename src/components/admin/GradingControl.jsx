@@ -14,7 +14,10 @@ import {
   onSnapshot,
   collection,
   getDocs,
+  query,
+  where,
   writeBatch,
+  deleteField,
 } from "firebase/firestore";
 import MessageModal from "../common/MessageModal";
 
@@ -57,7 +60,9 @@ export default function GradingControl({ housekeepingCardClass }) {
 
     setIsSaving(true);
     try {
-      const selectionsSnapshot = await getDocs(collection(db, "selections"));
+      const selectionsSnapshot = await getDocs(
+        query(collection(db, "selections"), where("hasGrades", "==", true)),
+      );
 
       if (selectionsSnapshot.empty) {
         showModal("info", "No Selections", "No student selections found.");
@@ -108,6 +113,7 @@ export default function GradingControl({ housekeepingCardClass }) {
 
         batch.update(selectionDoc.ref, {
           selectedCCAs: cleanedSelectedCCAs,
+          hasGrades: deleteField(),
         });
         operationCount += 1;
         updatedDocuments += 1;

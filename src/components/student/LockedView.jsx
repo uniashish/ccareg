@@ -16,6 +16,8 @@ import {
   getDoc,
   collection,
   getDocs,
+  query,
+  where,
   updateDoc,
 } from "firebase/firestore";
 import MessageModal from "../common/MessageModal";
@@ -105,8 +107,13 @@ export default function LockedView({
         }));
         setVendors(vendorsData);
 
-        const usersRef = collection(db, "users");
-        const usersSnap = await getDocs(usersRef);
+        // Only fetch teacher/admin users — students are not needed for alias resolution
+        const usersSnap = await getDocs(
+          query(
+            collection(db, "users"),
+            where("role", "in", ["admin", "teacher"]),
+          ),
+        );
         const usersData = usersSnap.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -155,7 +162,25 @@ export default function LockedView({
             },
           );
 
-          const fullCCAs = await Promise.all(ccaPromises);
+          const fullCCAs = (await Promise.allSettled(ccaPromises)).map(
+            (result, i) => {
+              if (result.status === "fulfilled") return result.value;
+              // Individual CCA fetch failed — fall back to stored selection data
+              console.warn(
+                `Failed to fetch CCA details for ${existingSelection.selectedCCAs[i]?.id}:`,
+                result.reason,
+              );
+              const item = existingSelection.selectedCCAs[i];
+              return {
+                ...item,
+                paymentStatus:
+                  item.paymentStatus === "Paid" ? "Paid" : "Unpaid",
+                verified: isVendorVerified(item.verified),
+                fee: 0,
+                vendorName: "Unknown",
+              };
+            },
+          );
           setEnrichedCCAs(fullCCAs);
 
           const total = fullCCAs.reduce((sum, cca) => sum + cca.fee, 0);
@@ -570,11 +595,39 @@ export default function LockedView({
                                 </div>
                               </div>
                             ) : (
-                              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-center">
-                                <FiAlertCircle className="mx-auto text-yellow-500 mb-2" />
-                                <p className="text-xs text-yellow-800 font-medium">
-                                  Bank details not found for this provider.
-                                  Please contact the school office.
+                              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-center space-y-1">
+                                <FiAlertCircle
+                                  className="mx-auto text-yellow-500 mb-2"
+                                  size={20}
+                                />
+                                <p className="text-xs text-yellow-800 font-bold">
+                                  Payment details unavailable
+                                </p>
+                                <p className="text-xs text-yellow-700 font-medium leading-relaxed">
+                                  The vendor for this activity could not be
+                                  found.
+                                  {adminDetails.name || adminDetails.contact ? (
+                                    <span>
+                                      {" "}
+                                      Please contact{" "}
+                                      {adminDetails.name ? (
+                                        <strong>{adminDetails.name}</strong>
+                                      ) : null}
+                                      {adminDetails.name && adminDetails.contact
+                                        ? " at "
+                                        : null}
+                                      {adminDetails.contact ? (
+                                        <strong>{adminDetails.contact}</strong>
+                                      ) : null}{" "}
+                                      for payment instructions.
+                                    </span>
+                                  ) : (
+                                    <span>
+                                      {" "}
+                                      Please contact the school office for
+                                      payment instructions.
+                                    </span>
+                                  )}
                                 </p>
                               </div>
                             )}

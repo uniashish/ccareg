@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
+import { resolveRoleFromEmail } from "../utils/roleResolver";
 
 export async function createUserIfNotExists(user) {
   if (!user) return;
@@ -15,15 +16,9 @@ export async function createUserIfNotExists(user) {
 
   // 2. Create User ONLY if it doesn't exist
   if (!userSnap.exists()) {
-    const email = user.email || "";
+    const initialRole = resolveRoleFromEmail(user.email);
 
-    // Check if email starts with 2 digits (e.g., 30athaarva...)
-    const isStudentEmail = /^\d{2}/.test(email);
-
-    // Assign role accordingly
-    const initialRole = isStudentEmail ? "student" : "teacher";
-
-    console.log(`Creating user ${email} as ${initialRole}`); // Debugging log
+    console.log(`Creating user ${user.email} as ${initialRole}`); // Debugging log
 
     await setDoc(userRef, {
       uid: user.uid,

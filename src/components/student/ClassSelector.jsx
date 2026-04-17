@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { FiGrid, FiLock, FiCheck } from "react-icons/fi";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
@@ -13,6 +13,14 @@ export default function ClassSelector(props) {
   const [loading, setLoading] = useState(true);
   const [dbLockedClassId, setDbLockedClassId] = useState(null);
 
+  // Keep a stable ref to the callback so the listener effect never needs it
+  // as a dependency, preventing an infinite re-subscription loop.
+  const onSelectClassRef = useRef(onSelectClass);
+  useEffect(() => {
+    onSelectClassRef.current = onSelectClass;
+  });
+
+  // Listener effect: only depends on stable values (no parent state/callbacks)
   useEffect(() => {
     const auth = getAuth();
     let unsubscribeSnapshot = null;
@@ -41,11 +49,6 @@ export default function ClassSelector(props) {
           if (validRecord && validRecord.classId) {
             console.log("ClassSelector: Locked to", validRecord.classId); // Debug Log
             setDbLockedClassId(validRecord.classId);
-
-            // FORCE the parent state to match the locked class
-            if (onSelectClass && validRecord.classId !== selectedClassId) {
-              onSelectClass(validRecord.classId);
-            }
           } else {
             console.log("ClassSelector: No active selection found.");
             setDbLockedClassId(null);
@@ -63,7 +66,15 @@ export default function ClassSelector(props) {
       unsubscribeAuth();
       if (unsubscribeSnapshot) unsubscribeSnapshot();
     };
-  }, [onSelectClass, selectedClassId]);
+  }, []); // No parent state/callbacks — stable listener with no re-subscription
+
+  // Separate effect: sync locked class ID to parent without causing the
+  // listener above to re-run. Only fires when dbLockedClassId changes.
+  useEffect(() => {
+    if (dbLockedClassId && onSelectClassRef.current) {
+      onSelectClassRef.current(dbLockedClassId);
+    }
+  }, [dbLockedClassId]);
 
   // LOCK LOGIC: Locked if DB has record OR Parent passed a record
   const activeLockId =

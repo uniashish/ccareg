@@ -7,6 +7,7 @@ import {
   updateDoc,
   deleteDoc,
   deleteField,
+  increment,
   runTransaction, // <--- ADDED THIS IMPORT
   query,
   where,
@@ -48,7 +49,18 @@ export default function AdminDashboard() {
     type: "info",
     title: "",
     message: "",
+    mode: "info",
+    onConfirm: null,
+    onCancel: null,
   });
+
+  const closeMessageModal = () =>
+    setMessageModal((prev) => ({
+      ...prev,
+      isOpen: false,
+      onConfirm: null,
+      onCancel: null,
+    }));
 
   const showMessage = ({ type = "info", title = "Notice", message = "" }) => {
     setMessageModal({
@@ -56,6 +68,24 @@ export default function AdminDashboard() {
       type,
       title,
       message,
+      mode: "info",
+      onConfirm: null,
+      onCancel: null,
+    });
+  };
+
+  const showConfirm = ({ type = "error", title, message, onConfirm }) => {
+    setMessageModal({
+      isOpen: true,
+      type,
+      title,
+      message,
+      mode: "confirm",
+      onConfirm: () => {
+        closeMessageModal();
+        onConfirm();
+      },
+      onCancel: closeMessageModal,
     });
   };
 
@@ -72,6 +102,7 @@ export default function AdminDashboard() {
     ccas,
     classesList,
     selections,
+    vendors,
     users: usersData,
     resetStudent, // This is for the full reset
     isClassModalOpen,
@@ -91,10 +122,11 @@ export default function AdminDashboard() {
     handleSaveCCA,
     handleDeleteCCA,
     toggleCCAMap,
-  } = useAdminData(showMessage, userRoleFilter);
+  } = useAdminData(showMessage, userRoleFilter, showConfirm);
 
   // Listener for "Users" Tab (OPTIMIZED Issue #7: Server-side role filtering)
   useEffect(() => {
+    let isActive = true;
     // ✅ OPTIMIZED: Query users by role at database level instead of client-side
     let usersQuery;
     if (userRoleFilter === "all") {
@@ -112,6 +144,7 @@ export default function AdminDashboard() {
     }
 
     const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
+      if (!isActive) return;
       const list = snapshot.docs.map((doc) => ({
         ...doc.data(),
         uid: doc.id,
@@ -119,7 +152,10 @@ export default function AdminDashboard() {
       setLocalUsersList(list);
     });
 
-    return () => unsubscribe();
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
   }, [userRoleFilter]);
 
   // --- ACTIONS ---
@@ -144,11 +180,13 @@ export default function AdminDashboard() {
           (c) => c.id !== ccaToRemove.id,
         );
 
-        // D. Update Seat Count (Free up the seat)
+        // D. Update Seat Count (Free up the seat) using atomic increment
+        // to avoid overwriting concurrent updates from student submissions.
         if (ccaDoc.exists()) {
           const currentEnrolled = ccaDoc.data().enrolledCount || 0;
-          const newCount = currentEnrolled > 0 ? currentEnrolled - 1 : 0;
-          transaction.update(ccaRef, { enrolledCount: newCount });
+          if (currentEnrolled > 0) {
+            transaction.update(ccaRef, { enrolledCount: increment(-1) });
+          }
         }
 
         // E. Save or Delete Student Selection
@@ -157,6 +195,8 @@ export default function AdminDashboard() {
         } else {
           transaction.update(selectionRef, {
             selectedCCAs: updatedCCAList,
+            // Keep the denormalized ID array in sync for vendor filtering
+            selectedCcaIds: updatedCCAList.map((c) => c.id).filter(Boolean),
           });
         }
       });
@@ -201,14 +241,24 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeleteUser = async (uid) => {
-    if (window.confirm("Are you sure you want to remove this user?")) {
-      try {
-        await deleteDoc(doc(db, "users", uid));
-      } catch (error) {
-        console.error("Error deleting user:", error);
-      }
-    }
+  const handleDeleteUser = (uid) => {
+    showConfirm({
+      type: "error",
+      title: "Remove User",
+      message:
+        "Are you sure you want to remove this user? This will also delete their selections and attendance records.",
+      onConfirm: async () => {
+        try {
+          // Clean up the student's selections, attendance records, and CCA
+          // enrolled counts before removing the user document. resetStudent
+          // is a no-op if no selection exists (e.g. teacher/vendor accounts).
+          await resetStudent(uid);
+          await deleteDoc(doc(db, "users", uid));
+        } catch (error) {
+          console.error("Error deleting user:", error);
+        }
+      },
+    });
   };
 
   const handleEditUserAlias = (user) => {
@@ -339,6 +389,7 @@ export default function AdminDashboard() {
                 ccas={ccas}
                 selections={selections}
                 users={usersData}
+                vendors={vendors}
                 classesList={classesList}
                 onAddClick={() => {
                   setEditingCCA(null);
@@ -444,15 +495,15 @@ export default function AdminDashboard() {
 
       <MessageModal
         isOpen={messageModal.isOpen}
-        onClose={() =>
-          setMessageModal((prev) => ({
-            ...prev,
-            isOpen: false,
-          }))
-        }
+        onClose={closeMessageModal}
         type={messageModal.type}
         title={messageModal.title}
         message={messageModal.message}
+        mode={messageModal.mode}
+        onConfirm={messageModal.onConfirm}
+        onCancel={messageModal.onCancel}
+        confirmText="Delete"
+        cancelText="Cancel"
       />
     </div>
   );

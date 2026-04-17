@@ -781,8 +781,13 @@ export default function TeacherDashboard() {
           }));
         }
 
-        // Get users for enrichment
-        const usersSnap = await getDocs(collection(db, "users"));
+        // Get users for enrichment — only admin/teacher roles needed for alias resolution
+        const usersSnap = await getDocs(
+          query(
+            collection(db, "users"),
+            where("role", "in", ["admin", "teacher"]),
+          ),
+        );
         const usersData = usersSnap.docs.map((d) => ({
           id: d.id,
           ...d.data(),
@@ -790,22 +795,40 @@ export default function TeacherDashboard() {
 
         setCCAs(enrichCCAsWithTeacherAlias(teacherCCAs, usersData));
 
-        // Step 2: Load selections and filter by CCA IDs in selectedCCAs[].id.
-        // Firestore cannot query array of objects by nested id using array-contains-any.
+        // Step 2: Load selections filtered by teacher's CCA IDs using the
+        // denormalized selectedCcaIds field (avoids loading all selections).
         const teacherCCAIds = teacherCCAs.map((cca) => cca.id).filter(Boolean);
         const teacherCCAIdSet = new Set(teacherCCAIds);
 
         if (teacherCCAIdSet.size > 0) {
-          const selectionsSnap = await getDocs(collection(db, "selections"));
-          const activeSelections = selectionsSnap.docs
-            .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((selection) => {
-              if (selection.status === "cancelled") return false;
-              const selectedCCAs = Array.isArray(selection.selectedCCAs)
-                ? selection.selectedCCAs
-                : [];
-              return selectedCCAs.some((item) => teacherCCAIdSet.has(item?.id));
+          // Firestore array-contains-any is limited to 10 items — chunk if needed
+          const chunks = [];
+          const ids = [...teacherCCAIdSet];
+          for (let i = 0; i < ids.length; i += 10)
+            chunks.push(ids.slice(i, i + 10));
+
+          const chunkSnaps = await Promise.all(
+            chunks.map((chunk) =>
+              getDocs(
+                query(
+                  collection(db, "selections"),
+                  where("selectedCcaIds", "array-contains-any", chunk),
+                ),
+              ),
+            ),
+          );
+
+          // Merge and deduplicate across chunks
+          const seen = new Set();
+          const activeSelections = [];
+          chunkSnaps.forEach((snap) => {
+            snap.docs.forEach((d) => {
+              if (seen.has(d.id)) return;
+              seen.add(d.id);
+              const data = { id: d.id, ...d.data() };
+              if (data.status !== "cancelled") activeSelections.push(data);
             });
+          });
           setSelections(activeSelections);
         } else {
           setSelections([]);
@@ -814,9 +837,14 @@ export default function TeacherDashboard() {
         console.error("Error fetching dashboard data:", error);
         // Fallback: Load all data if there's an error
         try {
+          // Fallback: load all CCAs and scope users/selections to reduce reads
           const allCCAsSnap = await getDocs(collection(db, "ccas"));
-          const usersSnap = await getDocs(collection(db, "users"));
-          const selectionsSnap = await getDocs(collection(db, "selections"));
+          const usersSnap = await getDocs(
+            query(
+              collection(db, "users"),
+              where("role", "in", ["admin", "teacher"]),
+            ),
+          );
 
           const teacherCCAs = allCCAsSnap.docs.map((d) => ({
             id: d.id,
@@ -826,9 +854,32 @@ export default function TeacherDashboard() {
             id: d.id,
             ...d.data(),
           }));
-          const activeSelections = selectionsSnap.docs
-            .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((s) => s.status !== "cancelled");
+
+          const fallbackIds = teacherCCAs.map((c) => c.id).filter(Boolean);
+          const chunks = [];
+          for (let i = 0; i < fallbackIds.length; i += 10)
+            chunks.push(fallbackIds.slice(i, i + 10));
+
+          const chunkSnaps = await Promise.all(
+            chunks.map((chunk) =>
+              getDocs(
+                query(
+                  collection(db, "selections"),
+                  where("selectedCcaIds", "array-contains-any", chunk),
+                ),
+              ),
+            ),
+          );
+          const seen = new Set();
+          const activeSelections = [];
+          chunkSnaps.forEach((snap) => {
+            snap.docs.forEach((d) => {
+              if (seen.has(d.id)) return;
+              seen.add(d.id);
+              const data = { id: d.id, ...d.data() };
+              if (data.status !== "cancelled") activeSelections.push(data);
+            });
+          });
 
           setCCAs(enrichCCAsWithTeacherAlias(teacherCCAs, usersData));
           setSelections(activeSelections);

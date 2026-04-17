@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { resolveRoleFromEmail } from "../utils/roleResolver";
 
 const AuthContext = createContext(null);
 
@@ -19,34 +20,31 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      setUser(firebaseUser);
-
       try {
         const userRef = doc(db, "users", firebaseUser.uid);
         const snap = await getDoc(userRef);
 
+        let resolvedRole;
+
         if (!snap.exists()) {
-          // --- ROLE ASSIGNMENT LOGIC ---
-          const email = firebaseUser.email || "";
-
-          // Regex: Check if starts with 2 digits
-          const isStudentEmail = /^\d{2}/.test(email);
-
-          const initialRole = isStudentEmail ? "student" : "teacher";
-          // -----------------------------
+          resolvedRole = resolveRoleFromEmail(firebaseUser.email);
 
           await setDoc(userRef, {
             email: firebaseUser.email,
             name: firebaseUser.displayName,
-            role: initialRole,
+            role: resolvedRole,
             createdAt: new Date(),
           });
-          setRole(initialRole);
         } else {
-          setRole(snap.data().role);
+          resolvedRole = snap.data().role;
         }
+
+        // Set user and role together to avoid a render with user set but role null
+        setUser(firebaseUser);
+        setRole(resolvedRole);
       } catch (error) {
         console.error("Auth bootstrap failed:", error);
+        setUser(null);
         setRole(null);
       } finally {
         setLoading(false);

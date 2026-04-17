@@ -70,65 +70,121 @@ export default function VendorDashboard() {
       where("email", "==", user?.email || ""),
     );
 
-    const unsubVendors = onSnapshot(vendorQuery, (snapshot) => {
-      const vendorDocs = snapshot.docs.map((document) => ({
-        id: document.id,
-        ...document.data(),
-      }));
-      setVendors(vendorDocs);
+    const unsubVendors = onSnapshot(
+      vendorQuery,
+      (snapshot) => {
+        const vendorDocs = snapshot.docs.map((document) => ({
+          id: document.id,
+          ...document.data(),
+        }));
+        setVendors(vendorDocs);
 
-      // Tear down stale inner listeners before (re)creating them so we
-      // never stack duplicate listeners when vendor data changes.
-      cleanupInner();
+        // Tear down stale inner listeners before (re)creating them so we
+        // never stack duplicate listeners when vendor data changes.
+        cleanupInner();
 
-      // ✅ OPTIMIZED: Only load Selections and Attendance for THIS vendor's CCAs
-      // Classes and CCAs now use shared DataCacheContext (Issue #4)
-      if (vendorDocs.length > 0) {
-        // Extract string IDs from associatedCCAs, which may be stored as
-        // objects ({id, name}) or legacy plain strings.
-        const rawAssociatedCCAs = vendorDocs[0].associatedCCAs || [];
-        const vendorCcaIds = rawAssociatedCCAs
-          .map((item) => (typeof item === "string" ? item : item?.id || ""))
-          .filter(Boolean);
+        // ✅ OPTIMIZED: Only load Selections and Attendance for THIS vendor's CCAs
+        // Classes and CCAs now use shared DataCacheContext (Issue #4)
+        if (vendorDocs.length > 0) {
+          // Extract string IDs from associatedCCAs, which may be stored as
+          // objects ({id, name}) or legacy plain strings.
+          const rawAssociatedCCAs = vendorDocs[0].associatedCCAs || [];
+          const vendorCcaIds = rawAssociatedCCAs
+            .map((item) => (typeof item === "string" ? item : item?.id || ""))
+            .filter(Boolean);
 
-        // ✅ Load all selections (client-side filtering by vendor CCA IDs happens in allRows useMemo)
-        // Note: Can't use array-contains-any with selectedCCAs objects, so we load all and filter client-side
-        if (vendorCcaIds.length > 0) {
-          unsubSelections = onSnapshot(
-            collection(db, "selections"),
-            (snapshot) => {
-              setSelections(
-                snapshot.docs.map((document) => ({
-                  id: document.id,
-                  ...document.data(),
-                })),
+          if (vendorCcaIds.length > 0) {
+            // Firestore limits array-contains-any and "in" to 10 items.
+            // Split into chunks and run one listener per chunk, then merge.
+            const chunkArray = (arr, size) => {
+              const out = [];
+              for (let i = 0; i < arr.length; i += size)
+                out.push(arr.slice(i, i + size));
+              return out;
+            };
+
+            const ccaChunks = chunkArray(vendorCcaIds, 10);
+
+            // --- Selections listeners (one per chunk) ---
+            const selectionsByChunk = new Map();
+            const unsubSelChunks = ccaChunks.map((chunk, idx) => {
+              const q = query(
+                collection(db, "selections"),
+                where("selectedCcaIds", "array-contains-any", chunk),
               );
-            },
-          );
+              return onSnapshot(
+                q,
+                (snapshot) => {
+                  selectionsByChunk.set(
+                    idx,
+                    snapshot.docs.map((document) => ({
+                      id: document.id,
+                      ...document.data(),
+                    })),
+                  );
+                  // Merge all chunks and deduplicate by document id
+                  const merged = new Map();
+                  selectionsByChunk.forEach((docs) =>
+                    docs.forEach((d) => merged.set(d.id, d)),
+                  );
+                  setSelections([...merged.values()]);
+                },
+                (error) => {
+                  console.error("Vendor selections listener error:", error);
+                },
+              );
+            });
 
-          // ✅ Filter attendance records to only vendor's CCAs
-          const attendanceQuery = query(
-            collection(db, "attendanceRecords"),
-            where("ccaId", "in", vendorCcaIds),
-          );
+            // Wrap all chunk unsubscribes into a single function
+            unsubSelections = () => unsubSelChunks.forEach((u) => u());
 
-          unsubAttendance = onSnapshot(attendanceQuery, (snapshot) => {
-            setAttendanceRecords(
-              snapshot.docs.map((document) => ({
-                id: document.id,
-                ...document.data(),
-              })),
-            );
-          });
+            // --- Attendance listeners (one per chunk) ---
+            const attendanceByChunk = new Map();
+            const unsubAttChunks = ccaChunks.map((chunk, idx) => {
+              const q = query(
+                collection(db, "attendanceRecords"),
+                where("ccaId", "in", chunk),
+              );
+              return onSnapshot(
+                q,
+                (snapshot) => {
+                  attendanceByChunk.set(
+                    idx,
+                    snapshot.docs.map((document) => ({
+                      id: document.id,
+                      ...document.data(),
+                    })),
+                  );
+                  const merged = new Map();
+                  attendanceByChunk.forEach((docs) =>
+                    docs.forEach((d) => merged.set(d.id, d)),
+                  );
+                  setAttendanceRecords([...merged.values()]);
+                },
+                (error) => {
+                  console.error("Vendor attendance listener error:", error);
+                },
+              );
+            });
+
+            unsubAttendance = () => unsubAttChunks.forEach((u) => u());
+          } else {
+            setSelections([]);
+            setAttendanceRecords([]);
+          }
         } else {
           setSelections([]);
           setAttendanceRecords([]);
         }
-      } else {
+      },
+      (error) => {
+        console.error("Vendor listener error:", error);
+        setVendors([]);
         setSelections([]);
         setAttendanceRecords([]);
-      }
-    });
+        cleanupInner();
+      },
+    );
 
     return () => {
       unsubVendors();

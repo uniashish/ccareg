@@ -2,7 +2,13 @@ import React, { useState, useEffect, useMemo } from "react";
 import StudentCardMobile from "./StudentCardMobile";
 import VerificationControl from "./VerificationControl";
 import { db } from "../../firebase";
-import { doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  getDoc,
+  deleteField,
+} from "firebase/firestore";
 
 export default function VendorStudentsTable({
   rows,
@@ -14,7 +20,8 @@ export default function VendorStudentsTable({
   const [grades, setGrades] = useState([]);
   const [savingGradesMap, setSavingGradesMap] = useState({});
   const [optimisticGrades, setOptimisticGrades] = useState({});
-  const [pendingUpdates, setPendingUpdates] = useState({}); // Track what we're expecting to see
+  const [pendingUpdates, setPendingUpdates] = useState({});
+  const saveTimeoutsRef = React.useRef({});
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "grading"), (docSnap) => {
@@ -28,7 +35,29 @@ export default function VendorStudentsTable({
       }
     });
 
-    return () => unsub();
+    return () => {
+      unsub();
+      // Clear any pending save timeouts on unmount
+      Object.values(saveTimeoutsRef.current).forEach(clearTimeout);
+    };
+  }, []);
+
+  // Clear all tracking state for a given update key
+  const clearSavingState = React.useCallback((updateKey) => {
+    if (saveTimeoutsRef.current[updateKey]) {
+      clearTimeout(saveTimeoutsRef.current[updateKey]);
+      delete saveTimeoutsRef.current[updateKey];
+    }
+    setSavingGradesMap((prev) => {
+      const updated = { ...prev };
+      delete updated[updateKey];
+      return updated;
+    });
+    setPendingUpdates((prev) => {
+      const updated = { ...prev };
+      delete updated[updateKey];
+      return updated;
+    });
   }, []);
 
   // Monitor rows for confirmed grade updates
@@ -60,20 +89,11 @@ export default function VendorStudentsTable({
         // If the listener has confirmed the update, clear the saving state
         if (String(actualGrade || null) === String(expectedGrade || null)) {
           console.log(`✓ Update confirmed by listener for ${updateKey}`);
-          setSavingGradesMap((prev) => {
-            const updated = { ...prev };
-            delete updated[updateKey];
-            return updated;
-          });
-          setPendingUpdates((prev) => {
-            const updated = { ...prev };
-            delete updated[updateKey];
-            return updated;
-          });
+          clearSavingState(updateKey);
         }
       }
     });
-  }, [rows, pendingUpdates, savingGradesMap]);
+  }, [rows, pendingUpdates, savingGradesMap, clearSavingState]);
 
   const studentGroups = useMemo(() => {
     const groups = rows.reduce((acc, row) => {
@@ -136,8 +156,17 @@ export default function VendorStudentsTable({
       [updateKey]: gradeId || null,
     }));
 
-    // Mark as saving to disable dropdown
+    // Mark as saving to disable dropdown, and set a safety timeout
     setSavingGradesMap((prev) => ({ ...prev, [updateKey]: true }));
+    if (saveTimeoutsRef.current[updateKey]) {
+      clearTimeout(saveTimeoutsRef.current[updateKey]);
+    }
+    saveTimeoutsRef.current[updateKey] = setTimeout(() => {
+      console.warn(
+        `[Grade] Timeout waiting for listener confirmation: ${updateKey}`,
+      );
+      clearSavingState(updateKey);
+    }, 10000);
 
     try {
       // Get the current selection document to fetch latest selectedCCAs
@@ -192,30 +221,23 @@ export default function VendorStudentsTable({
         throw new Error(`CCA ${ccaId} not found in selection ${selectionId}`);
       }
 
-      // Write back only the selectedCCAs field
+      // Write back selectedCCAs and mark doc as having grades
+      const hasAnyGrade = updatedCCAs.some((c) => c?.grade);
       await updateDoc(doc(db, "selections", selectionId), {
         selectedCCAs: updatedCCAs,
+        hasGrades: hasAnyGrade ? true : deleteField(),
       });
 
       console.log(`✓ Successfully wrote to Firestore`);
     } catch (error) {
       console.error("Error updating grade:", error);
-      // On error, revert the optimistic update
+      // On error, revert the optimistic update and clear all tracking state
       setOptimisticGrades((prev) => {
         const updated = { ...prev };
         delete updated[updateKey];
         return updated;
       });
-      setPendingUpdates((prev) => {
-        const updated = { ...prev };
-        delete updated[updateKey];
-        return updated;
-      });
-      setSavingGradesMap((prev) => {
-        const newMap = { ...prev };
-        delete newMap[updateKey];
-        return newMap;
-      });
+      clearSavingState(updateKey);
     }
     // Don't clear saving state here - wait for listener to confirm
   };

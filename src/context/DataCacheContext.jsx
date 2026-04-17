@@ -16,6 +16,7 @@ export function DataCacheProvider({ children }) {
   const [classes, setClasses] = useState([]);
   const [ccas, setCcas] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [cacheError, setCacheError] = useState(null);
 
   useEffect(() => {
     // ✅ OPTIMIZED: Single listener for classes - shared across all components
@@ -30,7 +31,10 @@ export function DataCacheProvider({ children }) {
           })),
         );
       },
-      (error) => console.error("Error fetching classes cache:", error),
+      (error) => {
+        console.error("Error fetching classes cache:", error);
+        setCacheError({ type: "classes", message: error.message });
+      },
     );
 
     // ✅ OPTIMIZED: Single listener for CCAs - shared across all components
@@ -46,7 +50,11 @@ export function DataCacheProvider({ children }) {
         );
         setIsLoading(false);
       },
-      (error) => console.error("Error fetching CCAs cache:", error),
+      (error) => {
+        console.error("Error fetching CCAs cache:", error);
+        setCacheError({ type: "ccas", message: error.message });
+        setIsLoading(false);
+      },
     );
 
     return () => {
@@ -56,7 +64,7 @@ export function DataCacheProvider({ children }) {
   }, []);
 
   return (
-    <DataCacheContext.Provider value={{ classes, ccas, isLoading }}>
+    <DataCacheContext.Provider value={{ classes, ccas, isLoading, cacheError }}>
       {children}
     </DataCacheContext.Provider>
   );

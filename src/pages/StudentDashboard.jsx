@@ -28,8 +28,9 @@ export default function StudentDashboard() {
     toggleCCA,
     handleSubmit,
     // Destructure Modal State from the Hook
-    modalConfig: hookModalConfig,
-    closeModal: closeHookModal,
+    modalConfig,
+    closeModal,
+    showModal,
   } = useStudentDash();
 
   const [minSelections, setMinSelections] = useState(1);
@@ -42,35 +43,6 @@ export default function StudentDashboard() {
 
   // --- NEW STATE: TRACK MANUAL EDIT MODE ---
   const [isAddingMore, setIsAddingMore] = useState(false);
-
-  // --- LOCAL MODAL STATE ---
-  const [localModalConfig, setLocalModalConfig] = useState({
-    isOpen: false,
-    type: "info",
-    title: "",
-    message: "",
-  });
-
-  const closeLocalModal = () => {
-    setLocalModalConfig((prev) => ({ ...prev, isOpen: false }));
-  };
-
-  const showLocalModal = (type, title, message) => {
-    setLocalModalConfig({
-      isOpen: true,
-      type,
-      title,
-      message,
-    });
-  };
-
-  // Determine which modal to show
-  const activeModalConfig = localModalConfig.isOpen
-    ? localModalConfig
-    : hookModalConfig;
-  const activeModalClose = localModalConfig.isOpen
-    ? closeLocalModal
-    : closeHookModal;
 
   // --- 1. FETCH LIMITS AND ADMIN CONTACT INFO ---
   useEffect(() => {
@@ -128,7 +100,7 @@ export default function StudentDashboard() {
     if (selectedClass && selectedClass.isActive === false) {
       setSelectedClassId("");
       setSelectedCCAs([]);
-      showLocalModal(
+      showModal(
         "info",
         "Class Unavailable",
         "The selected class is currently disabled. Please choose an active class.",
@@ -182,7 +154,7 @@ export default function StudentDashboard() {
     const isPreviouslyLocked = previouslySelectedIds.includes(cca.id);
 
     if (isPreviouslyLocked) {
-      showLocalModal(
+      showModal(
         "error",
         "Action Denied",
         `You cannot remove the CCA that was confirmed earlier. ${getContactInfo()}`,
@@ -198,7 +170,7 @@ export default function StudentDashboard() {
     }
 
     if (selectedCCAs.length >= maxSelections) {
-      showLocalModal(
+      showModal(
         "info",
         "Limit Reached",
         `You can only select up to ${maxSelections} CCAs. ${getContactInfo()}`,
@@ -346,11 +318,11 @@ export default function StudentDashboard() {
 
       {/* --- SHARED MESSAGE MODAL --- */}
       <MessageModal
-        isOpen={activeModalConfig?.isOpen || false}
-        onClose={activeModalClose}
-        type={activeModalConfig?.type}
-        title={activeModalConfig?.title}
-        message={activeModalConfig?.message}
+        isOpen={modalConfig?.isOpen || false}
+        onClose={closeModal}
+        type={modalConfig?.type}
+        title={modalConfig?.title}
+        message={modalConfig?.message}
       />
     </div>
   );

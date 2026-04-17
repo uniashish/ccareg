@@ -10,10 +10,19 @@ export const normalizeVerified = (value) => {
 };
 
 /**
- * Escape CSV values to handle special characters
+ * Escape CSV values to handle special characters and prevent formula injection.
+ * Wraps in double-quotes and escapes inner double-quotes.
+ * Prefixes formula-triggering characters (=, +, @, -, |, %) with a single
+ * quote so spreadsheet apps don't interpret them as formulas.
  */
-export const escapeCSV = (value) =>
-  `"${String(value ?? "").replace(/"/g, '""')}"`;
+export const escapeCSV = (value) => {
+  let str = String(value ?? "");
+  // Prevent CSV formula injection in Excel / Google Sheets
+  if (/^[=+@\-|%]/.test(str)) {
+    str = "'" + str;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+};
 
 /**
  * Escape HTML to prevent XSS

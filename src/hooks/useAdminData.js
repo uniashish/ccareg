@@ -18,7 +18,11 @@ import {
 import { enrichCCAsWithTeacherAlias } from "../utils/teacherAlias";
 import { useDataCache } from "../context/DataCacheContext";
 
-export function useAdminData(showMessage = () => {}, roleFilter = "all") {
+export function useAdminData(
+  showMessage = () => {},
+  roleFilter = "all",
+  showConfirm = null,
+) {
   // --- SHARED DATA FROM CONTEXT ---
   // ✅ OPTIMIZED Issue #4: Use shared DataCacheContext instead of separate listeners
   const { classes: classesList, ccas } = useDataCache();
@@ -29,6 +33,7 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
   // Student Selections State
   const [selections, setSelections] = useState([]);
   const [users, setUsers] = useState({});
+  const [vendors, setVendors] = useState([]);
 
   // Modal States
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -40,12 +45,14 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
 
   // --- 1. REAL-TIME DATA LISTENERS ---
   useEffect(() => {
+    let isActive = true; // Guard against stale callbacks after cleanup
     setLoading(true);
 
     // C. Listen to Selections
     const unsubSelections = onSnapshot(
       collection(db, "selections"),
       (snapshot) => {
+        if (!isActive) return;
         const list = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -74,6 +81,7 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
     }
 
     const unsubUsers = onSnapshot(adminUsersQuery, (snapshot) => {
+      if (!isActive) return;
       const userMap = {};
       snapshot.docs.forEach((doc) => {
         userMap[doc.id] = doc.data();
@@ -82,10 +90,22 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
       setLoading(false); // Data is loaded
     });
 
+    // E. Listen to Vendors
+    const unsubVendors = onSnapshot(
+      collection(db, "vendors"),
+      (snapshot) => {
+        if (!isActive) return;
+        setVendors(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+      (error) => console.error("Error fetching vendors:", error),
+    );
+
     // Cleanup listeners on unmount
     return () => {
+      isActive = false; // Prevent any in-flight callbacks from updating state
       unsubSelections();
       unsubUsers();
+      unsubVendors();
     };
   }, [roleFilter]);
 
@@ -143,7 +163,7 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
       return;
     }
 
-    if (window.confirm("Delete this class?")) {
+    const doDelete = async () => {
       try {
         await deleteDoc(doc(db, "classes", id));
       } catch (error) {
@@ -154,6 +174,17 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
           message: "Failed to delete class.",
         });
       }
+    };
+
+    if (showConfirm) {
+      showConfirm({
+        type: "error",
+        title: "Delete Class",
+        message: `Are you sure you want to delete "${classDoc.name}"? This cannot be undone.`,
+        onConfirm: doDelete,
+      });
+    } else {
+      await doDelete();
     }
   };
 
@@ -263,7 +294,20 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
       return;
     }
 
-    if (window.confirm("Delete this CCA?")) {
+    // Block deletion if students are actively enrolled, regardless of whether
+    // selections data is in sync. enrolledCount is kept accurate by increment()
+    // on every submission and decrement on every removal/reset.
+    const enrolledCount = Number(ccaDoc.enrolledCount) || 0;
+    if (enrolledCount > 0) {
+      showMessage({
+        type: "error",
+        title: "Cannot Delete CCA",
+        message: `${ccaDoc.name || "This CCA"} cannot be deleted because ${enrolledCount} student${enrolledCount !== 1 ? "s are" : " is"} currently enrolled. Remove all students first.`,
+      });
+      return;
+    }
+
+    const doDelete = async () => {
       try {
         await deleteDoc(doc(db, "ccas", id));
       } catch (error) {
@@ -274,6 +318,17 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
           message: "Failed to delete CCA.",
         });
       }
+    };
+
+    if (showConfirm) {
+      showConfirm({
+        type: "error",
+        title: "Delete CCA",
+        message: `Are you sure you want to delete "${ccaDoc.name || "this CCA"}"? This cannot be undone.`,
+        onConfirm: doDelete,
+      });
+    } else {
+      await doDelete();
     }
   };
 
@@ -489,6 +544,7 @@ export function useAdminData(showMessage = () => {}, roleFilter = "all") {
     loading,
     selections,
     users,
+    vendors,
     classes: classesMap,
 
     // Modal States & Setters

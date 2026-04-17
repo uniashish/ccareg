@@ -319,7 +319,10 @@ export default function SelectionsManager({
       if (updatedCCAList.length === 0) {
         batch.delete(selectionRef);
       } else {
-        batch.update(selectionRef, { selectedCCAs: updatedCCAList });
+        batch.update(selectionRef, {
+          selectedCCAs: updatedCCAList,
+          selectedCcaIds: updatedCCAList.map((c) => c.id).filter(Boolean),
+        });
       }
 
       // 3. Decrement the CCA seat count atomically

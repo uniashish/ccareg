@@ -18,6 +18,13 @@ export const downloadSelectionsPDF = (
     submittedDate: "Submitted Date",
   };
 
+  const escapeHtml = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
   // Generate table header
   const headerHtml =
     "<tr>" +
@@ -29,11 +36,7 @@ export const downloadSelectionsPDF = (
     .map(
       (row) =>
         `<tr>` +
-        fields
-          .map(
-            (key) => `<td>${String(row[key] ?? "").replace(/</g, "&lt;")}</td>`,
-          )
-          .join("") +
+        fields.map((key) => `<td>${escapeHtml(row[key])}</td>`).join("") +
         `</tr>`,
     )
     .join("\n");

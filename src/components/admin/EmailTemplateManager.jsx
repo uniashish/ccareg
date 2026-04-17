@@ -16,7 +16,18 @@ export default function EmailTemplateManager() {
     type: "info",
     title: "",
     message: "",
+    mode: "info",
+    onConfirm: null,
+    onCancel: null,
   });
+
+  const closeMessageModal = () =>
+    setMessageModal((prev) => ({
+      ...prev,
+      isOpen: false,
+      onConfirm: null,
+      onCancel: null,
+    }));
 
   // Modal State
   const [isComposerOpen, setIsComposerOpen] = useState(false);
@@ -46,31 +57,43 @@ export default function EmailTemplateManager() {
     checkTemplate();
   }, []);
 
-  const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete the email template?"))
-      return;
-
-    setIsDeleting(true);
-    try {
-      const docRef = doc(db, "settings", "emailTemplate");
-      await updateDoc(docRef, {
-        subject: deleteField(),
-        body: deleteField(),
-        updatedAt: deleteField(),
-      });
-      setHasTemplate(false);
-      setTemplateData(null);
-    } catch (error) {
-      console.error("Error deleting template:", error);
-      setMessageModal({
-        isOpen: true,
-        type: "error",
-        title: "Delete Failed",
-        message: "Failed to delete template.",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
+  const handleDelete = () => {
+    setMessageModal({
+      isOpen: true,
+      type: "error",
+      title: "Delete Template",
+      message:
+        "Are you sure you want to delete the email template? This cannot be undone.",
+      mode: "confirm",
+      onConfirm: async () => {
+        closeMessageModal();
+        setIsDeleting(true);
+        try {
+          const docRef = doc(db, "settings", "emailTemplate");
+          await updateDoc(docRef, {
+            subject: deleteField(),
+            body: deleteField(),
+            updatedAt: deleteField(),
+          });
+          setHasTemplate(false);
+          setTemplateData(null);
+        } catch (error) {
+          console.error("Error deleting template:", error);
+          setMessageModal({
+            isOpen: true,
+            type: "error",
+            title: "Delete Failed",
+            message: "Failed to delete template.",
+            mode: "info",
+            onConfirm: null,
+            onCancel: null,
+          });
+        } finally {
+          setIsDeleting(false);
+        }
+      },
+      onCancel: closeMessageModal,
+    });
   };
 
   if (isLoading) {
@@ -168,15 +191,15 @@ export default function EmailTemplateManager() {
 
       <MessageModal
         isOpen={messageModal.isOpen}
-        onClose={() =>
-          setMessageModal((prev) => ({
-            ...prev,
-            isOpen: false,
-          }))
-        }
+        onClose={closeMessageModal}
         type={messageModal.type}
         title={messageModal.title}
         message={messageModal.message}
+        mode={messageModal.mode}
+        onConfirm={messageModal.onConfirm}
+        onCancel={messageModal.onCancel}
+        confirmText="Delete"
+        cancelText="Cancel"
       />
     </>
   );

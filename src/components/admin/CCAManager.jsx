@@ -1,7 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { FiPlus, FiSearch } from "react-icons/fi";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../firebase";
 import { downloadCCAsPDF } from "../../utils/pdfExporter";
 import CCAGrid from "./CCAGrid"; // Import the new grid component
 import CCAStudentsModal from "./CCAStudentsModal";
@@ -12,6 +10,7 @@ export default function CCAManager({
   ccas,
   selections,
   users,
+  vendors = [],
   classesList,
   onAddClick,
   onEditClick,
@@ -22,7 +21,26 @@ export default function CCAManager({
   const [selectedCCAForStudents, setSelectedCCAForStudents] = useState(null);
   const [selectedCCAForAttendance, setSelectedCCAForAttendance] =
     useState(null);
-  const [vendorNamesByCcaId, setVendorNamesByCcaId] = useState({});
+
+  const vendorNamesByCcaId = useMemo(() => {
+    const map = {};
+    vendors.forEach((vendor) => {
+      const vendorName = (vendor?.name || "").toLowerCase();
+      const associatedCCAs = Array.isArray(vendor?.associatedCCAs)
+        ? vendor.associatedCCAs
+        : [];
+      associatedCCAs.forEach((ac) => {
+        const ccaId = typeof ac === "string" ? ac : ac?.id;
+        if (!ccaId || !vendorName) return;
+        if (!map[ccaId]) {
+          map[ccaId] = vendorName;
+        } else if (!map[ccaId].includes(vendorName)) {
+          map[ccaId] = `${map[ccaId]} ${vendorName}`;
+        }
+      });
+    });
+    return map;
+  }, [vendors]);
 
   // Export Modal State
   const [exportFieldsOpen, setExportFieldsOpen] = useState(false);
@@ -47,45 +65,6 @@ export default function CCAManager({
     "fee",
   ]);
   const [pdfFontSize, setPdfFontSize] = useState(10);
-
-  useEffect(() => {
-    const fetchVendorMappings = async () => {
-      try {
-        const vendorsSnap = await getDocs(collection(db, "vendors"));
-        const map = {};
-
-        vendorsSnap.forEach((vendorDoc) => {
-          const vendorData = vendorDoc.data();
-          const vendorName = (vendorData?.name || "").toLowerCase();
-          const associatedCCAs = Array.isArray(vendorData?.associatedCCAs)
-            ? vendorData.associatedCCAs
-            : [];
-
-          associatedCCAs.forEach((associatedCCA) => {
-            const ccaId =
-              typeof associatedCCA === "string"
-                ? associatedCCA
-                : associatedCCA?.id;
-
-            if (!ccaId || !vendorName) return;
-
-            if (!map[ccaId]) {
-              map[ccaId] = vendorName;
-            } else if (!map[ccaId].includes(vendorName)) {
-              map[ccaId] = `${map[ccaId]} ${vendorName}`;
-            }
-          });
-        });
-
-        setVendorNamesByCcaId(map);
-      } catch (error) {
-        console.error("Error fetching vendor mappings:", error);
-        setVendorNamesByCcaId({});
-      }
-    };
-
-    fetchVendorMappings();
-  }, []);
 
   // Filter logic based on CCA name + vendor name (vendor not displayed in UI)
   const normalizedQuery = searchQuery.toLowerCase().trim();
